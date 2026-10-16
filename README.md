@@ -270,7 +270,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Schema e migrations
 - [x] Criação de relatos com foto no GridFS
 - [x] Deduplicação geoespacial
-- [ ] Consulta de chamados em GeoJSON
+- [x] Consulta de chamados em GeoJSON
 
 **Fase 2 — Bairros e ciclo de vida**
 - [ ] Importação de bairros e população (IBGE)
