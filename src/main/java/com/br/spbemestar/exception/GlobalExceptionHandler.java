@@ -29,6 +29,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Categoria inválida", e.getMessage());
     }
 
+    @ExceptionHandler(InvalidBoundingBoxException.class)
+    ProblemDetail handleInvalidBoundingBox(InvalidBoundingBoxException e) {
+        return problem(HttpStatus.BAD_REQUEST, "Área inválida", e.getMessage());
+    }
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    ProblemDetail handleNotFound(ResourceNotFoundException e) {
+        return problem(HttpStatus.NOT_FOUND, "Não encontrado", e.getMessage());
+    }
+
     @ExceptionHandler(InvalidStatusTransitionException.class)
     ProblemDetail handleInvalidTransition(InvalidStatusTransitionException e) {
         return problem(HttpStatus.CONFLICT, "Transição de status inválida", e.getMessage());
