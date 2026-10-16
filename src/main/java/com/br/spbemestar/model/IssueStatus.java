@@ -10,9 +10,6 @@ public enum IssueStatus {
     IN_PROGRESS,
     RESOLVED;
 
-    /**
-     * RESOLVED é terminal: se o problema reaparecer, um novo relato abre um novo chamado.
-     */
     public Set<IssueStatus> allowedTransitions() {
         return switch (this) {
             case OPEN -> EnumSet.of(CONFIRMED, IN_PROGRESS, RESOLVED);

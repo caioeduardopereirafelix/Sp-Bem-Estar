@@ -13,6 +13,9 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
@@ -21,9 +24,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
-/**
- * Chamado consolidado: vários relatos do mesmo problema, no mesmo ponto, viram um único issue.
- */
+
+@Getter
+@NoArgsConstructor
 @Entity
 @Table(name = "issue")
 public class Issue {
@@ -36,7 +39,6 @@ public class Issue {
     @JoinColumn(name = "category_code")
     private Category category;
 
-    // geography: ST_DWithin mede em metros reais, que é o que a deduplicação precisa
     @JdbcTypeCode(SqlTypes.GEOGRAPHY)
     @Column(nullable = false, columnDefinition = "geography(Point, 4326)")
     private Point location;
@@ -67,9 +69,6 @@ public class Issue {
     @Version
     private long version;
 
-    protected Issue() {
-    }
-
     private Issue(Category category, Point location, Neighborhood neighborhood, Instant reportedAt) {
         this.category = Objects.requireNonNull(category);
         this.location = Objects.requireNonNull(location);
@@ -85,9 +84,6 @@ public class Issue {
         return new Issue(category, location, neighborhood, reportedAt);
     }
 
-    /**
-     * Registra mais um relato do mesmo problema.
-     */
     public void registerReport(Instant reportedAt) {
         if (status == IssueStatus.RESOLVED) {
             throw new IllegalStateException("Chamado resolvido não recebe novos relatos: " + id);
@@ -98,9 +94,6 @@ public class Issue {
         }
     }
 
-    /**
-     * Altera o status validando a transição e devolve o registro de histórico a ser persistido.
-     */
     public IssueStatusHistory changeStatus(IssueStatus target, Instant changedAt) {
         if (!status.canTransitionTo(target)) {
             throw new InvalidStatusTransitionException(status, target);
@@ -119,49 +112,5 @@ public class Issue {
 
     public boolean isOpen() {
         return status != IssueStatus.RESOLVED;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Category getCategory() {
-        return category;
-    }
-
-    public Point getLocation() {
-        return location;
-    }
-
-    public Neighborhood getNeighborhood() {
-        return neighborhood;
-    }
-
-    public IssueStatus getStatus() {
-        return status;
-    }
-
-    public int getReportCount() {
-        return reportCount;
-    }
-
-    public BigDecimal getPriorityScore() {
-        return priorityScore;
-    }
-
-    public Instant getFirstReportedAt() {
-        return firstReportedAt;
-    }
-
-    public Instant getLastReportedAt() {
-        return lastReportedAt;
-    }
-
-    public Instant getResolvedAt() {
-        return resolvedAt;
-    }
-
-    public long getVersion() {
-        return version;
     }
 }

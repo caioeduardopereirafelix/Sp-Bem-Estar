@@ -4,6 +4,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -11,10 +14,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * Evento gravado na mesma transação da mudança de domínio e publicado no broker depois
- * (transactional outbox), evitando perder ou duplicar mensagens.
- */
+@Getter
+@NoArgsConstructor
 @Entity
 @Table(name = "outbox_event")
 public class OutboxEvent {
@@ -38,9 +39,6 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    protected OutboxEvent() {
-    }
-
     private OutboxEvent(Long aggregateId, String type, String payload, Instant createdAt) {
         this.id = UUID.randomUUID();
         this.aggregateId = Objects.requireNonNull(aggregateId);
@@ -59,29 +57,5 @@ public class OutboxEvent {
 
     public boolean isPublished() {
         return publishedAt != null;
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public Long getAggregateId() {
-        return aggregateId;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getPayload() {
-        return payload;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getPublishedAt() {
-        return publishedAt;
     }
 }

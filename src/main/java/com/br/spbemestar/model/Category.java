@@ -4,9 +4,14 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 
+@Getter
+@NoArgsConstructor
 @Entity
 @Table(name = "category")
 public class Category {
@@ -28,31 +33,4 @@ public class Category {
 
     @Column(nullable = false)
     private boolean active;
-
-    protected Category() {
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public int getDedupRadiusMeters() {
-        return dedupRadiusMeters;
-    }
-
-    public int getDedupWindowDays() {
-        return dedupWindowDays;
-    }
-
-    public BigDecimal getSeverityWeight() {
-        return severityWeight;
-    }
-
-    public boolean isActive() {
-        return active;
-    }
 }
