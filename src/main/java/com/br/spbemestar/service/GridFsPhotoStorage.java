@@ -26,7 +26,6 @@ public class GridFsPhotoStorage implements PhotoStorage {
 
     @Override
     public String store(InputStream content, String contentType) {
-        // O nome do arquivo não carrega nenhuma informação do envio original (LGPD)
         ObjectId id = gridFs.store(content, UUID.randomUUID().toString(), contentType);
         return id.toHexString();
     }

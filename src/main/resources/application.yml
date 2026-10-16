@@ -26,6 +26,11 @@ spring:
       gridfs:
         bucket: report-photos
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
 server:
   port: ${SERVER_PORT:8080}
 
