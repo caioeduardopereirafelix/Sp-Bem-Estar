@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SP Bem-Estar</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <link rel="stylesheet" href="map.css">
+</head>
+<body>
+<header class="topbar">
+    <h1>SP Bem-Estar</h1>
+    <p>Zeladoria urbana colaborativa · São Paulo</p>
+</header>
+
+<main class="layout">
+    <div id="map" class="map" aria-label="Mapa de chamados e distritos"></div>
+
+    <aside class="panel">
+        <section class="card">
+            <h2>Filtros</h2>
+            <div class="filters">
+                <label>Categoria
+                    <select id="filter-category">
+                        <option value="">Todas</option>
+                    </select>
+                </label>
+                <label>Status
+                    <select id="filter-status">
+                        <option value="">Não resolvidos</option>
+                        <option value="OPEN">Aberto</option>
+                        <option value="CONFIRMED">Confirmado</option>
+                        <option value="IN_PROGRESS">Em andamento</option>
+                        <option value="RESOLVED">Resolvido</option>
+                    </select>
+                </label>
+            </div>
+            <p class="hint" id="issue-count" aria-live="polite"></p>
+        </section>
+
+        <section class="card">
+            <h2>Reportar problema</h2>
+            <button type="button" id="report-start" class="button primary">Escolher local no mapa</button>
+            <p class="hint" id="report-hint" hidden>Clique no mapa onde está o problema.</p>
+            <form id="report-form" hidden>
+                <label>Categoria
+                    <select name="category" id="report-category" required></select>
+                </label>
+                <label>Foto (JPEG ou PNG, até 10 MB)
+                    <input type="file" name="photo" accept="image/jpeg,image/png" required>
+                </label>
+                <div class="actions">
+                    <button type="submit" class="button primary">Enviar relato</button>
+                    <button type="button" id="report-cancel" class="button">Cancelar</button>
+                </div>
+            </form>
+            <p class="message" id="report-message" aria-live="polite"></p>
+        </section>
+
+        <section class="card">
+            <h2>Distritos com mais chamados</h2>
+            <p class="hint">Chamados abertos a cada 10 mil habitantes</p>
+            <table class="ranking">
+                <thead>
+                <tr><th scope="col">Distrito</th><th scope="col">Abertos</th><th scope="col">Por 10 mil</th></tr>
+                </thead>
+                <tbody id="ranking-body"></tbody>
+            </table>
+        </section>
+
+        <footer class="sources">
+            Distritos: <a href="https://geosampa.prefeitura.sp.gov.br" target="_blank" rel="noopener">GeoSampa</a> ·
+            População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a>
+        </footer>
+    </aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="map.js"></script>
+</body>
+</html>
