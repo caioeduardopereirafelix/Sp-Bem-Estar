@@ -298,7 +298,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Importador de bairros (GeoJSON, com reprojeção)
 - [x] Carga dos distritos de São Paulo com população (IBGE)
 - [x] Indicadores normalizados e priority score
-- [ ] Ciclo de status com histórico
+- [x] Ciclo de status com histórico
 - [ ] Mapa web (Leaflet)
 
 **Fase 3 — Assíncrono e robustez**

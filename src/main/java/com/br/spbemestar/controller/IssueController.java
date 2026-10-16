@@ -1,15 +1,21 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.dto.BoundingBox;
+import com.br.spbemestar.dto.ChangeStatusRequest;
 import com.br.spbemestar.dto.GeoJsonFeatureCollection;
 import com.br.spbemestar.dto.IssueDetailResponse;
+import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.service.IssueQueryService;
+import com.br.spbemestar.service.IssueStatusService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class IssueController {
 
     private final IssueQueryService issueQueryService;
+    private final IssueStatusService issueStatusService;
 
     /**
      * Sem {@code status}, devolve apenas chamados não resolvidos.
@@ -36,5 +43,10 @@ public class IssueController {
     @GetMapping("/{id}")
     public IssueDetailResponse detail(@PathVariable Long id) {
         return issueQueryService.detail(id);
+    }
+
+    @PatchMapping("/{id}/status")
+    public StatusChangeResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request) {
+        return issueStatusService.change(id, request.status());
     }
 }
