@@ -15,7 +15,7 @@ import java.nio.file.Files;
 /**
  * Importa bairros na inicialização quando {@code app.neighborhoods.import-file} é informado:
  * <pre>
- * ./mvnw spring-boot:run -Dspring-boot.run.arguments="--app.neighborhoods.import-file=dados/bairros.geojson --app.neighborhoods.city=São Paulo"
+ * ./mvnw spring-boot:run "-Dspring-boot.run.arguments=--app.neighborhoods.import-file=data/sp-distritos.geojson '--app.neighborhoods.city=São Paulo'"
  * </pre>
  */
 @Slf4j

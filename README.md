@@ -219,9 +219,13 @@ docker compose up -d --wait
 
 Os limites de bairros são importados de um arquivo **GeoJSON** (`FeatureCollection` com `Polygon` ou `MultiPolygon`). A importação reprojeta para WGS84, corrige geometrias inválidas, atualiza bairros já existentes e associa ao bairro os chamados já registrados.
 
+O repositório já inclui os **96 distritos de São Paulo** com a população do Censo 2022 em [`data/sp-distritos.geojson`](data/sp-distritos.geojson):
+
 ```bash
-./mvnw spring-boot:run -Dspring-boot.run.arguments="--app.neighborhoods.import-file=dados/distritos.geojson --app.neighborhoods.city=São Paulo --app.neighborhoods.name-property=nm_distrito --app.neighborhoods.population-property=populacao --app.neighborhoods.source-srid=31983"
+./mvnw spring-boot:run "-Dspring-boot.run.arguments=--app.neighborhoods.import-file=data/sp-distritos.geojson '--app.neighborhoods.city=São Paulo'"
 ```
+
+Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentro de `spring-boot.run.arguments`.
 
 | Propriedade | Padrão | Descrição |
 |---|---|---|
@@ -230,6 +234,8 @@ Os limites de bairros são importados de um arquivo **GeoJSON** (`FeatureCollect
 | `name-property` | `name` | propriedade com o nome do bairro |
 | `population-property` | `population` | propriedade com a população (opcional) |
 | `source-srid` | `4326` | sistema de coordenadas do arquivo (ex.: `31983` para SIRGAS 2000 / UTM 23S) |
+
+**Fontes dos dados de São Paulo:** limites dos distritos do [GeoSampa](https://geosampa.prefeitura.sp.gov.br) (Prefeitura de São Paulo) e população do Censo 2022 do [IBGE/SIDRA](https://sidra.ibge.gov.br/tabela/9923) (tabela 9923). O arquivo é gerado por `node scripts/build-sp-distritos.mjs`, que baixa as duas fontes e as cruza pelo nome do distrito.
 
 ## Testes
 
@@ -290,8 +296,8 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 
 **Fase 2 — Bairros e ciclo de vida**
 - [x] Importador de bairros (GeoJSON, com reprojeção)
-- [ ] Carga dos distritos de São Paulo com população (IBGE)
-- [ ] Indicadores normalizados e priority score
+- [x] Carga dos distritos de São Paulo com população (IBGE)
+- [x] Indicadores normalizados e priority score
 - [ ] Ciclo de status com histórico
 - [ ] Mapa web (Leaflet)
 

@@ -30,6 +30,7 @@ public class ReportService {
     private final ReportRepository reports;
     private final OutboxEventRepository outbox;
     private final DeduplicationService deduplication;
+    private final PriorityService priority;
     private final ExifStripper exifStripper;
     private final PhotoStorage photoStorage;
     private final TransactionTemplate transaction;
@@ -70,6 +71,7 @@ public class ReportService {
                 "category", category.getCode(),
                 "photoId", photoId));
         outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now));
+        priority.recalculate(issue.getId());
 
         return new ReportResult(report.getId(), issue.getId(), dedup.created(),
                 issue.getReportCount(), issue.getStatus().name());
