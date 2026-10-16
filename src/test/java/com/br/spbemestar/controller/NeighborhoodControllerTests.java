@@ -73,6 +73,31 @@ class NeighborhoodControllerTests {
         assertThat(gama.get("averagePriority").isNull()).isTrue();
     }
 
+    @Test
+    void returnsNeighborhoodsAsGeoJsonWithStats() {
+        importService.importGeoJson(new ByteArrayInputStream(collection(
+                        square("Delta", -43.50, -20.50, 30000)).getBytes(StandardCharsets.UTF_8)),
+                new NeighborhoodImportService.ImportOptions("Cidade Mapa", "name", "population", 4326));
+        report("TRASH", -20.495, -43.495);
+
+        MvcTestResult result = mvc.get().uri("/api/v1/neighborhoods?city={city}", "Cidade Mapa").exchange();
+        assertThat(result).hasStatusOk();
+        JsonNode body = json.readTree(result.getResponse().getContentAsByteArray());
+
+        assertThat(body.get("type").asString()).isEqualTo("FeatureCollection");
+        JsonNode feature = body.get("features").get(0);
+        assertThat(feature.get("geometry").get("type").asString()).isEqualTo("MultiPolygon");
+        assertThat(feature.get("properties").get("name").asString()).isEqualTo("Delta");
+        assertThat(feature.get("properties").get("openIssues").asInt()).isEqualTo(1);
+    }
+
+    @Test
+    void listsActiveCategories() {
+        assertThat(mvc.get().uri("/api/v1/categories").exchange())
+                .hasStatusOk()
+                .bodyJson().extractingPath("$[*].code").asArray().contains("POTHOLE", "TRASH");
+    }
+
     private Long report(String category, double lat, double lon) {
         return reportService.create(category, lat, lon, TestPhotos.jpeg()).issueId();
     }

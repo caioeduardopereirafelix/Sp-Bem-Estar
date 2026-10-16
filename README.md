@@ -186,7 +186,9 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
 | `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado |
+| `GET` | `/api/v1/neighborhoods?city=` | Distritos em GeoJSON com os indicadores (para o mapa) |
 | `GET` | `/api/v1/neighborhoods/stats` | Indicadores por bairro (normalizados) |
+| `GET` | `/api/v1/categories` | Categorias ativas |
 | `GET` | `/api/v1/photos/{id}` | Foto do relato |
 | `GET` | `/open311/v2/services.json` | Categorias no padrão Open311 |
 | `GET` | `/open311/v2/requests.json` | Chamados no padrão Open311 |
@@ -207,7 +209,8 @@ docker compose up -d --wait
 
 | Serviço | Endereço |
 |---|---|
-| API | http://localhost:8080 |
+| Mapa | http://localhost:8080 |
+| API | http://localhost:8080/api/v1 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Health | http://localhost:8080/actuator/health |
 | Métricas | http://localhost:8080/actuator/prometheus |
@@ -299,7 +302,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Carga dos distritos de São Paulo com população (IBGE)
 - [x] Indicadores normalizados e priority score
 - [x] Ciclo de status com histórico
-- [ ] Mapa web (Leaflet)
+- [x] Mapa web (Leaflet)
 
 **Fase 3 — Assíncrono e robustez**
 - [ ] Outbox + RabbitMQ com DLQ

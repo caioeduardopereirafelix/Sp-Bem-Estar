@@ -7,7 +7,9 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Repository
 @RequiredArgsConstructor
@@ -49,5 +51,15 @@ public class NeighborhoodStatsRepository {
                  ORDER BY open_per_10k DESC NULLS LAST, open_issues DESC, n.name
                 """);
         return jdbc.query(sql.toString(), params, ROW_MAPPER);
+    }
+
+    // Simplificação de ~10 m: reduz o tamanho da resposta sem alterar o desenho na escala da cidade
+    public Map<Long, String> findSimplifiedGeometries(String city) {
+        String sql = "SELECT id, ST_AsGeoJSON(ST_Multi(ST_SimplifyPreserveTopology(geom, 0.0001)), 6) AS geometry FROM neighborhood"
+                + (city == null ? "" : " WHERE city = :city");
+        Map<Long, String> geometries = new HashMap<>();
+        jdbc.query(sql, new MapSqlParameterSource("city", city),
+                rs -> { geometries.put(rs.getLong("id"), rs.getString("geometry")); });
+        return geometries;
     }
 }
