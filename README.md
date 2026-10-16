@@ -211,9 +211,25 @@ docker compose up -d --wait
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Health | http://localhost:8080/actuator/health |
 | Métricas | http://localhost:8080/actuator/prometheus |
-| Painel RabbitMQ | http://localhost:15672 (`guest` / `guest`) |
+| Painel RabbitMQ | http://localhost:15672 (usuário e senha do `.env`) |
 
 > Na primeira subida com volumes novos, o PostgreSQL reinicia uma vez para instalar a extensão PostGIS. Se a aplicação falhar ao conectar, aguarde alguns segundos e execute novamente.
+
+### Importar bairros
+
+Os limites de bairros são importados de um arquivo **GeoJSON** (`FeatureCollection` com `Polygon` ou `MultiPolygon`). A importação reprojeta para WGS84, corrige geometrias inválidas, atualiza bairros já existentes e associa ao bairro os chamados já registrados.
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.arguments="--app.neighborhoods.import-file=dados/distritos.geojson --app.neighborhoods.city=São Paulo --app.neighborhoods.name-property=nm_distrito --app.neighborhoods.population-property=populacao --app.neighborhoods.source-srid=31983"
+```
+
+| Propriedade | Padrão | Descrição |
+|---|---|---|
+| `import-file` | — | caminho do GeoJSON |
+| `city` | — | cidade dos bairros importados |
+| `name-property` | `name` | propriedade com o nome do bairro |
+| `population-property` | `population` | propriedade com a população (opcional) |
+| `source-srid` | `4326` | sistema de coordenadas do arquivo (ex.: `31983` para SIRGAS 2000 / UTM 23S) |
 
 ## Testes
 
@@ -273,7 +289,8 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Consulta de chamados em GeoJSON
 
 **Fase 2 — Bairros e ciclo de vida**
-- [ ] Importação de bairros e população (IBGE)
+- [x] Importador de bairros (GeoJSON, com reprojeção)
+- [ ] Carga dos distritos de São Paulo com população (IBGE)
 - [ ] Indicadores normalizados e priority score
 - [ ] Ciclo de status com histórico
 - [ ] Mapa web (Leaflet)
