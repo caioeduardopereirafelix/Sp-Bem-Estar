@@ -11,9 +11,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
+@Getter
+@NoArgsConstructor
 @Entity
 @Table(name = "issue_status_history")
 public class IssueStatusHistory {
@@ -37,33 +42,10 @@ public class IssueStatusHistory {
     @Column(name = "changed_at", nullable = false)
     private Instant changedAt;
 
-    protected IssueStatusHistory() {
-    }
-
     IssueStatusHistory(Issue issue, IssueStatus fromStatus, IssueStatus toStatus, Instant changedAt) {
         this.issue = issue;
         this.fromStatus = fromStatus;
         this.toStatus = toStatus;
         this.changedAt = changedAt;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Issue getIssue() {
-        return issue;
-    }
-
-    public IssueStatus getFromStatus() {
-        return fromStatus;
-    }
-
-    public IssueStatus getToStatus() {
-        return toStatus;
-    }
-
-    public Instant getChangedAt() {
-        return changedAt;
     }
 }

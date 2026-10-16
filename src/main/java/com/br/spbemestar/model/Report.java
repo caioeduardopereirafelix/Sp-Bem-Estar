@@ -11,6 +11,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
@@ -19,9 +22,8 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 
-/**
- * Relato individual de um cidadão. Vários relatos podem apontar para o mesmo {@link Issue}.
- */
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 @Table(name = "report")
 public class Report {
@@ -42,11 +44,9 @@ public class Report {
     @Column(nullable = false, columnDefinition = "geography(Point, 4326)")
     private Point location;
 
-    /** ObjectId do arquivo no GridFS. */
     @Column(name = "photo_id", nullable = false)
     private String photoId;
 
-    /** HMAC do identificador do autor; nunca o dado pessoal em si. Nulo para relatos anônimos. */
     @Column(name = "reporter_hash")
     private String reporterHash;
 
@@ -62,9 +62,6 @@ public class Report {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
-
-    protected Report() {
-    }
 
     private Report(Issue issue, Category category, Point location, String photoId, String reporterHash,
                    Instant createdAt) {
@@ -82,9 +79,6 @@ public class Report {
         return new Report(issue, category, location, photoId, reporterHash, createdAt);
     }
 
-    /**
-     * Aplica o resultado do classificador comparando com a categoria informada pelo cidadão.
-     */
     public void applyClassification(String predicted, BigDecimal confidence, BigDecimal minimumConfidence) {
         this.predictedCategory = predicted;
         this.confidence = confidence;
@@ -95,45 +89,5 @@ public class Report {
         } else {
             this.classificationStatus = ClassificationStatus.MISMATCH;
         }
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Issue getIssue() {
-        return issue;
-    }
-
-    public Category getCategory() {
-        return category;
-    }
-
-    public Point getLocation() {
-        return location;
-    }
-
-    public String getPhotoId() {
-        return photoId;
-    }
-
-    public String getReporterHash() {
-        return reporterHash;
-    }
-
-    public ClassificationStatus getClassificationStatus() {
-        return classificationStatus;
-    }
-
-    public String getPredictedCategory() {
-        return predictedCategory;
-    }
-
-    public BigDecimal getConfidence() {
-        return confidence;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }
