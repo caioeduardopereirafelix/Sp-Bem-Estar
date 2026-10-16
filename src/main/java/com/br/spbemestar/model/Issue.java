@@ -16,6 +16,7 @@ import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.locationtech.jts.geom.Point;
@@ -26,6 +27,7 @@ import java.util.Objects;
 
 
 @Getter
+@DynamicUpdate
 @NoArgsConstructor
 @Entity
 @Table(name = "issue")
