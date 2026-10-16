@@ -13,12 +13,7 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
 
-/**
- * Remove os metadados da foto (EXIF: GPS, modelo do aparelho, data) reencodando a imagem.
- *
- * <p>O formato é detectado pelos bytes do arquivo, não pelo content-type enviado pelo cliente,
- * que pode ser forjado. Só JPEG e PNG são aceitos.
- */
+
 @Component
 public class ExifStripper {
 

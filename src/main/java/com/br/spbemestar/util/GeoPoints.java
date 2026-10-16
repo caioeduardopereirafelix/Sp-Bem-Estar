@@ -14,9 +14,6 @@ public final class GeoPoints {
     private GeoPoints() {
     }
 
-    /**
-     * Cria um ponto WGS84. Atenção à ordem: no JTS, x é a longitude e y é a latitude.
-     */
     public static Point of(double latitude, double longitude) {
         if (latitude < -90 || latitude > 90) {
             throw new IllegalArgumentException("Latitude fora do intervalo [-90, 90]: " + latitude);

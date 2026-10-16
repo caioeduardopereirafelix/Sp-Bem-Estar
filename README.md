@@ -89,22 +89,24 @@ A API **nunca espera o modelo**: a classificação é uma validação posterior,
 Dois relatos são o mesmo problema quando coincidem **categoria + proximidade + janela de tempo + chamado ainda aberto**. O raio varia por categoria (um poste é um ponto exato; lixo se espalha), e um buraco consertado que reabre gera um chamado novo.
 
 ```sql
-SELECT i.id
-FROM issue i
-JOIN category c ON c.code = i.category_code
+SELECT i.* FROM issue i
 WHERE i.category_code = :category
   AND i.status <> 'RESOLVED'
-  AND i.last_reported_at > now() - make_interval(days => c.dedup_window_days)
-  AND ST_DWithin(i.location, ST_MakePoint(:lon, :lat)::geography, c.dedup_radius_m)
-ORDER BY i.location <-> ST_MakePoint(:lon, :lat)::geography
-LIMIT 1
-FOR UPDATE OF i;
+  AND i.last_reported_at > :since                 -- agora - janela da categoria
+  AND ST_DWithin(i.location, :point::geography, :radius)
+ORDER BY i.location <-> :point::geography         -- o mais próximo, usando o índice GiST
+LIMIT 1;
 ```
 
-### Concorrência: por que `FOR UPDATE` não basta
-Dois relatos simultâneos do mesmo buraco podem criar dois chamados, porque não há linha existente para travar. A solução combina:
-- **advisory lock** por célula de geohash (`pg_advisory_xact_lock`) durante a deduplicação;
-- **job periódico de merge** com `ST_ClusterDBSCAN`, que cobre os casos de borda entre células.
+### Concorrência: travar linhas não basta
+Dois relatos simultâneos do mesmo buraco podem criar dois chamados: nenhum dos dois encontra linha para travar, porque o chamado ainda não existe. A solução é travar a **área**, não a linha:
+
+- Antes da busca, a transação adquire `pg_advisory_xact_lock` das células de **geohash** que cobrem o quadrado `ponto ± raio`.
+- A célula (≈150 m) é maior que esse quadrado, então toda célula que o intercepta contém um dos quatro cantos. Dois relatos a menos de um raio de distância sempre disputam ao menos uma célula em comum — a que contém o ponto médio entre eles —, **inclusive quando estão em lados opostos da borda entre células**.
+- Os locks são adquiridos em ordem fixa, o que evita deadlock, e liberados automaticamente no commit.
+- Uma mudança de status concorrente com a chegada de um relato é detectada pelo `@Version` do chamado (*optimistic locking*).
+
+Os testes disparam 20 relatos simultâneos no mesmo ponto e na borda entre duas células, e verificam que o resultado é **um único chamado com 20 relatos**.
 
 ### `geography` para pontos, `geometry` para polígonos
 `ST_DWithin` sobre `geography` mede em **metros reais**, que é o que a deduplicação precisa. Os polígonos de bairro usam `geometry`, mais rápido para `ST_Contains`. Ambos com índice **GiST**.
@@ -265,9 +267,9 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 
 **Fase 1 — Núcleo**
 - [x] Ambiente com Docker Compose (PostGIS, RabbitMQ, MongoDB)
-- [ ] Schema e migrations
-- [ ] Criação de relatos com foto no GridFS
-- [ ] Deduplicação geoespacial
+- [x] Schema e migrations
+- [x] Criação de relatos com foto no GridFS
+- [x] Deduplicação geoespacial
 - [ ] Consulta de chamados em GeoJSON
 
 **Fase 2 — Bairros e ciclo de vida**
@@ -280,7 +282,8 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [ ] Outbox + RabbitMQ com DLQ
 - [ ] Worker de classificação (YOLO)
 - [ ] Job de merge de duplicatas
-- [ ] Rate limiting e remoção de EXIF
+- [ ] Rate limiting
+- [x] Remoção de EXIF
 
 **Fase 4 — Integração e entrega**
 - [ ] Endpoints Open311
