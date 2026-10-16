@@ -231,19 +231,19 @@ Cenários cobertos:
 
 ## Estrutura do projeto
 
-Organizado **por funcionalidade**, não por camada:
+Organizado em camadas (MVC):
 
 ```
 src/main/java/com/br/spbemestar/
-├── report/           # recebimento dos relatos
-├── issue/            # chamados, deduplicação, status, priorização
-├── category/         # categorias e parâmetros de deduplicação
-├── neighborhood/     # bairros e indicadores
-├── photo/            # armazenamento das fotos (GridFS) e remoção de EXIF
-├── classification/   # outbox, RabbitMQ e retorno do classificador
-├── open311/          # exportação no padrão Open311
-└── shared/           # GeoJSON, tratamento de erros, rate limit, configs
+├── controller/   # endpoints REST e Open311
+├── service/      # regras de aplicação: deduplicação, priorização, fotos (GridFS, remoção de EXIF)
+├── repository/   # acesso a dados (Spring Data JPA + consultas PostGIS)
+├── model/        # entidades JPA e enums: Issue, Report, Category, Neighborhood, OutboxEvent
+├── exception/    # exceções de domínio
+└── util/         # utilitários geográficos
 ```
+
+As regras que protegem a consistência de uma entidade ficam nela mesma — por exemplo, `Issue.changeStatus()` valida a transição de status e gera o registro de histórico.
 
 ## Stack
 
