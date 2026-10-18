@@ -123,6 +123,17 @@ O `ln` reduz o efeito de volume bruto, o fator de idade impede que chamados anti
 ### Outbox transacional
 Gravar no banco e publicar no broker em passos separados pode perder ou duplicar eventos. O evento é gravado na **mesma transação** do relato e publicado depois por um processo dedicado. Os consumidores são idempotentes e há **DLQ** para mensagens com falha.
 
+- O `OutboxPublisher` lê a outbox em lotes com `FOR UPDATE SKIP LOCKED` (várias instâncias não disputam o mesmo evento) e publica no exchange `spbemestar.events`, com o tipo do evento como routing key.
+- O evento só é marcado como publicado após o **ack do broker** (*publisher confirms*); sem confirmação, ele é reenviado no próximo ciclo, na ordem de criação.
+- A entrega é *pelo menos uma vez*: o `messageId` da mensagem é o id do evento, e é por ele que os consumidores descartam duplicatas.
+- A fila `report.classification` recebe os `ReportCreated`; mensagens rejeitadas vão para `report.classification.dlq`.
+
+| Propriedade | Padrão | Descrição |
+|---|---|---|
+| `app.outbox.publish-interval-ms` | `1000` | intervalo entre ciclos de publicação |
+| `app.outbox.batch-size` | `100` | eventos por ciclo |
+| `app.outbox.confirm-timeout` | `5s` | espera máxima pelo ack do broker |
+
 ### Persistência poliglota
 O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das fotos ficam no **MongoDB GridFS**. O acesso passa pela interface `PhotoStorage`, então migrar para S3 é uma nova implementação, sem tocar no domínio.
 
@@ -305,7 +316,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Mapa web (Leaflet)
 
 **Fase 3 — Assíncrono e robustez**
-- [ ] Outbox + RabbitMQ com DLQ
+- [x] Outbox + RabbitMQ com DLQ
 - [ ] Worker de classificação (YOLO)
 - [ ] Job de merge de duplicatas
 - [ ] Rate limiting
