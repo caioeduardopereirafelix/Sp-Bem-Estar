@@ -18,6 +18,7 @@ spring:
     port: ${RABBITMQ_PORT}
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
+    publisher-confirm-type: correlated # a outbox só marca o evento como publicado após o ack do broker
 
   mongodb:
     uri: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=admin
@@ -42,3 +43,7 @@ management:
 
 app:
   reporter-hash-secret: ${REPORTER_HASH}
+  outbox:
+    publish-interval-ms: 1000
+    batch-size: 100
+    confirm-timeout: 5s
