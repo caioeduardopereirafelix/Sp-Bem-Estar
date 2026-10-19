@@ -27,10 +27,21 @@ class SchemaMigrationTests {
     }
 
     @Test
-    void initialCategoriesAreSeeded() {
+    void categoriesAreSeeded() {
         List<String> codes = jdbc.queryForList("SELECT code FROM category ORDER BY code", String.class);
 
-        assertThat(codes).containsExactly("POTHOLE", "TRASH");
+        assertThat(codes).containsExactly("BUS_STOP", "CLOGGED_DRAIN", "FLOODING", "OVERGROWN", "POTHOLE",
+                "SEWAGE", "SIDEWALK", "STREETLIGHT", "TRASH", "TREE");
+    }
+
+    @Test
+    void transientProblemsGroupInShorterWindows() {
+        Integer flooding = jdbc.queryForObject(
+                "SELECT dedup_window_days FROM category WHERE code = 'FLOODING'", Integer.class);
+        Integer sidewalk = jdbc.queryForObject(
+                "SELECT dedup_window_days FROM category WHERE code = 'SIDEWALK'", Integer.class);
+
+        assertThat(flooding).isLessThan(sidewalk);
     }
 
     @Test

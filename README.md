@@ -187,6 +187,25 @@ erDiagram
     }
 ```
 
+### Categorias
+
+As categorias cobrem os incidentes mais frequentes da zeladoria de São Paulo (SP156 e Ouvidoria) que aparecem numa foto. O raio e a janela definem quando dois relatos são o mesmo problema; o peso entra no priority score.
+
+| Código | Categoria | Raio | Janela | Peso |
+|---|---|---|---|---|
+| `TREE` | Árvore caída ou com risco de queda | 20 m | 30 dias | 2,00 |
+| `FLOODING` | Alagamento | 50 m | 2 dias | 2,00 |
+| `SEWAGE` | Esgoto a céu aberto | 20 m | 30 dias | 1,80 |
+| `POTHOLE` | Buraco na via | 15 m | 30 dias | 1,50 |
+| `CLOGGED_DRAIN` | Bueiro ou boca de lobo entupida | 10 m | 30 dias | 1,50 |
+| `SIDEWALK` | Calçada danificada ou sem acessibilidade | 20 m | 90 dias | 1,20 |
+| `STREETLIGHT` | Poste ou iluminação pública com defeito | 10 m | 30 dias | 1,20 |
+| `TRASH` | Descarte irregular de lixo ou entulho | 30 m | 7 dias | 1,00 |
+| `BUS_STOP` | Ponto de ônibus danificado | 10 m | 60 dias | 1,00 |
+| `OVERGROWN` | Mato alto ou terreno sem capinação | 50 m | 60 dias | 0,80 |
+
+Problemas passageiros (alagamento, lixo) têm janela curta, para que uma ocorrência nova não seja agrupada com uma já resolvida; problemas que só somem com reparo (calçada, mato) têm janela longa.
+
 As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo Flyway. O Hibernate apenas valida o schema (`ddl-auto: validate`).
 
 ## Endpoints
