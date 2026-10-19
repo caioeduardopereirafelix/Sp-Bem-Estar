@@ -66,7 +66,7 @@ flowchart LR
     API -->|outbox| PG
     PUB[Outbox Publisher] -->|lê eventos| PG
     PUB -->|publica| MQ[[RabbitMQ]]
-    MQ --> W[Worker Python + YOLO]
+    MQ --> W[Worker Java + YOLO/ONNX]
     W -->|resultado| MQ
     MQ -->|listener| API
     GOV[Órgão público] -->|Open311| API
@@ -78,8 +78,8 @@ flowchart LR
 2. A foto tem o EXIF removido e é gravada no GridFS.
 3. A deduplicação procura um chamado aberto da mesma categoria dentro do raio configurado. Se existir, o relato é anexado e o contador sobe; se não, um novo chamado é criado.
 4. Na mesma transação, um evento `ReportCreated` é gravado na tabela de outbox.
-5. O publisher envia o evento ao RabbitMQ; o worker classifica a imagem e devolve o resultado.
-6. Se a categoria prevista divergir da informada (ou a confiança for baixa), o relato é marcado para moderação.
+5. O publisher envia o evento ao RabbitMQ; o worker lê a foto no GridFS, classifica a imagem e publica o resultado (`ReportClassified`).
+6. A API grava o resultado no relato. Se a categoria prevista divergir da informada (`MISMATCH`) ou a confiança for baixa (`LOW_CONFIDENCE`), o relato fica marcado para moderação.
 
 A API **nunca espera o modelo**: a classificação é uma validação posterior, não uma etapa bloqueante.
 
@@ -133,6 +133,14 @@ Gravar no banco e publicar no broker em passos separados pode perder ou duplicar
 | `app.outbox.publish-interval-ms` | `1000` | intervalo entre ciclos de publicação |
 | `app.outbox.batch-size` | `100` | eventos por ciclo |
 | `app.outbox.confirm-timeout` | `5s` | espera máxima pelo ack do broker |
+
+### Classificação em Java, fora da API
+O modelo é um **YOLO de classificação** (uma resposta por foto, sem caixas): para conferir se a foto mostra o problema informado, classificar basta, e o dataset se monta separando fotos em pastas por categoria. O treino é feito em Python; o modelo é exportado em **ONNX** e executado em Java pelo **ONNX Runtime**, sem Python em produção.
+
+- O worker (`classifier-worker/`) é uma aplicação separada: a inferência usa CPU e não disputa recursos com a API, e escala sozinha conforme a fila.
+- O pré-processamento repete o do treino: menor lado redimensionado para 224, recorte central, RGB em 0..1, layout CHW.
+- O resultado só é publicado com o **ack do broker**; o id da mensagem de resultado deriva do id do evento de origem, então uma reentrega gera a mesma mensagem, e a API aplica só o primeiro resultado de cada relato.
+- Foto inexistente ou ilegível e mensagem malformada vão direto para a **DLQ**; falhas transitórias são tentadas de novo (3 vezes, com backoff).
 
 ### Persistência poliglota
 O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das fotos ficam no **MongoDB GridFS**. O acesso passa pela interface `PhotoStorage`, então migrar para S3 é uma nova implementação, sem tocar no domínio.
@@ -251,12 +259,31 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 **Fontes dos dados de São Paulo:** limites dos distritos do [GeoSampa](https://geosampa.prefeitura.sp.gov.br) (Prefeitura de São Paulo) e população do Censo 2022 do [IBGE/SIDRA](https://sidra.ibge.gov.br/tabela/9923) (tabela 9923). O arquivo é gerado por `node scripts/build-sp-distritos.mjs`, que baixa as duas fontes e as cruza pelo nome do distrito.
 
+### Worker de classificação
+
+O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele usa o mesmo `.env` da raiz.
+
+```bash
+./mvnw -f classifier-worker/pom.xml package
+java -jar classifier-worker/target/classifier-worker-0.0.1-SNAPSHOT.jar --classifier.model=file:caminho/do/modelo.onnx
+```
+
+Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o modelo de teste, que classifica pela cor dominante da foto (vermelho = `POTHOLE`, verde = `TRASH`, azul = `OTHER`): `--classifier.model=file:classifier-worker/src/test/resources/models/color-test.onnx`.
+
+| Propriedade | Padrão | Descrição |
+|---|---|---|
+| `classifier.model` | `file:models/classifier.onnx` (ou `CLASSIFIER_MODEL`) | modelo ONNX |
+| `classifier.labels` | `POTHOLE, TRASH, OTHER` | rótulos na ordem das saídas do modelo; conferidos ao subir |
+| `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
+| `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
+
 ## Testes
 
 Os testes de integração usam **Testcontainers** com PostGIS, RabbitMQ e MongoDB reais — sem mocks de banco. É necessário ter o Docker em execução.
 
 ```bash
-./mvnw verify
+./mvnw verify                                # API
+./mvnw -f classifier-worker/pom.xml verify   # worker de classificação
 ```
 
 Cenários cobertos:
@@ -265,7 +292,10 @@ Cenários cobertos:
 - chamados resolvidos não recebem novos relatos;
 - transições de status inválidas são rejeitadas;
 - indicadores por bairro respeitam a normalização por população;
-- eventos da outbox são publicados uma única vez.
+- eventos da outbox são publicados uma única vez;
+- o worker classifica a foto e publica o resultado; reentregas geram o mesmo id de resultado;
+- fotos inexistentes ou ilegíveis vão para a DLQ;
+- a API marca para moderação divergências e baixa confiança, e aplica só o primeiro resultado de cada relato.
 
 ## Estrutura do projeto
 
@@ -274,11 +304,24 @@ Organizado em camadas (MVC):
 ```
 src/main/java/com/br/spbemestar/
 ├── controller/   # endpoints REST e Open311
+├── listener/     # consumidores do RabbitMQ (resultado da classificação)
 ├── service/      # regras de aplicação: deduplicação, priorização, fotos (GridFS, remoção de EXIF)
 ├── repository/   # acesso a dados (Spring Data JPA + consultas PostGIS)
 ├── model/        # entidades JPA e enums: Issue, Report, Category, Neighborhood, OutboxEvent
 ├── exception/    # exceções de domínio
 └── util/         # utilitários geográficos
+```
+
+O worker de classificação é um projeto Maven à parte, na mesma estrutura de camadas:
+
+```
+classifier-worker/
+├── scripts/make_test_model.py   # gera o modelo ONNX usado nos testes
+└── src/main/java/com/br/spbemestar/classifier/
+    ├── listener/   # consumo de ReportCreated
+    ├── service/    # pré-processamento, inferência (ONNX Runtime), leitura no GridFS, publicação
+    ├── dto/        # mensagens trocadas com a API
+    └── config/     # topologia do RabbitMQ e propriedades do modelo
 ```
 
 As regras que protegem a consistência de uma entidade ficam nela mesma — por exemplo, `Issue.changeStatus()` valida a transição de status e gera o registro de histórico.
@@ -294,7 +337,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 | Migrations | Flyway |
 | Armazenamento de fotos | MongoDB 8 (GridFS) |
 | Mensageria | RabbitMQ 4 |
-| Classificação | Python + YOLO (worker separado) |
+| Classificação | YOLO de classificação exportado em ONNX, executado em Java com ONNX Runtime (worker separado) |
 | Documentação | springdoc-openapi |
 | Observabilidade | Micrometer + Prometheus |
 | Testes | JUnit 6, Testcontainers |
@@ -317,7 +360,8 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 
 **Fase 3 — Assíncrono e robustez**
 - [x] Outbox + RabbitMQ com DLQ
-- [ ] Worker de classificação (YOLO)
+- [x] Worker de classificação (Java + ONNX Runtime)
+- [ ] Treino do modelo YOLO de classificação
 - [ ] Job de merge de duplicatas
 - [ ] Rate limiting
 - [x] Remoção de EXIF
