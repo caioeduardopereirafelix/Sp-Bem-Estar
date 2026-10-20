@@ -31,6 +31,5 @@ spring:
 classifier:
   model: ${CLASSIFIER_MODEL:file:models/classifier.onnx}
   model-version: ${CLASSIFIER_MODEL_VERSION:dev}
-  # mesma ordem das classes no treino; OTHER = foto que não mostra nenhum problema conhecido
-  labels: POTHOLE, TRASH, OTHER
+  # os rótulos vêm do próprio modelo (metadado "names"); classifier.labels só para modelos sem esse metadado
   confirm-timeout: 5s

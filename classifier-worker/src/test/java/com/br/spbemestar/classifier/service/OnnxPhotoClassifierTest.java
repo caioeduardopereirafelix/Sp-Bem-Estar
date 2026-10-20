@@ -28,7 +28,7 @@ class OnnxPhotoClassifierTest {
 
     @BeforeAll
     static void loadModel() throws Exception {
-        classifier = new OnnxPhotoClassifier(properties(LABELS));
+        classifier = new OnnxPhotoClassifier(properties("color-test.onnx", null));
     }
 
     @AfterAll
@@ -62,10 +62,55 @@ class OnnxPhotoClassifierTest {
     }
 
     @Test
-    void failsFastWhenLabelsDoNotMatchTheModel() {
-        assertThatThrownBy(() -> new OnnxPhotoClassifier(properties(List.of("POTHOLE", "TRASH"))))
+    void readsLabelsFromModelMetadata() throws Exception {
+        OnnxPhotoClassifier withConfirmedLabels = new OnnxPhotoClassifier(properties("color-test.onnx", LABELS));
+        try {
+            assertThat(withConfirmedLabels.classify(TestImages.jpeg(Color.GREEN)).label()).isEqualTo("TRASH");
+        } finally {
+            withConfirmedLabels.destroy();
+        }
+    }
+
+    @Test
+    void refusesConfiguredLabelsInADifferentOrderThanTheModel() {
+        assertThatThrownBy(() -> new OnnxPhotoClassifier(
+                properties("color-test.onnx", List.of("TRASH", "POTHOLE", "OTHER"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("difere dos rótulos gravados no modelo");
+    }
+
+    @Test
+    void usesConfiguredLabelsForModelsWithoutMetadata() throws Exception {
+        OnnxPhotoClassifier unlabeled = new OnnxPhotoClassifier(properties("color-test-unlabeled.onnx", LABELS));
+        try {
+            assertThat(unlabeled.classify(TestImages.jpeg(Color.RED)).label()).isEqualTo("POTHOLE");
+        } finally {
+            unlabeled.destroy();
+        }
+    }
+
+    @Test
+    void requiresLabelsWhenTheModelHasNone() {
+        assertThatThrownBy(() -> new OnnxPhotoClassifier(properties("color-test-unlabeled.onnx", null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("configure classifier.labels");
+    }
+
+    @Test
+    void failsFastWhenLabelCountDoesNotMatchTheModel() {
+        assertThatThrownBy(() -> new OnnxPhotoClassifier(
+                properties("color-test-unlabeled.onnx", List.of("POTHOLE", "TRASH"))))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("3 saídas");
+    }
+
+    @Test
+    void parsesUltralyticsNames() {
+        assertThat(OnnxPhotoClassifier.parseNames("{0: 'BUS_STOP', 1: 'CLOGGED_DRAIN', 2: 'OTHER'}"))
+                .containsExactly("BUS_STOP", "CLOGGED_DRAIN", "OTHER");
+        assertThat(OnnxPhotoClassifier.parseNames(null)).isEmpty();
+        assertThatThrownBy(() -> OnnxPhotoClassifier.parseNames("{1: 'TRASH'}"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -79,8 +124,8 @@ class OnnxPhotoClassifierTest {
                 });
     }
 
-    private static ClassifierProperties properties(List<String> labels) {
-        return new ClassifierProperties(new ClassPathResource("models/color-test.onnx"), labels, 224, "test",
+    private static ClassifierProperties properties(String model, List<String> labels) {
+        return new ClassifierProperties(new ClassPathResource("models/" + model), labels, 224, "test",
                 Duration.ofSeconds(5));
     }
 }

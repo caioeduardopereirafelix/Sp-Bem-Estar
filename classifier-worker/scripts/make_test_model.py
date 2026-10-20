@@ -2,8 +2,11 @@
 
 Tem a mesma interface de um YOLO de classificação exportado pela Ultralytics
 (entrada "images" [1, 3, 224, 224] com pixels em 0..1, saída "output0" [1, N]
-com probabilidades), mas decide só pela cor média da foto:
-vermelho -> POTHOLE, verde -> TRASH, azul -> OTHER.
+com probabilidades e o metadado "names" com os rótulos), mas decide só pela cor
+média da foto: vermelho -> POTHOLE, verde -> TRASH, azul -> OTHER.
+
+Também gera color-test-unlabeled.onnx, igual mas sem o metadado "names", para
+testar modelos de outras origens.
 
     pip install onnx
     python classifier-worker/scripts/make_test_model.py
@@ -13,7 +16,7 @@ from pathlib import Path
 import onnx
 from onnx import TensorProto, helper
 
-OUTPUT = Path(__file__).resolve().parents[1] / "src/test/resources/models/color-test.onnx"
+MODELS = Path(__file__).resolve().parents[1] / "src/test/resources/models"
 SIZE = 224
 CLASSES = 3
 
@@ -39,6 +42,10 @@ model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)], pr
 model.ir_version = 8  # lido por qualquer ONNX Runtime a partir da 1.10
 onnx.checker.check_model(model)
 
-OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-onnx.save(model, OUTPUT)
-print(f"Modelo salvo em {OUTPUT}")
+MODELS.mkdir(parents=True, exist_ok=True)
+onnx.save(model, MODELS / "color-test-unlabeled.onnx")
+
+# Mesmo formato que a Ultralytics grava: str() de um dict {índice: nome}
+onnx.helper.set_model_props(model, {"names": str({0: "POTHOLE", 1: "TRASH", 2: "OTHER"})})
+onnx.save(model, MODELS / "color-test.onnx")
+print(f"Modelos salvos em {MODELS}")
