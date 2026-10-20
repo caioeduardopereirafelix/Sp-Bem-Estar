@@ -1,0 +1,36 @@
+spring:
+  config:
+    # o .env fica na raiz do repositório; o worker pode ser iniciado de lá ou da própria pasta
+    import: optional:file:.env[.properties],optional:file:../.env[.properties]
+  application:
+    name: spbemestar-classifier
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: simple # o resultado só é dado como entregue após o ack do broker
+    listener:
+      simple:
+        prefetch: 10
+        default-requeue-rejected: false # falha definitiva vai para a DLQ em vez de voltar para a fila
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+
+  mongodb:
+    uri: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_HOST:localhost}:${MONGO_PORT:27017}/${MONGO_DB:spbemestar}?authSource=admin
+  data:
+    mongodb:
+      gridfs:
+        bucket: report-photos
+
+classifier:
+  model: ${CLASSIFIER_MODEL:file:models/classifier.onnx}
+  model-version: ${CLASSIFIER_MODEL_VERSION:dev}
+  # mesma ordem das classes no treino; OTHER = foto que não mostra nenhum problema conhecido
+  labels: POTHOLE, TRASH, OTHER
+  confirm-timeout: 5s

@@ -19,6 +19,14 @@ spring:
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
     publisher-confirm-type: correlated # a outbox só marca o evento como publicado após o ack do broker
+    listener:
+      simple:
+        default-requeue-rejected: false # falha definitiva vai para a DLQ em vez de voltar para a fila
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
 
   mongodb:
     uri: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=admin
@@ -47,3 +55,5 @@ app:
     publish-interval-ms: 1000
     batch-size: 100
     confirm-timeout: 5s
+  classification:
+    min-confidence: 0.6 # abaixo disso o relato vai para moderação

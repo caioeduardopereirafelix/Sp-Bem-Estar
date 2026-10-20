@@ -51,3 +51,7 @@ build/
 ### Env ###
 .env
 *.env
+
+### Modelos treinados (grandes; distribuídos fora do git) ###
+/models/
+/classifier-worker/models/
