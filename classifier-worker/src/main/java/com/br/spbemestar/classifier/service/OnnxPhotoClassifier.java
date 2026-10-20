@@ -22,11 +22,18 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Classifica a foto com um modelo ONNX, como o exportado por {@code yolo export format=onnx} a partir
  * de um YOLO de classificação. A sessão do ONNX Runtime é thread-safe e fica aberta durante toda a
  * vida do worker.
+ * <p>
+ * Os rótulos vêm do metadado {@code names} que a Ultralytics grava no modelo, na ordem das saídas.
+ * {@code classifier.labels} só é necessário para modelos sem esse metadado; se os dois existirem,
+ * precisam ser iguais, porque rótulos fora de ordem trocariam as categorias sem nenhum erro.
  */
 @Slf4j
 @Service
@@ -38,20 +45,20 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
     private final int inputSize;
     private final List<String> labels;
 
+    // Formato gravado pela Ultralytics: {0: 'BUS_STOP', 1: 'CLOGGED_DRAIN', ...}
+    private static final Pattern NAME_ENTRY = Pattern.compile("(\\d+)\\s*:\\s*['\"]([^'\"]*)['\"]");
+
     public OnnxPhotoClassifier(ClassifierProperties properties) throws OrtException {
         Objects.requireNonNull(properties.model(), "classifier.model não configurado");
-        if (properties.labels() == null || properties.labels().isEmpty()) {
-            throw new IllegalStateException("classifier.labels não configurado");
-        }
-        this.labels = List.copyOf(properties.labels());
         this.env = OrtEnvironment.getEnvironment();
         this.session = env.createSession(read(properties), new OrtSession.SessionOptions());
+        this.labels = resolveLabels(session, properties.labels());
         this.inputName = session.getInputNames().iterator().next();
         this.inputSize = resolveInputSize(session.getInputInfo().get(inputName), properties.inputSize());
 
         long outputs = outputCount(session);
         if (outputs > 0 && outputs != labels.size()) {
-            throw new IllegalStateException("O modelo tem %d saídas, mas classifier.labels tem %d rótulos"
+            throw new IllegalStateException("O modelo tem %d saídas, mas há %d rótulos"
                     .formatted(outputs, labels.size()));
         }
         log.info("Modelo {} carregado: entrada {}x{}, rótulos {}",
@@ -136,6 +143,38 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
         } catch (IOException e) {
             throw new UncheckedIOException("Não foi possível ler o modelo " + properties.model().getDescription(), e);
         }
+    }
+
+    static List<String> resolveLabels(OrtSession session, List<String> configured) throws OrtException {
+        List<String> fromModel = parseNames(session.getMetadata().getCustomMetadata().get("names"));
+        boolean hasConfigured = configured != null && !configured.isEmpty();
+        if (fromModel.isEmpty()) {
+            if (!hasConfigured) {
+                throw new IllegalStateException(
+                        "O modelo não traz o metadado 'names'; configure classifier.labels na ordem das saídas");
+            }
+            return List.copyOf(configured);
+        }
+        if (hasConfigured && !configured.equals(fromModel)) {
+            throw new IllegalStateException("classifier.labels %s difere dos rótulos gravados no modelo %s"
+                    .formatted(configured, fromModel));
+        }
+        return fromModel;
+    }
+
+    static List<String> parseNames(String names) {
+        if (names == null || names.isBlank()) {
+            return List.of();
+        }
+        TreeMap<Integer, String> byIndex = new TreeMap<>();
+        Matcher m = NAME_ENTRY.matcher(names);
+        while (m.find()) {
+            byIndex.put(Integer.parseInt(m.group(1)), m.group(2));
+        }
+        if (byIndex.isEmpty() || byIndex.firstKey() != 0 || byIndex.lastKey() != byIndex.size() - 1) {
+            throw new IllegalStateException("Metadado 'names' do modelo em formato inesperado: " + names);
+        }
+        return List.copyOf(byIndex.values());
     }
 
     // Entrada esperada: [1, 3, altura, largura]; -1 indica dimensão dinâmica

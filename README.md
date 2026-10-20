@@ -268,12 +268,14 @@ O worker consome `report.classification`, lê a foto no GridFS e publica o resul
 java -jar classifier-worker/target/classifier-worker-0.0.1-SNAPSHOT.jar --classifier.model=file:caminho/do/modelo.onnx
 ```
 
+O modelo é treinado pelo notebook [`classifier-worker/training`](classifier-worker/training/README.md), no Google Colab, e os nomes das categorias vão gravados dentro do próprio `.onnx` (metadado `names`); o worker lê de lá, então a ordem dos rótulos nunca fica desalinhada com as saídas do modelo.
+
 Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o modelo de teste, que classifica pela cor dominante da foto (vermelho = `POTHOLE`, verde = `TRASH`, azul = `OTHER`): `--classifier.model=file:classifier-worker/src/test/resources/models/color-test.onnx`.
 
 | Propriedade | Padrão | Descrição |
 |---|---|---|
 | `classifier.model` | `file:models/classifier.onnx` (ou `CLASSIFIER_MODEL`) | modelo ONNX |
-| `classifier.labels` | `POTHOLE, TRASH, OTHER` | rótulos na ordem das saídas do modelo; conferidos ao subir |
+| `classifier.labels` | — (lidos do modelo) | só para modelos sem o metadado `names`; se informado junto com ele, precisa ser igual |
 | `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
 | `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
 
@@ -316,7 +318,8 @@ O worker de classificação é um projeto Maven à parte, na mesma estrutura de 
 
 ```
 classifier-worker/
-├── scripts/make_test_model.py   # gera o modelo ONNX usado nos testes
+├── scripts/make_test_model.py   # gera os modelos ONNX usados nos testes
+├── training/                    # notebook de treino no Google Colab
 └── src/main/java/com/br/spbemestar/classifier/
     ├── listener/   # consumo de ReportCreated
     ├── service/    # pré-processamento, inferência (ONNX Runtime), leitura no GridFS, publicação
@@ -361,7 +364,8 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 **Fase 3 — Assíncrono e robustez**
 - [x] Outbox + RabbitMQ com DLQ
 - [x] Worker de classificação (Java + ONNX Runtime)
-- [ ] Treino do modelo YOLO de classificação
+- [x] Notebook de treino do modelo YOLO de classificação (Colab)
+- [ ] Modelo treinado com fotos reais
 - [ ] Job de merge de duplicatas
 - [ ] Rate limiting
 - [x] Remoção de EXIF
