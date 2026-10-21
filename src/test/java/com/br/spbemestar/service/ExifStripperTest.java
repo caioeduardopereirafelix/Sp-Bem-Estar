@@ -8,7 +8,9 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.zip.CRC32;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -55,6 +57,16 @@ class ExifStripperTest {
                 .isInstanceOf(InvalidPhotoException.class);
     }
 
+    @Test
+    void rejectsDecompressionBombBeforeDecoding() {
+        // 2,5 bilhões de pixels declarados em menos de 100 bytes: decodificar exigiria ~7 GB de memória
+        byte[] bomb = pngHeader(50_000, 50_000);
+
+        assertThatThrownBy(() -> stripper.strip(bomb))
+                .isInstanceOf(InvalidPhotoException.class)
+                .hasMessageContaining("grande demais");
+    }
+
     private static byte[] image(String format) throws IOException {
         BufferedImage image = new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
         image.setRGB(3, 3, 0xFF0000);
@@ -81,6 +93,29 @@ class ExifStripperTest {
         out.writeBytes(data);
         out.write(jpeg, 2, jpeg.length - 2);
         return out.toByteArray();
+    }
+
+    /** PNG com só o cabeçalho IHDR e um IDAT vazio: as dimensões são declaradas, não reais. */
+    private static byte[] pngHeader(int width, int height) {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.writeBytes(new byte[]{(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'});
+        ByteBuffer ihdr = ByteBuffer.allocate(13).putInt(width).putInt(height)
+                .put((byte) 8).put((byte) 2).put((byte) 0).put((byte) 0).put((byte) 0); // 8 bits, RGB
+        chunk(out, "IHDR", ihdr.array());
+        chunk(out, "IDAT", new byte[0]);
+        chunk(out, "IEND", new byte[0]);
+        return out.toByteArray();
+    }
+
+    private static void chunk(ByteArrayOutputStream out, String type, byte[] data) {
+        byte[] typeBytes = type.getBytes(StandardCharsets.US_ASCII);
+        CRC32 crc = new CRC32();
+        crc.update(typeBytes);
+        crc.update(data);
+        out.writeBytes(ByteBuffer.allocate(4).putInt(data.length).array());
+        out.writeBytes(typeBytes);
+        out.writeBytes(data);
+        out.writeBytes(ByteBuffer.allocate(4).putInt((int) crc.getValue()).array());
     }
 
     private static boolean contains(byte[] haystack, String needle) {

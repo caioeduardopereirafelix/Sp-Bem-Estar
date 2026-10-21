@@ -5,12 +5,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -23,7 +25,14 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.SecretKey;
@@ -37,12 +46,66 @@ import java.nio.charset.StandardCharsets;
  * nascem protegidas: o que é público está listado aqui.
  */
 @Configuration
-@EnableConfigurationProperties(SecurityProperties.class)
+@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class})
 public class SecurityConfig {
 
     public static final String ROLES_CLAIM = "roles";
+    static final String METRICS_PATH = "/actuator/prometheus";
+    private static final RequestMatcher SWAGGER_UI = new OrRequestMatcher(
+            PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
+            PathPatternRequestMatcher.pathPattern("/swagger-ui/**"));
+
+    /**
+     * O mapa só carrega scripts, estilos e imagens da própria API, do Leaflet no cdnjs e dos tiles do
+     * OpenStreetMap; um script injetado num relato não roda, nem manda dados para outro domínio.
+     */
+    static final String CONTENT_SECURITY_POLICY = String.join("; ",
+            "default-src 'self'",
+            "script-src 'self' https://cdnjs.cloudflare.com",
+            "style-src 'self' https://cdnjs.cloudflare.com",
+            "img-src 'self' data: https://cdnjs.cloudflare.com https://tile.openstreetmap.org",
+            "connect-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'");
+
+    /** O Swagger UI traz um {@code <style>} inline; só nas páginas dele os estilos inline são aceitos. */
+    static final String SWAGGER_CONTENT_SECURITY_POLICY = CONTENT_SECURITY_POLICY
+            .replace("style-src 'self'", "style-src 'self' 'unsafe-inline'");
+
+    /**
+     * As métricas revelam rotas, volumes e erros: só o Prometheus as lê, com usuário e senha próprios
+     * (o token do operador vence em horas, o que não serve para um coletor).
+     */
+    @Bean
+    @Order(1)
+    SecurityFilterChain metricsFilterChain(HttpSecurity http, MetricsProperties metrics,
+                                           PasswordEncoder passwordEncoder, JsonMapper json) throws Exception {
+        InMemoryUserDetailsManager users = new InMemoryUserDetailsManager();
+        if (metrics.enabled()) {
+            users.createUser(User.withUsername(metrics.username())
+                    .password(passwordEncoder.encode(metrics.password()))
+                    .roles("METRICS")
+                    .build());
+        }
+        http
+                .securityMatcher(METRICS_PATH)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .formLogin(form -> form.disable())
+                .userDetailsService(users)
+                .httpBasic(basic -> basic.authenticationEntryPoint((request, response, e) -> {
+                    response.setHeader("WWW-Authenticate", "Basic realm=\"metrics\"");
+                    writeProblem(response, json, HttpStatus.UNAUTHORIZED, "Não autenticado",
+                            "As métricas exigem o usuário e a senha do Prometheus.");
+                }))
+                .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("METRICS"));
+        return http.build();
+    }
 
     @Bean
+    @Order(2)
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper json) throws Exception {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName(ROLES_CLAIM);
@@ -56,6 +119,11 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
+                .headers(headers -> headers
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(SWAGGER_UI,
+                                new ContentSecurityPolicyHeaderWriter(SWAGGER_CONTENT_SECURITY_POLICY)))
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(SWAGGER_UI),
+                                new ContentSecurityPolicyHeaderWriter(CONTENT_SECURITY_POLICY))))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/issues/*/status").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/reports").permitAll()
@@ -63,7 +131,7 @@ public class SecurityConfig {
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                        .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
+                        .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
@@ -112,7 +180,7 @@ public class SecurityConfig {
         problem.setTitle(title);
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
-        if (status == HttpStatus.UNAUTHORIZED) {
+        if (status == HttpStatus.UNAUTHORIZED && !response.containsHeader("WWW-Authenticate")) {
             response.setHeader("WWW-Authenticate", "Bearer");
         }
         json.writeValue(response.getOutputStream(), problem);

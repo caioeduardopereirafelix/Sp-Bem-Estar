@@ -148,10 +148,10 @@ function computeRateBreaks(features) {
 function renderLegend() {
     const breaks = state.rateBreaks;
     const rateRows = breaks.length === 1
-        ? `<div class="legend-row"><span class="swatch" style="background:${RATE_COLORS[0]}"></span>Nenhum chamado aberto</div>`
+        ? `<div class="legend-row"><span class="swatch" data-color="0"></span>Nenhum chamado aberto</div>`
         : breaks.map((limit, i) => {
             const text = i === 0 ? 'Nenhum' : `até ${rateFormat.format(limit)}`;
-            return `<div class="legend-row"><span class="swatch" style="background:${RATE_COLORS[i]}"></span>${text}</div>`;
+            return `<div class="legend-row"><span class="swatch" data-color="${i}"></span>${text}</div>`;
         }).join('');
     const statusRows = Object.keys(STATUS)
         .map((s) => `<div class="legend-row">${shapeSvg(s, 14)}${STATUS[s].label}</div>`).join('');
@@ -160,6 +160,10 @@ function renderLegend() {
     container.innerHTML = `<details ${wasOpen ? 'open' : ''}><summary>Legenda</summary>
         <div class="legend-section"><h3>Chamados abertos por 10 mil hab.</h3>${rateRows}</div>
         <div class="legend-section"><h3>Status do chamado</h3>${statusRows}</div></details>`;
+    // a cor vai pelo DOM, não por atributo style: a CSP da página bloqueia estilos inline
+    container.querySelectorAll('.swatch[data-color]').forEach((swatch) => {
+        swatch.style.background = RATE_COLORS[swatch.dataset.color];
+    });
 }
 
 async function loadDistricts() {
