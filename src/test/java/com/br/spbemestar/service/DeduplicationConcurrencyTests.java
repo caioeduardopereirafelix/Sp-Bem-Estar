@@ -1,6 +1,7 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +72,7 @@ class DeduplicationConcurrencyTests {
                 double[] point = coordinates.apply(i);
                 futures.add(executor.submit(() -> {
                     start.await();
-                    return reportService.create("POTHOLE", point[0], point[1], photo);
+                    return reportService.create(TestReporters.ID, "POTHOLE", point[0], point[1], photo);
                 }));
             }
             start.countDown();

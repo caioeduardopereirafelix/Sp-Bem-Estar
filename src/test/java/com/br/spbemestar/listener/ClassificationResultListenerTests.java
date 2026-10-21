@@ -1,6 +1,7 @@
 package com.br.spbemestar.listener;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.RabbitConfig;
 import com.br.spbemestar.service.ReportService;
@@ -105,7 +106,7 @@ class ClassificationResultListenerTests {
     }
 
     private Long report(String category, double lat) {
-        return reportService.create(category, lat, -47.00, TestPhotos.jpeg()).reportId();
+        return reportService.create(TestReporters.ID, category, lat, -47.00, TestPhotos.jpeg()).reportId();
     }
 
     private void sendResult(Long reportId, String predicted, double confidence) {

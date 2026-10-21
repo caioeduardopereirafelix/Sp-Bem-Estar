@@ -1,7 +1,8 @@
 package com.br.spbemestar.controller;
 
-import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestOperators;
+import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.model.Issue;
 import com.br.spbemestar.model.IssueStatus;
@@ -112,7 +113,7 @@ class IssueStatusControllerTests {
     }
 
     private Long newIssue(double lat) {
-        return reportService.create("POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
+        return reportService.create(TestReporters.ID, "POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
     }
 
     private MvcTestResult changeStatus(Long id, String status) {

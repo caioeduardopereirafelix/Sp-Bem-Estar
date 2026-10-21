@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.service.ReportService;
 import org.junit.jupiter.api.Test;
@@ -127,7 +128,7 @@ class IssueControllerTests {
     }
 
     private ReportService.ReportResult report(String category, double lat, double lon) {
-        return reportService.create(category, lat, lon, TestPhotos.jpeg());
+        return reportService.create(TestReporters.ID, category, lat, lon, TestPhotos.jpeg());
     }
 
     private JsonNode getJson(String uri) {

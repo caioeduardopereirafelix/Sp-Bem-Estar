@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,6 +40,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 /**
  * O cidadão usa a API sem login: consultar o mapa e enviar relatos continua público. Só o órgão
@@ -46,11 +48,16 @@ import java.nio.charset.StandardCharsets;
  * nascem protegidas: o que é público está listado aqui.
  */
 @Configuration
-@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class})
+@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class, ReporterProperties.class})
 public class SecurityConfig {
 
     public static final String ROLES_CLAIM = "roles";
     static final String METRICS_PATH = "/actuator/prometheus";
+    // Rotas do cidadão: enviar relato com o token dele, e emitir ou renovar esse token
+    private static final RequestMatcher REPORTER_ROUTES = new OrRequestMatcher(
+            PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/reports"),
+            PathPatternRequestMatcher.pathPattern("/api/v1/reporters"),
+            PathPatternRequestMatcher.pathPattern("/api/v1/reporters/**"));
     private static final RequestMatcher SWAGGER_UI = new OrRequestMatcher(
             PathPatternRequestMatcher.pathPattern("/swagger-ui.html"),
             PathPatternRequestMatcher.pathPattern("/swagger-ui/**"));
@@ -104,8 +111,39 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * O cidadão envia relatos com o JWT emitido em {@code POST /api/v1/reporters}. Esta cadeia só aceita esse
+     * token, com chave e {@code aud} próprios; o do operador não serve aqui, nem o do cidadão nas outras rotas.
+     */
     @Bean
     @Order(2)
+    SecurityFilterChain reporterFilterChain(HttpSecurity http, ReporterJwt reporterJwt, JsonMapper json)
+            throws Exception {
+        JwtAuthenticationConverter reporterConverter = new JwtAuthenticationConverter();
+        reporterConverter.setJwtGrantedAuthoritiesConverter(jwt -> List.of(new SimpleGrantedAuthority("ROLE_REPORTER")));
+
+        http
+                .securityMatcher(REPORTER_ROUTES)
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(basic -> basic.disable())
+                .formLogin(form -> form.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reports").hasRole("REPORTER")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reporters", "/api/v1/reporters/refresh").permitAll()
+                        .anyRequest().denyAll())
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.decoder(reporterJwt.decoder()).jwtAuthenticationConverter(reporterConverter))
+                        .authenticationEntryPoint((request, response, e) -> writeProblem(response, json,
+                                HttpStatus.UNAUTHORIZED, "Não autenticado",
+                                "Envie o token de cidadão, obtido em POST /api/v1/reporters, no header Authorization."))
+                        .accessDeniedHandler((request, response, e) -> writeProblem(response, json,
+                                HttpStatus.FORBIDDEN, "Acesso negado", "Operação não permitida.")));
+        return http.build();
+    }
+
+    @Bean
+    @Order(3)
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper json) throws Exception {
         JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
         authorities.setAuthoritiesClaimName(ROLES_CLAIM);
@@ -126,7 +164,8 @@ public class SecurityConfig {
                                 new ContentSecurityPolicyHeaderWriter(CONTENT_SECURITY_POLICY))))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/issues/*/status").hasRole("OPERATOR")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/reports").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reports/*/block-reporter").hasRole("OPERATOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
@@ -165,7 +204,7 @@ public class SecurityConfig {
         return decoder;
     }
 
-    private static SecretKey secretKey(SecurityProperties properties) {
+    static SecretKey secretKey(SecurityProperties properties) {
         String secret = properties.jwtSecret();
         // HS256 exige ao menos 256 bits; um segredo curto seria quebrado por força bruta
         if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {

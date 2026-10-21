@@ -40,6 +40,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Login inválido", e.getMessage());
     }
 
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException e) {
+        return problem(HttpStatus.UNAUTHORIZED, "Renovação recusada", e.getMessage());
+    }
+
+    @ExceptionHandler(ReporterBlockedException.class)
+    ProblemDetail handleReporterBlocked(ReporterBlockedException e) {
+        return problem(HttpStatus.FORBIDDEN, "Autor bloqueado", e.getMessage());
+    }
+
+    @ExceptionHandler(ReportWithoutReporterException.class)
+    ProblemDetail handleReportWithoutReporter(ReportWithoutReporterException e) {
+        return problem(HttpStatus.CONFLICT, "Relato sem autor", e.getMessage());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     ProblemDetail handleNotFound(ResourceNotFoundException e) {
         return problem(HttpStatus.NOT_FOUND, "Não encontrado", e.getMessage());

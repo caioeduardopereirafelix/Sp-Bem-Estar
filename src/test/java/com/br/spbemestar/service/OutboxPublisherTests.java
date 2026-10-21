@@ -1,6 +1,7 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.RabbitConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +43,7 @@ class OutboxPublisherTests {
 
     @Test
     void reportCreatedIsPublishedOnlyOnce() {
-        Long reportId = reportService.create("POTHOLE", -22.00, -46.00, TestPhotos.jpeg()).reportId();
+        Long reportId = reportService.create(TestReporters.ID, "POTHOLE", -22.00, -46.00, TestPhotos.jpeg()).reportId();
         UUID eventId = eventIdOf(reportId);
 
         assertThat(publisher.publishPending()).isEqualTo(1);
@@ -62,8 +63,8 @@ class OutboxPublisherTests {
 
     @Test
     void eventsArePublishedInCreationOrder() {
-        Long first = reportService.create("TRASH", -22.10, -46.00, TestPhotos.jpeg()).reportId();
-        Long second = reportService.create("TRASH", -22.20, -46.00, TestPhotos.jpeg()).reportId();
+        Long first = reportService.create(TestReporters.ID, "TRASH", -22.10, -46.00, TestPhotos.jpeg()).reportId();
+        Long second = reportService.create(TestReporters.ID, "TRASH", -22.20, -46.00, TestPhotos.jpeg()).reportId();
 
         publisher.publishPending();
 
@@ -74,7 +75,7 @@ class OutboxPublisherTests {
 
     @Test
     void rejectedMessagesGoToDeadLetterQueue() {
-        Long reportId = reportService.create("POTHOLE", -22.30, -46.00, TestPhotos.jpeg()).reportId();
+        Long reportId = reportService.create(TestReporters.ID, "POTHOLE", -22.30, -46.00, TestPhotos.jpeg()).reportId();
         publisher.publishPending();
 
         rabbit.execute(channel -> {

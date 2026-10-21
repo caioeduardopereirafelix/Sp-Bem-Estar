@@ -25,7 +25,7 @@ const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, max
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 
 const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null,
-    session: loadSession()};
+    session: loadSession(), reporter: null};
 
 // Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
 function loadSession() {
@@ -83,6 +83,97 @@ async function api(path, options = {}) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
     }
     return body;
+}
+
+// Identidade anônima do cidadão: um JWT de 15 min para enviar relatos, renovado com o refresh token.
+// O par fica neste navegador para o mesmo cidadão ser reconhecido nas próximas visitas.
+const REPORTER_KEY = 'reporter';
+let reporterRequest = null;
+
+function loadReporter() {
+    try {
+        const stored = localStorage.getItem(REPORTER_KEY);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch {
+        // sem storage: usa o par guardado em memória
+    }
+    return state.reporter;
+}
+
+function saveReporter(tokens) {
+    state.reporter = tokens;
+    try {
+        localStorage.setItem(REPORTER_KEY, JSON.stringify(tokens));
+    } catch {
+        // sem storage (aba anônima, bloqueio): a identidade vale até recarregar a página
+    }
+}
+
+async function postReporter(path, body) {
+    const response = await fetch(API + path, {
+        method: 'POST',
+        headers: body ? {'Content-Type': 'application/json'} : {},
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
+    return {response, payload};
+}
+
+async function obtainReporterToken(forceRenew) {
+    const current = loadReporter(); // relê sempre: outra aba pode ter renovado o par
+    if (!forceRenew && current && new Date(current.expiresAt).getTime() - 30_000 > Date.now()) {
+        return current.accessToken;
+    }
+    if (current?.refreshToken && new Date(current.refreshTokenExpiresAt) > new Date()) {
+        const {response, payload} = await postReporter('/reporters/refresh', {refreshToken: current.refreshToken});
+        if (response.ok) {
+            saveReporter(payload);
+            return payload.accessToken;
+        }
+        if (response.status === 403) {
+            throw new Error(payload?.detail ?? 'Este autor foi bloqueado pela moderação.');
+        }
+        // 401: vencido ou revogado; segue para uma identidade nova
+    }
+    const {response, payload} = await postReporter('/reporters');
+    if (!response.ok) {
+        throw new Error(payload?.detail || payload?.title || `Erro ${response.status}`);
+    }
+    saveReporter(payload);
+    return payload.accessToken;
+}
+
+// Uma renovação por vez, também entre abas: duas com o mesmo refresh token parecem uma cópia roubada,
+// e a API revoga a identidade inteira
+function reporterToken(forceRenew = false) {
+    reporterRequest ??= (navigator.locks
+        ? navigator.locks.request('spbemestar-reporter', () => obtainReporterToken(forceRenew))
+        : obtainReporterToken(forceRenew)
+    ).finally(() => {
+        reporterRequest = null;
+    });
+    return reporterRequest;
+}
+
+async function sendReport(data) {
+    for (const forceRenew of [false, true]) {
+        const token = await reporterToken(forceRenew);
+        const response = await fetch(`${API}/reports`, {
+            method: 'POST',
+            body: data,
+            headers: {Authorization: `Bearer ${token}`},
+        });
+        const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
+        if (response.status === 401 && !forceRenew) {
+            continue; // token recusado (vencido ou revogado): renova e tenta uma vez
+        }
+        if (!response.ok) {
+            throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
+        }
+        return body;
+    }
 }
 
 function shapeSvg(status, size = 18) {
@@ -230,6 +321,8 @@ async function showIssue(id, marker) {
         const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
             `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
         const canChange = TRANSITIONS[issue.status].length > 0;
+        const moderation = state.session ? issue.reports.slice(0, 4).map((r) =>
+            `<button type="button" class="button" data-block-report="${r.id}">Bloquear autor do relato #${r.id}</button>`).join('') : '';
 
         marker.setPopupContent(`<div class="issue-popup">
             <h3>${escapeHtml(issue.categoryName)} · #${issue.id}</h3>
@@ -246,13 +339,32 @@ async function showIssue(id, marker) {
             ${actions ? `<strong>Alterar status</strong>
                 <div class="popup-actions">${actions}</div>` : ''}
             ${canChange && !state.session ? '<p class="hint">Operadores alteram o status pela área do operador.</p>' : ''}
+            ${moderation ? `<strong>Moderação</strong>
+                <div class="popup-actions">${moderation}</div>` : ''}
         </div>`);
 
         marker.getPopup().getElement()?.querySelectorAll('[data-status]').forEach((button) => {
             button.addEventListener('click', () => changeStatus(issue.id, button.dataset.status, marker));
         });
+        marker.getPopup().getElement()?.querySelectorAll('[data-block-report]').forEach((button) => {
+            button.addEventListener('click', () => blockReporter(button.dataset.blockReport, button));
+        });
     } catch (error) {
         marker.setPopupContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
+    }
+}
+
+async function blockReporter(reportId, button) {
+    if (!confirm(`Bloquear quem enviou o relato #${reportId}? Ele não poderá enviar novos relatos.`)) {
+        return;
+    }
+    button.disabled = true;
+    try {
+        await api(`/reports/${reportId}/block-reporter`, {method: 'POST'});
+        button.textContent = `Autor do relato #${reportId} bloqueado`;
+    } catch (error) {
+        button.disabled = false;
+        button.textContent = error.message;
     }
 }
 
@@ -319,7 +431,7 @@ reportForm.addEventListener('submit', async (event) => {
 
     submit.disabled = true;
     try {
-        const result = await api('/reports', {method: 'POST', body: data});
+        const result = await sendReport(data);
         resetReport();
         setReportMessage(result.newIssue
             ? `Relato registrado: novo chamado #${result.issueId}.`

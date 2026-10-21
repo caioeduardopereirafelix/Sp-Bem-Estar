@@ -1,7 +1,8 @@
 package com.br.spbemestar.controller;
 
-import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestOperators;
+import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.OperatorBootstrapRunner;
 import com.br.spbemestar.config.SecurityConfig;
@@ -11,6 +12,7 @@ import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.ReportService;
+import com.br.spbemestar.service.ReporterTokenService;
 import com.jayway.jsonpath.JsonPath;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,7 @@ class AuthControllerTests {
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
     @Autowired ReportService reportService;
+    @Autowired ReporterTokenService reporterTokens;
     @Autowired JwtEncoder jwtEncoder;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired SecurityProperties properties;
@@ -139,7 +142,9 @@ class AuthControllerTests {
         assertThat(mvc.get().uri("/actuator/health").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/v3/api-docs").exchange()).hasStatusOk()
                 .bodyJson().extractingPath("$.components.securitySchemes.bearer.scheme").isEqualTo("bearer");
+        // o cidadão não faz login: o token dele é anônimo, emitido em POST /api/v1/reporters
         assertThat(mvc.post().uri("/api/v1/reports").multipart()
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
                 .file("photo", TestPhotos.jpeg())
                 .param("category", "TRASH").param("latitude", "-25.03").param("longitude", "-47.00")
                 .exchange()).hasStatus(HttpStatus.CREATED);
@@ -187,7 +192,7 @@ class AuthControllerTests {
     }
 
     private Long newIssue(double lat) {
-        return reportService.create("POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
+        return reportService.create(TestReporters.ID, "POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
     }
 
     private static String token(JwtEncoder encoder, String issuer, List<String> roles, Instant issuedAt,

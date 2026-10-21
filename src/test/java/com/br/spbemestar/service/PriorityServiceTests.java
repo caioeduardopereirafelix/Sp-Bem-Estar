@@ -1,6 +1,7 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +53,7 @@ class PriorityServiceTests {
     }
 
     private Long report(String category, double lat, double lon) {
-        return reportService.create(category, lat, lon, TestPhotos.jpeg()).issueId();
+        return reportService.create(TestReporters.ID, category, lat, lon, TestPhotos.jpeg()).issueId();
     }
 
     private double priority(Long issueId) {
