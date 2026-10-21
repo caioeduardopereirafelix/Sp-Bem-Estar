@@ -149,6 +149,14 @@ O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das 
 ### Padrão Open311
 Em vez de um formato de exportação próprio, a API implementa o **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços.
 
+### Autenticação só para quem altera chamados
+O cidadão continua anônimo: ver o mapa e enviar relatos não pede login. Só o órgão público se autentica, em `POST /api/v1/auth/login`, e recebe um **JWT** assinado pela própria API (HS256, validade de 8 h), enviado depois em `Authorization: Bearer <token>`.
+
+- **Sem sessão no servidor:** cada requisição traz o token, então a API escala horizontalmente sem estado compartilhado, e sem cookies não há CSRF a proteger.
+- **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
+- **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
+- **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
+
 ### Privacidade (LGPD)
 - Metadados EXIF são descartados antes do armazenamento.
 - O autor do relato é guardado apenas como hash.
@@ -224,7 +232,8 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `POST` | `/api/v1/reports` | Cria um relato (multipart: foto, lat, lon, categoria) |
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
-| `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado |
+| `POST` | `/api/v1/auth/login` | Login do órgão público; devolve um token JWT |
+| `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado (🔒 operador) |
 | `GET` | `/api/v1/neighborhoods?city=` | Distritos em GeoJSON com os indicadores (para o mapa) |
 | `GET` | `/api/v1/neighborhoods/stats` | Indicadores por bairro (normalizados) |
 | `GET` | `/api/v1/categories` | Categorias ativas |
@@ -245,6 +254,15 @@ docker compose up -d --wait
 # 2. Executa a aplicação
 ./mvnw spring-boot:run
 ```
+
+Além das variáveis de banco e mensageria, o `.env` precisa de:
+
+| Variável | Para quê |
+|---|---|
+| `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
+| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro operador do órgão público, criado na subida se ainda não existir (senha com 12+ caracteres) |
+
+Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
 
 | Serviço | Endereço |
 |---|---|

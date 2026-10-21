@@ -24,7 +24,32 @@ const numberFormat = new Intl.NumberFormat('pt-BR');
 const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 
-const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null};
+const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null,
+    session: loadSession()};
+
+// Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
+function loadSession() {
+    try {
+        const session = JSON.parse(sessionStorage.getItem('operator') ?? 'null');
+        return session && new Date(session.expiresAt) > new Date() ? session : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveSession(session) {
+    state.session = session;
+    try {
+        if (session) {
+            sessionStorage.setItem('operator', JSON.stringify(session));
+        } else {
+            sessionStorage.removeItem('operator');
+        }
+    } catch {
+        // sem storage (aba anônima, bloqueio): a sessão vale até recarregar a página
+    }
+    renderSession();
+}
 
 const map = L.map('map', {zoomControl: true}).setView([-23.55, -46.63], 11);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -43,9 +68,17 @@ legend.addTo(map);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g,
     (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 
-async function api(path, options) {
-    const response = await fetch(API + path, options);
+async function api(path, options = {}) {
+    const headers = {...options.headers};
+    if (state.session) {
+        headers.Authorization = `Bearer ${state.session.accessToken}`;
+    }
+    const response = await fetch(API + path, {...options, headers});
     const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
+    if (response.status === 401 && state.session) {
+        saveSession(null);
+        throw new Error('Sua sessão expirou. Entre de novo na área do operador.');
+    }
     if (!response.ok) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
     }
@@ -190,8 +223,9 @@ async function showIssue(id, marker) {
             `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img src="${r.photoUrl}" alt="Foto do relato ${r.id}" loading="lazy"></a>`).join('');
         const history = issue.history.map((h) =>
             `<li>${STATUS[h.from]?.label ?? '—'} → ${STATUS[h.to].label} · ${dateFormat.format(new Date(h.changedAt))}</li>`).join('');
-        const actions = TRANSITIONS[issue.status].map((s) =>
-            `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('');
+        const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
+            `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
+        const canChange = TRANSITIONS[issue.status].length > 0;
 
         marker.setPopupContent(`<div class="issue-popup">
             <h3>${escapeHtml(issue.categoryName)} · #${issue.id}</h3>
@@ -205,8 +239,9 @@ async function showIssue(id, marker) {
             </dl>
             ${photos ? `<div class="photos">${photos}</div>` : ''}
             ${history ? `<strong>Histórico</strong><ul class="history">${history}</ul>` : ''}
-            ${actions ? `<strong>Alterar status</strong> <small>(demo, sem autenticação)</small>
+            ${actions ? `<strong>Alterar status</strong>
                 <div class="popup-actions">${actions}</div>` : ''}
+            ${canChange && !state.session ? '<p class="hint">Operadores alteram o status pela área do operador.</p>' : ''}
         </div>`);
 
         marker.getPopup().getElement()?.querySelectorAll('[data-status]').forEach((button) => {
@@ -293,6 +328,45 @@ reportForm.addEventListener('submit', async (event) => {
     }
 });
 
+// Área do operador
+const loginForm = document.getElementById('login-form');
+const loginMessage = document.getElementById('login-message');
+
+function renderSession() {
+    const session = state.session;
+    loginForm.hidden = Boolean(session);
+    document.getElementById('operator-hint').hidden = Boolean(session);
+    document.getElementById('operator-session').hidden = !session;
+    document.getElementById('operator-name').textContent = session
+        ? `Conectado como ${session.name}. Abra um chamado no mapa para alterar o status.` : '';
+    map.closePopup();
+}
+
+loginForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = loginForm.querySelector('[type="submit"]');
+    const data = new FormData(loginForm);
+    submit.disabled = true;
+    loginMessage.textContent = '';
+    loginMessage.className = 'message';
+    try {
+        const session = await api('/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: data.get('email'), password: data.get('password')}),
+        });
+        loginForm.reset();
+        saveSession(session);
+    } catch (error) {
+        loginMessage.textContent = error.message;
+        loginMessage.className = 'message error';
+    } finally {
+        submit.disabled = false;
+    }
+});
+
+document.getElementById('logout').addEventListener('click', () => saveSession(null));
+
 async function loadCategories() {
     state.categories = await api('/categories');
     const options = state.categories.map((c) => `<option value="${c.code}">${escapeHtml(c.name)}</option>`).join('');
@@ -305,5 +379,6 @@ document.getElementById('filter-status').addEventListener('change', loadIssues);
 map.on('moveend', scheduleIssueLoad);
 
 map.whenReady(() => map.invalidateSize());
+renderSession();
 Promise.all([loadCategories(), loadDistricts(), loadIssues()])
     .catch((error) => setReportMessage(`Não foi possível carregar o mapa: ${error.message}`, 'error'));
