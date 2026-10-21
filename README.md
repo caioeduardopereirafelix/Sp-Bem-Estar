@@ -4,6 +4,7 @@ API para o cidadão reportar problemas urbanos — buracos, lixo descartado irre
 
 > O cidadão fotografa o problema → a API registra a localização → relatos do mesmo ponto são agrupados em um único chamado → tudo aparece em um mapa com indicadores por bairro.
 
+[![CI](https://github.com/caioeduardopereirafelix/Sp-Bem-Estar/actions/workflows/ci.yml/badge.svg)](https://github.com/caioeduardopereirafelix/Sp-Bem-Estar/actions/workflows/ci.yml)
 ![Java](https://img.shields.io/badge/Java-21-orange)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-brightgreen)
 ![PostGIS](https://img.shields.io/badge/PostgreSQL-PostGIS-blue)
@@ -302,6 +303,8 @@ Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o model
 
 Os testes de integração usam **Testcontainers** com PostGIS, RabbitMQ e MongoDB reais — sem mocks de banco. É necessário ter o Docker em execução.
 
+O [CI](.github/workflows/ci.yml) roda as duas suítes em paralelo a cada pull request e a cada push na `main`; quando um teste falha, os relatórios do Surefire ficam disponíveis como artefato da execução.
+
 ```bash
 ./mvnw verify                                # API
 ./mvnw -f classifier-worker/pom.xml verify   # worker de classificação
@@ -392,5 +395,5 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 **Fase 4 — Integração e entrega**
 - [ ] Endpoints Open311
 - [ ] Carga com dataset público e benchmarks
-- [ ] CI com GitHub Actions
+- [x] CI com GitHub Actions
 - [ ] Deploy com demo pública
