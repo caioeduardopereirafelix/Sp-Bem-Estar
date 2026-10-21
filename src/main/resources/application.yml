@@ -59,6 +59,24 @@ app:
       email: ${OPERATOR_EMAIL:}
       password: ${OPERATOR_PASSWORD:}
       name: ${OPERATOR_NAME:Operador}
+  # Limite por IP (token bucket): vale a primeira regra que casar; o resto (mapa, actuator, Swagger) fica livre
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    rules:
+      - name: login # força bruta de senha
+        method: POST
+        path: /api/v1/auth/login
+        capacity: 5
+        period: 1m
+      - name: reports # cada relato grava foto e passa pelo classificador
+        method: POST
+        path: /api/v1/reports
+        capacity: 20
+        period: 1h
+      - name: api
+        path: /api/**
+        capacity: 300
+        period: 1m
   outbox:
     publish-interval-ms: 1000
     batch-size: 100

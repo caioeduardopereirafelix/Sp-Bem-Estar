@@ -1,0 +1,4 @@
+# Nos testes todas as requisições vêm de 127.0.0.1; o limite fica desligado, e o RateLimitTests o liga
+app:
+  rate-limit:
+    enabled: false
