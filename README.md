@@ -257,6 +257,8 @@ docker compose up -d --wait
 
 > Na primeira subida com volumes novos, o PostgreSQL reinicia uma vez para instalar a extensão PostGIS. Se a aplicação falhar ao conectar, aguarde alguns segundos e execute novamente.
 
+> Se você já rodou o projeto quando ele usava MongoDB 8, o container do Mongo vai sair com `Wrong mongod version`: a 7.0 não abre dados gravados pela 8. Em desenvolvimento, apague só o volume das fotos com `docker volume rm spbemestar_mongodata` e suba de novo.
+
 ### Importar bairros
 
 Os limites de bairros são importados de um arquivo **GeoJSON** (`FeatureCollection` com `Polygon` ou `MultiPolygon`). A importação reprojeta para WGS84, corrige geometrias inválidas, atualiza bairros já existentes e associa ao bairro os chamados já registrados.
@@ -360,7 +362,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 | Banco relacional | PostgreSQL 16 + PostGIS 3.4 |
 | ORM geoespacial | Hibernate Spatial (JTS) |
 | Migrations | Flyway |
-| Armazenamento de fotos | MongoDB 8 (GridFS) |
+| Armazenamento de fotos | MongoDB 7 (GridFS) — a 8.x não sobe em kernels Linux 6.19 a 7.0.13 ([SERVER-121912](https://jira.mongodb.org/browse/SERVER-121912)) |
 | Mensageria | RabbitMQ 4 |
 | Classificação | YOLO de classificação exportado em ONNX, executado em Java com ONNX Runtime (worker separado) |
 | Documentação | springdoc-openapi |

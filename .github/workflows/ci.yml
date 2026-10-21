@@ -31,8 +31,6 @@ env:
   MONGO_USER: spbemestar
   MONGO_PASSWORD: ci
   REPORTER_HASH: ci-secret
-  # Mantém os containers depois dos testes para os logs abaixo (o runner é descartado no fim)
-  TESTCONTAINERS_RYUK_DISABLED: "true"
 
 jobs:
   api:
@@ -55,15 +53,6 @@ jobs:
           name: api-test-reports
           path: target/surefire-reports/
           retention-days: 7
-      - name: Logs dos containers
-        if: failure()
-        run: |
-          docker ps -a
-          for c in $(docker ps -aq); do
-            echo "::group::$(docker inspect -f '{{.Config.Image}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} {{.State.Error}}' "$c")"
-            docker logs --tail 200 "$c" 2>&1
-            echo "::endgroup::"
-          done
 
   classifier-worker:
     name: Classifier worker
@@ -86,12 +75,3 @@ jobs:
           name: classifier-worker-test-reports
           path: classifier-worker/target/surefire-reports/
           retention-days: 7
-      - name: Logs dos containers
-        if: failure()
-        run: |
-          docker ps -a
-          for c in $(docker ps -aq); do
-            echo "::group::$(docker inspect -f '{{.Config.Image}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} {{.State.Error}}' "$c")"
-            docker logs --tail 200 "$c" 2>&1
-            echo "::endgroup::"
-          done

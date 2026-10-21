@@ -27,6 +27,7 @@ public class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
     MongoDBContainer mongoContainer() {
-        return new MongoDBContainer(DockerImageName.parse("mongo:8"));
+        // 7.0, não 8.x: a 8.x não sobe em kernels Linux 6.19 a 7.0.13 (SERVER-121912), como os de parte dos runners
+        return new MongoDBContainer(DockerImageName.parse("mongo:7"));
     }
 }

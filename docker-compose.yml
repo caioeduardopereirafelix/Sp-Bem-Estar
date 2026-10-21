@@ -31,9 +31,10 @@ services:
       timeout: 5s
       retries: 10
 
-  # Fotos dos relatos (GridFS)
+  # Fotos dos relatos (GridFS). Fica na 7.0: o TCMalloc da 8.x se recusa a subir em kernels
+  # Linux 6.19 a 7.0.13 (SERVER-121912), o que derruba o CI e máquinas com kernel novo.
   mongo:
-    image: mongo:8
+    image: mongo:7
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
