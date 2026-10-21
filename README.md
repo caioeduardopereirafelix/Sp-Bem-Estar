@@ -54,7 +54,7 @@ Este projeto ataca três pontos:
 **Plataforma**
 - Classificação automática da foto por modelo de visão computacional (assíncrona)
 - Remoção de metadados EXIF e anonimização do autor (LGPD)
-- Rate limiting contra spam
+- Rate limit por IP contra spam e força bruta no login
 - Métricas expostas para Prometheus
 
 ## Arquitetura
@@ -156,6 +156,24 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login. Só o
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
+
+### Rate limit por IP
+Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caffeine). A primeira regra que casar com a requisição é a que conta:
+
+| Regra | Rota | Limite por IP |
+|---|---|---|
+| `login` | `POST /api/v1/auth/login` | 5 por minuto |
+| `reports` | `POST /api/v1/reports` | 20 por hora |
+| `api` | demais rotas em `/api/**` | 300 por minuto |
+
+- **Antes do Spring Security:** uma força bruta no login é barrada sem nem conferir a senha, e um token inválido também consome o limite.
+- **Reposição gradual:** com 5 por minuto, uma ficha volta a cada 12 s, em vez de o limite zerar de uma vez no fim da janela.
+- **Resposta `429`** em `ProblemDetail`, com `Retry-After` em segundos. Toda resposta limitada traz `X-RateLimit-Limit` e `X-RateLimit-Remaining`.
+- **IPv6 conta pelo prefixo /64**, que é o que um provedor entrega a um único cliente; contar por endereço deixaria qualquer um trocar de IP a cada requisição.
+- **Livres:** mapa web, Swagger e actuator, para o Prometheus nunca ser barrado.
+- **Por instância:** com várias réplicas, cada uma conta separadamente. Para um limite global, o Bucket4j aceita Redis ou PostgreSQL como armazenamento.
+
+**Atrás de um proxy reverso** (nginx, load balancer), o IP da conexão é o do proxy, e todos os clientes dividiriam o mesmo limite. Nesse caso, defina `SERVER_FORWARD_HEADERS_STRATEGY=native` para a API usar o `X-Forwarded-For`. Por padrão o Tomcat só aceita esse header vindo de IPs de rede privada; se o proxy estiver em outro endereço, informe-o em `SERVER_TOMCAT_REMOTEIP_TRUSTED_PROXIES` (expressão regular). Sem proxy, não ligue essa opção: qualquer cliente poderia forjar o header e escapar do limite.
 
 ### Privacidade (LGPD)
 - Metadados EXIF são descartados antes do armazenamento.
@@ -261,6 +279,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 |---|---|
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro operador do órgão público, criado na subida se ainda não existir (senha com 12+ caracteres) |
+| `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 
 Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
 
@@ -337,7 +356,10 @@ Cenários cobertos:
 - eventos da outbox são publicados uma única vez;
 - o worker classifica a foto e publica o resultado; reentregas geram o mesmo id de resultado;
 - fotos inexistentes ou ilegíveis vão para a DLQ;
-- a API marca para moderação divergências e baixa confiança, e aplica só o primeiro resultado de cada relato.
+- a API marca para moderação divergências e baixa confiança, e aplica só o primeiro resultado de cada relato;
+- o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres.
+
+Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.
 
 ## Estrutura do projeto
 
@@ -407,7 +429,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Notebook de treino do modelo YOLO de classificação (Colab)
 - [ ] Modelo treinado com fotos reais
 - [ ] Job de merge de duplicatas
-- [ ] Rate limiting
+- [x] Rate limit por IP
 - [x] Remoção de EXIF
 
 **Fase 4 — Integração e entrega**
