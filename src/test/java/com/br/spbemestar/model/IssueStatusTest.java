@@ -20,7 +20,12 @@ class IssueStatusTest {
             "IN_PROGRESS, CONFIRMED, false",
             "RESOLVED, OPEN, false",
             "RESOLVED, IN_PROGRESS, false",
-            "OPEN, OPEN, false"
+            "OPEN, OPEN, false",
+            // só a moderação descarta um chamado, e um chamado descartado não volta
+            "OPEN, DISCARDED, false",
+            "IN_PROGRESS, DISCARDED, false",
+            "DISCARDED, OPEN, false",
+            "DISCARDED, RESOLVED, false"
     })
     void validatesTransitions(IssueStatus from, IssueStatus to, boolean allowed) {
         assertThat(from.canTransitionTo(to)).isEqualTo(allowed);

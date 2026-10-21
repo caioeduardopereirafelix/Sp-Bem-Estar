@@ -61,6 +61,7 @@ public class IssueQueryRepository {
         } else {
             sql.append(" AND i.status <> 'RESOLVED'");
         }
+        sql.append(" AND i.status <> 'DISCARDED'"); // descartado pela moderação: nunca aparece no mapa
         sql.append(" ORDER BY i.priority_score DESC, i.last_reported_at DESC LIMIT :limit");
 
         return jdbc.query(sql.toString(), params, ROW_MAPPER);

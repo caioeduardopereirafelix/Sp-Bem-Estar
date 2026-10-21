@@ -165,6 +165,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/issues/*/status").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports/*/block-reporter").hasRole("OPERATOR")
+                        // antes do GET /api/v1/** público: fila e moderação são só do operador
+                        .requestMatchers(HttpMethod.GET, "/api/v1/issues/queue").hasRole("OPERATOR")
+                        .requestMatchers("/api/v1/moderation/**").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento

@@ -32,12 +32,12 @@ public class NeighborhoodStatsRepository {
     public List<NeighborhoodStats> findAll(String city) {
         StringBuilder sql = new StringBuilder("""
                 SELECT n.id, n.name, n.city, n.population,
-                       count(i.id) FILTER (WHERE i.status <> 'RESOLVED') AS open_issues,
+                       count(i.id) FILTER (WHERE i.status NOT IN ('RESOLVED', 'DISCARDED')) AS open_issues,
                        count(i.id) FILTER (WHERE i.status = 'RESOLVED') AS resolved_issues,
-                       coalesce(sum(i.report_count) FILTER (WHERE i.status <> 'RESOLVED'), 0) AS open_reports,
-                       round(count(i.id) FILTER (WHERE i.status <> 'RESOLVED') * 10000.0 / nullif(n.population, 0), 2)
+                       coalesce(sum(i.report_count) FILTER (WHERE i.status NOT IN ('RESOLVED', 'DISCARDED')), 0) AS open_reports,
+                       round(count(i.id) FILTER (WHERE i.status NOT IN ('RESOLVED', 'DISCARDED')) * 10000.0 / nullif(n.population, 0), 2)
                            AS open_per_10k,
-                       round(avg(i.priority_score) FILTER (WHERE i.status <> 'RESOLVED'), 4) AS average_priority
+                       round(avg(i.priority_score) FILTER (WHERE i.status NOT IN ('RESOLVED', 'DISCARDED')), 4) AS average_priority
                 FROM neighborhood n
                 LEFT JOIN issue i ON i.neighborhood_id = n.id
                 """);

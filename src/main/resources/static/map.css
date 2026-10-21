@@ -185,6 +185,95 @@ select, input[type="file"] {
     cursor: progress;
 }
 
+.badge {
+    display: inline-block;
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+}
+
+.badge:empty {
+    display: none;
+}
+
+.queue, .moderation {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+}
+
+.queue-item {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 8px;
+    align-items: start;
+    text-align: left;
+    font: inherit;
+    color: var(--text-primary);
+    background: var(--page);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px;
+    cursor: pointer;
+}
+
+.queue-item:hover, .queue-item:focus-visible {
+    border-color: var(--accent);
+}
+
+.queue-rank {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.queue-body, .moderation-body {
+    display: grid;
+    gap: 2px;
+    font-size: 13px;
+    min-width: 0;
+}
+
+.queue-meta {
+    color: var(--text-secondary);
+}
+
+.moderation-item {
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--page);
+}
+
+.moderation-item img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 4px;
+    display: block;
+}
+
+.moderation-item .actions {
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.moderation-item .button {
+    min-height: 32px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
+
 .ranking {
     width: 100%;
     border-collapse: collapse;

@@ -30,10 +30,12 @@ public class IssueQueryService {
 
     @Transactional(readOnly = true)
     public IssueDetailResponse detail(Long id) {
-        Issue issue = issues.findById(id).orElseThrow(() -> new ResourceNotFoundException("Chamado", id));
+        Issue issue = issues.findById(id)
+                .filter(i -> i.getStatus() != IssueStatus.DISCARDED) // descartado pela moderação: some do mapa
+                .orElseThrow(() -> new ResourceNotFoundException("Chamado", id));
         Neighborhood neighborhood = issue.getNeighborhood();
 
-        var reportItems = reports.findByIssueIdOrderByCreatedAt(id).stream()
+        var reportItems = reports.findVisibleByIssue(id).stream()
                 .map(r -> new IssueDetailResponse.ReportItem(r.getId(), r.getCreatedAt(),
                         "/api/v1/photos/" + r.getPhotoId(), r.getClassificationStatus().name()))
                 .toList();

@@ -47,7 +47,8 @@ Este projeto ataca três pontos:
 
 **Órgão público**
 - Ranking de bairros por problemas a cada 10 mil habitantes
-- Fila de atendimento priorizada
+- Fila de atendimento: chamados em aberto do mais urgente para o menos, com filtro por categoria, status e bairro
+- Fila de moderação: relatos em que o classificador discordou da categoria ou teve pouca confiança; o operador aprova, rejeita ou rejeita e bloqueia o autor
 - Atualização de status: `OPEN → CONFIRMED → IN_PROGRESS → RESOLVED`
 - Exportação no padrão Open311 GeoReport v2
 
@@ -156,6 +157,21 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para 
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
+
+### Filas do operador
+**Atendimento** (`GET /api/v1/issues/queue`): chamados abertos, confirmados e em andamento, ordenados pelo `priority_score` e, no empate, pelo mais antigo. Cada item diz quantos relatos do chamado esperam moderação. Na área do operador do mapa, clicar num item leva até o chamado e abre o popup com as ações.
+
+**Moderação** (`GET /api/v1/moderation/reports`): relatos que o classificador marcou como `MISMATCH` (a foto parece de outra categoria) ou `LOW_CONFIDENCE`, do mais antigo para o mais novo. A decisão vai em `POST /api/v1/moderation/reports/{id}`:
+
+| Decisão | Efeito |
+|---|---|
+| `APPROVED` | o relato continua contando e sai da fila |
+| `REJECTED` | o relato deixa de contar, a prioridade do chamado é recalculada e a foto é apagada do GridFS |
+| `REJECTED` + `blockReporter` | o mesmo, e o autor é bloqueado (veja a seção seguinte) |
+
+- **Chamado sem relatos válidos é descartado.** Se o relato rejeitado era o único, o chamado vai para `DISCARDED`, com registro no histórico. Ele some do mapa, da fila e dos indicadores por bairro, e um relato novo no mesmo ponto abre outro chamado. Só a moderação leva a esse status, e nenhuma transição sai dele. Marcar como "resolvido" inflaria a taxa de resolução.
+- **A foto rejeitada é apagada.** Spam pode trazer uma imagem ofensiva, e a foto deixa de ser servida. Ela só é apagada depois que a decisão é gravada, porque o GridFS não participa da transação. Quem já abriu a foto pode tê-la em cache no navegador.
+- **Uma decisão por relato.** O relato fica travado durante a decisão, e decidir de novo recebe 409; dois operadores não descontam o mesmo chamado duas vezes.
 
 ### Identidade anônima do cidadão
 Para enviar um relato, o cidadão precisa de um token, mas não de conta: sem nome, e-mail ou senha. O mapa pede o token sozinho na primeira vez e o guarda no navegador.
@@ -280,6 +296,9 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `POST` | `/api/v1/reporters/refresh` | Troca o refresh token por um par novo |
 | `POST` | `/api/v1/reports` | Cria um relato (multipart: foto, lat, lon, categoria) (🔑 cidadão) |
 | `POST` | `/api/v1/reports/{id}/block-reporter` | Bloqueia o autor do relato (🔒 operador) |
+| `GET` | `/api/v1/issues/queue?status=&category=&neighborhoodId=&page=&size=` | Fila de atendimento por prioridade (🔒 operador) |
+| `GET` | `/api/v1/moderation/reports?page=&size=` | Relatos marcados pelo classificador, esperando decisão (🔒 operador) |
+| `POST` | `/api/v1/moderation/reports/{id}` | Aprova ou rejeita um relato (`decision`, `blockReporter`) (🔒 operador) |
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
 | `POST` | `/api/v1/auth/login` | Login do órgão público; devolve um token JWT |
@@ -410,6 +429,8 @@ Cenários cobertos:
 - o relato exige o token do cidadão e grava só o HMAC do autor; o token do operador não envia relato, o do cidadão não abre rotas de operador, e tokens vencidos, de outra chave ou de outro `aud` são recusados;
 - o refresh token é trocado a cada uso, e reutilizar um já trocado revoga a identidade inteira;
 - o autor bloqueado não envia relatos nem renova o token, mesmo com um JWT ainda válido;
+- a fila de atendimento ordena por prioridade e idade, filtra por categoria, status e bairro, pagina e conta os relatos à espera de moderação; ela e a moderação exigem o token do operador;
+- a moderação lista só os relatos marcados e sem decisão; aprovar mantém o relato; rejeitar desconta o chamado, recalcula a prioridade e apaga a foto; rejeitar o único relato descarta o chamado, que some do mapa e não recebe relatos novos; decidir duas vezes recebe 409;
 - o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres.
 
 Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.

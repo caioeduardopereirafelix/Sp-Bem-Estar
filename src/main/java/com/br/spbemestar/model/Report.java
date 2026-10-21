@@ -63,6 +63,16 @@ public class Report {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "moderation_status")
+    private ModerationDecision moderationStatus;
+
+    @Column(name = "moderated_at")
+    private Instant moderatedAt;
+
+    @Column(name = "moderated_by")
+    private Long moderatedBy;
+
     private Report(Issue issue, Category category, Point location, String photoId, String reporterHash,
                    Instant createdAt) {
         this.issue = Objects.requireNonNull(issue);
@@ -77,6 +87,19 @@ public class Report {
     public static Report of(Issue issue, Category category, Point location, String photoId, String reporterHash,
                             Instant createdAt) {
         return new Report(issue, category, location, photoId, reporterHash, createdAt);
+    }
+
+    public void moderate(ModerationDecision decision, Instant at, Long operatorId) {
+        if (moderationStatus != null) {
+            throw new IllegalStateException("Relato já moderado: " + id);
+        }
+        this.moderationStatus = Objects.requireNonNull(decision);
+        this.moderatedAt = Objects.requireNonNull(at);
+        this.moderatedBy = Objects.requireNonNull(operatorId);
+    }
+
+    public boolean isModerated() {
+        return moderationStatus != null;
     }
 
     public void applyClassification(String predicted, BigDecimal confidence, BigDecimal minimumConfidence) {
