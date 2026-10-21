@@ -146,8 +146,9 @@ class DomainPersistenceTests {
 
     @Test
     void persistsOutboxEventWithJsonbPayload() {
+        // Data antiga: o evento fica à frente dos que outros testes deixaram pendentes no mesmo banco
         OutboxEvent event = outbox.save(OutboxEvent.of(
-                42L, "ReportCreated", "{\"reportId\": 42, \"photoId\": \"abc\"}", Instant.now()));
+                42L, "ReportCreated", "{\"reportId\": 42, \"photoId\": \"abc\"}", Instant.parse("2000-01-01T00:00:00Z")));
         flushAndClear();
 
         assertThat(outbox.findByPublishedAtIsNullOrderByCreatedAt(Limit.of(10)))
