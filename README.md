@@ -240,6 +240,16 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 **Fontes dos dados de São Paulo:** limites dos distritos do [GeoSampa](https://geosampa.prefeitura.sp.gov.br) (Prefeitura de São Paulo) e população do Censo 2022 do [IBGE/SIDRA](https://sidra.ibge.gov.br/tabela/9923) (tabela 9923). O arquivo é gerado por `node scripts/build-sp-distritos.mjs`, que baixa as duas fontes e as cruza pelo nome do distrito.
 
+### Front-end
+
+O mapa fica em `frontend/` (React, TypeScript, Vite, Tailwind e componentes shadcn/ui). O build vai para `src/main/resources/static`, então o Spring já serve a versão compilada:
+
+```bash
+cd frontend && npm install
+npm run dev     # desenvolvimento em http://localhost:5173, com proxy para a API em :8080
+npm run build   # atualiza src/main/resources/static
+```
+
 ## Testes
 
 Os testes de integração usam **Testcontainers** com PostGIS, RabbitMQ e MongoDB reais — sem mocks de banco. É necessário ter o Docker em execução.
@@ -284,6 +294,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 | Armazenamento de fotos | MongoDB 8 (GridFS) |
 | Mensageria | RabbitMQ 4 |
 | Classificação | Python + YOLO (worker separado) |
+| Front-end | React 18, TypeScript, Vite, Tailwind CSS 4, shadcn/ui (Radix), Leaflet |
 | Documentação | springdoc-openapi |
 | Observabilidade | Micrometer + Prometheus |
 | Testes | JUnit 6, Testcontainers |

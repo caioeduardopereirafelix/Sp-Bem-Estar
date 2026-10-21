@@ -51,3 +51,6 @@ build/
 ### Env ###
 .env
 *.env
+
+### Front-end ###
+frontend/node_modules/

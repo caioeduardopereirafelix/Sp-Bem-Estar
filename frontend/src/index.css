@@ -1,0 +1,225 @@
+@import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/*
+ * Paleta tirada da rua de São Paulo:
+ * concreto (fundo), cal (superfícies), asfalto (texto),
+ * placa (o azul das placas de rua da cidade) e sinal (amarelo de sinalização viária).
+ */
+:root {
+    color-scheme: light;
+    --concreto: #e9ecea;
+    --cal: #fbfcfb;
+    --asfalto: #1e2326;
+    --asfalto-2: #5a6266;
+    --guia: #c9cfcc;
+    --placa: #1d3e8a;
+    --placa-ink: #ffffff;
+    --placa-text: #1d3e8a;
+    --sinal: #f4c20d;
+    --perigo: #b3261e;
+    --ok: #1d6b2e;
+
+    --background: var(--concreto);
+    --foreground: var(--asfalto);
+    --card: var(--cal);
+    --card-foreground: var(--asfalto);
+    --popover: var(--cal);
+    --popover-foreground: var(--asfalto);
+    --primary: var(--placa);
+    --primary-foreground: var(--placa-ink);
+    --secondary: #dfe3e1;
+    --secondary-foreground: var(--asfalto);
+    --muted: #dfe3e1;
+    --muted-foreground: var(--asfalto-2);
+    --accent: #dde4f3;
+    --accent-foreground: var(--placa-text);
+    --destructive: var(--perigo);
+    --border: var(--guia);
+    --input: #9aa3a0;
+    --ring: var(--placa);
+    --radius: 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --concreto: #161a1c;
+        --cal: #1f2427;
+        --asfalto: #e6eae8;
+        --asfalto-2: #a9b2ae;
+        --guia: #353d41;
+        --placa: #2c56b8;
+        --placa-text: #9db8f2;
+        --perigo: #f2867e;
+        --ok: #7fd394;
+        --secondary: #2a3034;
+        --muted: #2a3034;
+        --accent: #24314f;
+        --input: #5b6569;
+        --ring: #9db8f2;
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --concreto: #161a1c;
+    --cal: #1f2427;
+    --asfalto: #e6eae8;
+    --asfalto-2: #a9b2ae;
+    --guia: #353d41;
+    --placa: #2c56b8;
+    --placa-text: #9db8f2;
+    --perigo: #f2867e;
+    --ok: #7fd394;
+    --secondary: #2a3034;
+    --muted: #2a3034;
+    --accent: #24314f;
+    --input: #5b6569;
+    --ring: #9db8f2;
+}
+
+@theme inline {
+    --font-sans: "Overpass", ui-sans-serif, system-ui, sans-serif;
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-placa: var(--placa);
+    --color-placa-text: var(--placa-text);
+    --color-sinal: var(--sinal);
+    --color-ok: var(--ok);
+    --radius-sm: calc(var(--radius) - 2px);
+    --radius-md: var(--radius);
+    --radius-lg: calc(var(--radius) + 4px);
+}
+
+@layer base {
+    * {
+        border-color: var(--border);
+    }
+
+    html, body, #root {
+        height: 100%;
+    }
+
+    body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-sans);
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    :focus-visible {
+        outline: 3px solid var(--ring);
+        outline-offset: 2px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
+
+/* A placa de rua: o elemento de identidade da página */
+@layer components {
+.placa {
+    background: var(--placa);
+    color: #fff;
+    border-radius: 7px;
+    padding: 3px;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 6px 18px rgba(16, 32, 72, 0.25);
+}
+
+.placa-inner {
+    border: 2px solid #fff;
+    border-radius: 5px;
+    padding: 6px 14px 5px;
+}
+}
+
+/* Mapa */
+.leaflet-container {
+    font-family: var(--font-sans);
+    background: var(--concreto);
+}
+
+.leaflet-tooltip {
+    background: var(--cal);
+    color: var(--asfalto);
+    border: 1px solid var(--guia);
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.leaflet-bar a, .leaflet-control-layers {
+    background: var(--cal);
+    color: var(--asfalto);
+    border-color: var(--guia);
+}
+
+.leaflet-control-attribution {
+    background: color-mix(in srgb, var(--cal) 85%, transparent) !important;
+    color: var(--asfalto-2);
+}
+
+.leaflet-control-attribution a {
+    color: var(--placa-text);
+}
+
+.issue-marker:focus-visible {
+    outline: none;
+}
+
+.issue-marker:focus-visible svg {
+    outline: 3px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 50%;
+}
+
+.issue-marker.is-selected svg {
+    transform: scale(1.35);
+}
+
+/* Mira do modo "escolher local": fica fixa no centro, o mapa se move por baixo */
+.mira {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    pointer-events: none;
+    z-index: 650;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .leaflet-tile-pane {
+        filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+    }
+}
+
+:root[data-theme="dark"] .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9);
+}
