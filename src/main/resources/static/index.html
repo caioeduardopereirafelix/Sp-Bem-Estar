@@ -58,6 +58,27 @@
         </section>
 
         <section class="card">
+            <h2>Área do operador</h2>
+            <p class="hint" id="operator-hint">Órgão público: entre para confirmar, encaminhar e resolver chamados.</p>
+            <form id="login-form">
+                <label>E-mail
+                    <input type="email" name="email" autocomplete="username" required>
+                </label>
+                <label>Senha
+                    <input type="password" name="password" autocomplete="current-password" required>
+                </label>
+                <div class="actions">
+                    <button type="submit" class="button primary">Entrar</button>
+                </div>
+            </form>
+            <div id="operator-session" hidden>
+                <p id="operator-name"></p>
+                <button type="button" id="logout" class="button">Sair</button>
+            </div>
+            <p class="message" id="login-message" aria-live="polite"></p>
+        </section>
+
+        <section class="card">
             <h2>Distritos com mais chamados</h2>
             <p class="hint">Chamados abertos a cada 10 mil habitantes</p>
             <table class="ranking">

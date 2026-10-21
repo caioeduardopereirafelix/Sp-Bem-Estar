@@ -1,16 +1,20 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestOperators;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.model.Issue;
 import com.br.spbemestar.model.IssueStatus;
+import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.repository.IssueRepository;
+import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.ReportService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,6 +38,8 @@ class IssueStatusControllerTests {
     @Autowired ReportService reportService;
     @Autowired IssueRepository issues;
     @Autowired TransactionTemplate transaction;
+    @Autowired AuthService auth;
+    @Autowired AppUserRepository users;
 
     @Test
     void movesIssueThroughLifecycleAndRecordsHistory() {
@@ -83,6 +89,7 @@ class IssueStatusControllerTests {
 
         assertThat(changeStatus(id, "FIXED")).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(mvc.patch().uri("/api/v1/issues/{id}/status", id)
+                .header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
                 .contentType(MediaType.APPLICATION_JSON).content("{}").exchange())
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(changeStatus(999_999_999L, "CONFIRMED")).hasStatus(HttpStatus.NOT_FOUND);
@@ -110,6 +117,7 @@ class IssueStatusControllerTests {
 
     private MvcTestResult changeStatus(Long id, String status) {
         return mvc.patch().uri("/api/v1/issues/{id}/status", id)
+                .header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"status\": \"" + status + "\"}")
                 .exchange();

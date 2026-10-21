@@ -1,5 +1,6 @@
 package com.br.spbemestar.controller;
 
+import com.br.spbemestar.config.OpenApiConfig;
 import com.br.spbemestar.dto.BoundingBox;
 import com.br.spbemestar.dto.ChangeStatusRequest;
 import com.br.spbemestar.dto.GeoJsonFeatureCollection;
@@ -8,6 +9,7 @@ import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.service.IssueQueryService;
 import com.br.spbemestar.service.IssueStatusService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -45,6 +47,7 @@ public class IssueController {
         return issueQueryService.detail(id);
     }
 
+    @SecurityRequirement(name = OpenApiConfig.BEARER)
     @PatchMapping("/{id}/status")
     public StatusChangeResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request) {
         return issueStatusService.change(id, request.status());

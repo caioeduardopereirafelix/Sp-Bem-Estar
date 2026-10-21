@@ -51,6 +51,14 @@ management:
 
 app:
   reporter-hash-secret: ${REPORTER_HASH}
+  security:
+    jwt-secret: ${JWT_SECRET} # no mínimo 32 bytes; gere com: openssl rand -base64 48
+    token-ttl: 8h
+    # Primeiro operador do órgão público, criado na subida se ainda não existir
+    bootstrap-operator:
+      email: ${OPERATOR_EMAIL:}
+      password: ${OPERATOR_PASSWORD:}
+      name: ${OPERATOR_NAME:Operador}
   outbox:
     publish-interval-ms: 1000
     batch-size: 100
