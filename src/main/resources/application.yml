@@ -57,7 +57,11 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:true}
 
 app:
-  reporter-hash-secret: ${REPORTER_HASH}
+  # Identidade anônima do cidadão: JWT curto para enviar relatos e refresh token com rotação
+  reporter:
+    hash-secret: ${REPORTER_HASH} # no mínimo 32 bytes; gere com: openssl rand -base64 48
+    access-token-ttl: 15m
+    refresh-token-ttl: 90d
   security:
     jwt-secret: ${JWT_SECRET} # no mínimo 32 bytes; gere com: openssl rand -base64 48
     token-ttl: 8h
@@ -83,6 +87,16 @@ app:
         method: POST
         path: /api/v1/reports
         capacity: 20
+        period: 1h
+      - name: reporter-register # cada identidade nova escapa de um bloqueio: emitir é caro
+        method: POST
+        path: /api/v1/reporters
+        capacity: 10
+        period: 1h
+      - name: reporter-refresh # um cidadão renova no máximo a cada 15 min
+        method: POST
+        path: /api/v1/reporters/refresh
+        capacity: 60
         period: 1h
       - name: metrics # um scrape a cada 15 s são 4 por minuto; o limite barra força bruta na senha
         method: GET

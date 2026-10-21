@@ -1,10 +1,12 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.exception.ReporterBlockedException;
 import com.br.spbemestar.exception.UnknownCategoryException;
 import com.br.spbemestar.model.Category;
 import com.br.spbemestar.model.Issue;
 import com.br.spbemestar.model.OutboxEvent;
 import com.br.spbemestar.model.Report;
+import com.br.spbemestar.repository.BlockedReporterRepository;
 import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.OutboxEventRepository;
 import com.br.spbemestar.repository.ReportRepository;
@@ -19,6 +21,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,12 +36,22 @@ public class ReportService {
     private final PriorityService priority;
     private final ExifStripper exifStripper;
     private final PhotoStorage photoStorage;
+    private final ReporterHasher reporterHasher;
+    private final BlockedReporterRepository blockedReporters;
     private final TransactionTemplate transaction;
     private final JsonMapper json;
     private final Clock clock;
 
-    public ReportResult create(String categoryCode, double latitude, double longitude, byte[] photo) {
+    /**
+     * @param reporterId {@code sub} do token do cidadão; só o HMAC dele é gravado no relato
+     */
+    public ReportResult create(UUID reporterId, String categoryCode, double latitude, double longitude,
+                               byte[] photo) {
         GeoPoints.of(latitude, longitude); // valida as coordenadas antes de qualquer gravação
+        String reporterHash = reporterHasher.reporterHash(reporterId);
+        if (blockedReporters.existsById(reporterHash)) {
+            throw new ReporterBlockedException();
+        }
         if (categories.findByCodeAndActiveTrue(categoryCode).isEmpty()) {
             throw new UnknownCategoryException(categoryCode);
         }
@@ -47,14 +60,15 @@ public class ReportService {
         String photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
 
         try {
-            return transaction.execute(status -> persist(categoryCode, latitude, longitude, photoId));
+            return transaction.execute(status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
         } catch (RuntimeException e) {
             photoStorage.delete(photoId);
             throw e;
         }
     }
 
-    private ReportResult persist(String categoryCode, double latitude, double longitude, String photoId) {
+    private ReportResult persist(String reporterHash, String categoryCode, double latitude, double longitude,
+                                 String photoId) {
         Category category = categories.findByCodeAndActiveTrue(categoryCode)
                 .orElseThrow(() -> new UnknownCategoryException(categoryCode));
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
@@ -63,7 +77,7 @@ public class ReportService {
         Issue issue = dedup.issue();
 
         Report report = reports.save(
-                Report.of(issue, category, GeoPoints.of(latitude, longitude), photoId, null, now));
+                Report.of(issue, category, GeoPoints.of(latitude, longitude), photoId, reporterHash, now));
 
         String payload = json.writeValueAsString(Map.of(
                 "reportId", report.getId(),

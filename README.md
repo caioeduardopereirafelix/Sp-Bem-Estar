@@ -150,12 +150,29 @@ O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das 
 Em vez de um formato de exportação próprio, a API implementa o **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços.
 
 ### Autenticação só para quem altera chamados
-O cidadão continua anônimo: ver o mapa e enviar relatos não pede login. Só o órgão público se autentica, em `POST /api/v1/auth/login`, e recebe um **JWT** assinado pela própria API (HS256, validade de 8 h), enviado depois em `Authorization: Bearer <token>`.
+O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para enviar, ele recebe uma [identidade anônima](#identidade-anônima-do-cidadão)). Só o órgão público se autentica, em `POST /api/v1/auth/login`, e recebe um **JWT** assinado pela própria API (HS256, validade de 8 h), enviado depois em `Authorization: Bearer <token>`.
 
 - **Sem sessão no servidor:** cada requisição traz o token, então a API escala horizontalmente sem estado compartilhado, e sem cookies não há CSRF a proteger.
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
+
+### Identidade anônima do cidadão
+Para enviar um relato, o cidadão precisa de um token, mas não de conta: sem nome, e-mail ou senha. O mapa pede o token sozinho na primeira vez e o guarda no navegador.
+
+| Token | Validade | Onde fica no servidor |
+|---|---|---|
+| Access token (JWT) | 15 minutos | em lugar nenhum: a assinatura basta |
+| Refresh token | 90 dias, renovados a cada uso | só o SHA-256 dele, na tabela `reporter_refresh_token` |
+
+- **Não dá para inventar uma identidade.** O token é assinado pela API, e emitir um novo (`POST /api/v1/reporters`) passa pelo rate limit por IP.
+- **JWT curto porque JWT não se revoga.** Quem é bloqueado perde o acesso na hora, porque cada relato confere a lista de bloqueio; e no máximo em 15 minutos o token vence.
+- **Rotação do refresh token.** Cada renovação (`POST /api/v1/reporters/refresh`) devolve um par novo e invalida o anterior. Se um refresh token já trocado aparecer de novo, alguém o copiou, e todos os tokens daquele cidadão são revogados.
+- **Chave e `aud` próprios.** O token do cidadão é assinado com uma chave derivada do `JWT_SECRET`, diferente da do operador, e não tem papéis. Ele não abre rotas de operador, e o token do operador não envia relatos, mesmo que uma regra de autorização seja configurada errado.
+- **Bloqueio pela moderação.** `POST /api/v1/reports/{id}/block-reporter` (operador) bloqueia quem enviou aquele relato: novos relatos e renovações dele são recusados. Ele pode pedir outra identidade, mas o rate limit por IP limita quantas.
+- **Relatos sem ligação direta com o token.** O relato guarda só o `reporter_hash`, um HMAC do id do cidadão com a chave `REPORTER_HASH`, que não fica no banco. Quem tem o banco vê que dois relatos são da mesma pessoa, mas não consegue ligá-los aos tokens.
+
+O que essa identidade **não** faz: ela não prova quem é a pessoa. Quem troca de IP e de navegador consegue uma identidade nova. Para "uma pessoa, uma conta" seria preciso login de verdade (gov.br), o que acabaria com o anonimato.
 
 ### Rate limit por IP
 Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caffeine). A primeira regra que casar com a requisição é a que conta:
@@ -163,6 +180,8 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 | Regra | Rota | Limite por IP |
 |---|---|---|
 | `login` | `POST /api/v1/auth/login` | 5 por minuto |
+| `reporter-register` | `POST /api/v1/reporters` | 10 por hora (cada identidade nova escapa de um bloqueio) |
+| `reporter-refresh` | `POST /api/v1/reporters/refresh` | 60 por hora |
 | `reports` | `POST /api/v1/reports` | 20 por hora |
 | `metrics` | `GET /actuator/prometheus` | 30 por minuto (um scrape a cada 15 s usa 4) |
 | `api` | demais rotas em `/api/**` | 300 por minuto |
@@ -187,7 +206,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 
 ### Privacidade (LGPD)
 - Metadados EXIF são descartados antes do armazenamento.
-- O autor do relato é guardado apenas como hash.
+- O autor do relato é guardado apenas como HMAC do id anônimo dele, com uma chave fora do banco.
 - Nenhum endpoint público expõe dados pessoais.
 
 ## Modelo de dados
@@ -257,7 +276,10 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/v1/reports` | Cria um relato (multipart: foto, lat, lon, categoria) |
+| `POST` | `/api/v1/reporters` | Identidade anônima do cidadão; devolve access token e refresh token |
+| `POST` | `/api/v1/reporters/refresh` | Troca o refresh token por um par novo |
+| `POST` | `/api/v1/reports` | Cria um relato (multipart: foto, lat, lon, categoria) (🔑 cidadão) |
+| `POST` | `/api/v1/reports/{id}/block-reporter` | Bloqueia o autor do relato (🔒 operador) |
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
 | `POST` | `/api/v1/auth/login` | Login do órgão público; devolve um token JWT |
@@ -288,6 +310,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | Variável | Para quê |
 |---|---|
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
+| `REPORTER_HASH` | chave do HMAC que identifica o autor dos relatos, com no mínimo 32 bytes (`openssl rand -base64 48`); trocá-la faz os relatos antigos pararem de casar com os novos do mesmo cidadão |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro operador do órgão público, criado na subida se ainda não existir (senha com 12+ caracteres) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
@@ -384,6 +407,9 @@ Cenários cobertos:
 - o worker classifica a foto e publica o resultado; reentregas geram o mesmo id de resultado;
 - fotos inexistentes ou ilegíveis vão para a DLQ;
 - a API marca para moderação divergências e baixa confiança, e aplica só o primeiro resultado de cada relato;
+- o relato exige o token do cidadão e grava só o HMAC do autor; o token do operador não envia relato, o do cidadão não abre rotas de operador, e tokens vencidos, de outra chave ou de outro `aud` são recusados;
+- o refresh token é trocado a cada uso, e reutilizar um já trocado revoga a identidade inteira;
+- o autor bloqueado não envia relatos nem renova o token, mesmo com um JWT ainda válido;
 - o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres.
 
 Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.

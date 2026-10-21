@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.service.NeighborhoodImportService;
 import com.br.spbemestar.service.ReportService;
@@ -99,7 +100,7 @@ class NeighborhoodControllerTests {
     }
 
     private Long report(String category, double lat, double lon) {
-        return reportService.create(category, lat, lon, TestPhotos.jpeg()).issueId();
+        return reportService.create(TestReporters.ID, category, lat, lon, TestPhotos.jpeg()).issueId();
     }
 
     private static List<String> names(JsonNode array) {

@@ -1,6 +1,7 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.TestPhotos;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.exception.InvalidNeighborhoodFileException;
 import com.br.spbemestar.repository.NeighborhoodRepository;
@@ -71,7 +72,7 @@ class NeighborhoodImportServiceTests {
 
     @Test
     void assignsExistingIssuesToImportedNeighborhood() {
-        Long issueId = reportService.create("POTHOLE", -15.495, -47.695, TestPhotos.jpeg()).issueId();
+        Long issueId = reportService.create(TestReporters.ID, "POTHOLE", -15.495, -47.695, TestPhotos.jpeg()).issueId();
         assertThat(neighborhoodOf(issueId)).isNull();
 
         var result = importGeoJson(collection(square("Leste", -47.70, -15.50, 0.01, "10", false)), "Cidade C", 4326);

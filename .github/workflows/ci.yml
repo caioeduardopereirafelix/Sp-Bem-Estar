@@ -30,7 +30,7 @@ env:
   MONGO_DB: spbemestar
   MONGO_USER: spbemestar
   MONGO_PASSWORD: ci
-  REPORTER_HASH: ci-secret
+  REPORTER_HASH: ci-reporter-hash-com-pelo-menos-32-bytes
   JWT_SECRET: ci-jwt-secret-com-pelo-menos-32-bytes
 
 jobs:
