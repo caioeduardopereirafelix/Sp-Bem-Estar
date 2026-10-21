@@ -2,3 +2,6 @@
 app:
   rate-limit:
     enabled: false
+  metrics:
+    username: prometheus-teste
+    password: senha-do-prometheus-teste

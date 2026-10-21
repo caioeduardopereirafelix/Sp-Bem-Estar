@@ -164,16 +164,26 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 |---|---|---|
 | `login` | `POST /api/v1/auth/login` | 5 por minuto |
 | `reports` | `POST /api/v1/reports` | 20 por hora |
+| `metrics` | `GET /actuator/prometheus` | 30 por minuto (um scrape a cada 15 s usa 4) |
 | `api` | demais rotas em `/api/**` | 300 por minuto |
 
 - **Antes do Spring Security:** uma força bruta no login é barrada sem nem conferir a senha, e um token inválido também consome o limite.
 - **Reposição gradual:** com 5 por minuto, uma ficha volta a cada 12 s, em vez de o limite zerar de uma vez no fim da janela.
 - **Resposta `429`** em `ProblemDetail`, com `Retry-After` em segundos. Toda resposta limitada traz `X-RateLimit-Limit` e `X-RateLimit-Remaining`.
 - **IPv6 conta pelo prefixo /64**, que é o que um provedor entrega a um único cliente; contar por endereço deixaria qualquer um trocar de IP a cada requisição.
-- **Livres:** mapa web, Swagger e actuator, para o Prometheus nunca ser barrado.
+- **Livres:** mapa web, Swagger e health check.
 - **Por instância:** com várias réplicas, cada uma conta separadamente. Para um limite global, o Bucket4j aceita Redis ou PostgreSQL como armazenamento.
 
 **Atrás de um proxy reverso** (nginx, load balancer), o IP da conexão é o do proxy, e todos os clientes dividiriam o mesmo limite. Nesse caso, defina `SERVER_FORWARD_HEADERS_STRATEGY=native` para a API usar o `X-Forwarded-For`. Por padrão o Tomcat só aceita esse header vindo de IPs de rede privada; se o proxy estiver em outro endereço, informe-o em `SERVER_TOMCAT_REMOTEIP_TRUSTED_PROXIES` (expressão regular). Sem proxy, não ligue essa opção: qualquer cliente poderia forjar o header e escapar do limite.
+
+### Outras proteções
+- **Foto com teto de 40 megapixels.** O limite é conferido no cabeçalho da imagem, antes de decodificá-la. Sem ele, um PNG de 1 MB que declara 30 000 × 30 000 pixels exigiria gigabytes de memória ao ser aberto (*decompression bomb*) e derrubaria a API.
+- **Content Security Policy no mapa.** A página só carrega scripts, estilos e imagens da própria API, do Leaflet no cdnjs e dos tiles do OpenStreetMap, e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
+- **Leaflet com Subresource Integrity.** O navegador confere o hash do arquivo e o recusa se o CDN entregar algo diferente da versão 1.9.4.
+- **Métricas com senha.** O `/actuator/prometheus` revela rotas, volumes e erros, por isso exige `METRICS_USER` e `METRICS_PASSWORD` (HTTP Basic, como o Prometheus espera). Sem essas variáveis, ninguém lê as métricas.
+- **Bancos só em `127.0.0.1`.** O Docker Compose publica PostgreSQL, RabbitMQ e MongoDB apenas na máquina local. Sem isso, o Docker abre as portas para a rede inteira, inclusive passando por cima do firewall do host (ufw).
+- **Dependências sem vulnerabilidades conhecidas.** Tomcat, Jackson e o cliente do RabbitMQ estão fixados acima das versões do Spring Boot 4.1.1, conferidas no [OSV](https://osv.dev). Essas linhas do `pom.xml` saem quando o Boot trouxer versões iguais ou mais novas.
+- **Swagger desligável:** em produção, `API_DOCS_ENABLED=false`.
 
 ### Privacidade (LGPD)
 - Metadados EXIF são descartados antes do armazenamento.
@@ -280,6 +290,8 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro operador do órgão público, criado na subida se ainda não existir (senha com 12+ caracteres) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
+| `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
+| `API_DOCS_ENABLED` | opcional; `false` desliga o Swagger UI e o `/v3/api-docs` (padrão `true`) |
 
 Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
 
@@ -289,8 +301,21 @@ Com o operador criado, entre pela **Área do operador** no mapa para mudar o sta
 | API | http://localhost:8080/api/v1 |
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | Health | http://localhost:8080/actuator/health |
-| Métricas | http://localhost:8080/actuator/prometheus |
+| Métricas | http://localhost:8080/actuator/prometheus (usuário e senha do Prometheus) |
 | Painel RabbitMQ | http://localhost:15672 (usuário e senha do `.env`) |
+
+No Prometheus, o job fica assim:
+
+```yaml
+scrape_configs:
+  - job_name: spbemestar-api
+    metrics_path: /actuator/prometheus
+    basic_auth:
+      username: prometheus           # METRICS_USER
+      password_file: /etc/prometheus/spbemestar-password  # conteúdo de METRICS_PASSWORD
+    static_configs:
+      - targets: ["api:8080"]
+```
 
 > Na primeira subida com volumes novos, o PostgreSQL reinicia uma vez para instalar a extensão PostGIS. Se a aplicação falhar ao conectar, aguarde alguns segundos e execute novamente.
 

@@ -47,7 +47,14 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus
+        include: health, info, prometheus # prometheus exige METRICS_USER e METRICS_PASSWORD
+
+# Swagger UI e /v3/api-docs; em produção, API_DOCS_ENABLED=false
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    enabled: ${API_DOCS_ENABLED:true}
 
 app:
   reporter-hash-secret: ${REPORTER_HASH}
@@ -59,7 +66,11 @@ app:
       email: ${OPERATOR_EMAIL:}
       password: ${OPERATOR_PASSWORD:}
       name: ${OPERATOR_NAME:Operador}
-  # Limite por IP (token bucket): vale a primeira regra que casar; o resto (mapa, actuator, Swagger) fica livre
+  # Usuário do Prometheus no /actuator/prometheus (HTTP Basic); vazio = ninguém lê as métricas
+  metrics:
+    username: ${METRICS_USER:}
+    password: ${METRICS_PASSWORD:}
+  # Limite por IP (token bucket): vale a primeira regra que casar; o resto (mapa, health, Swagger) fica livre
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     rules:
@@ -73,6 +84,11 @@ app:
         path: /api/v1/reports
         capacity: 20
         period: 1h
+      - name: metrics # um scrape a cada 15 s são 4 por minuto; o limite barra força bruta na senha
+        method: GET
+        path: /actuator/prometheus
+        capacity: 30
+        period: 1m
       - name: api
         path: /api/**
         capacity: 300
