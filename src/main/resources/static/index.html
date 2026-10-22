@@ -43,8 +43,12 @@
 
         <section class="card">
             <h2>Reportar problema</h2>
-            <button type="button" id="report-start" class="button primary">Escolher local no mapa</button>
+            <div class="actions wrap" id="report-choice">
+                <button type="button" id="report-locate" class="button primary">Usar minha localização</button>
+                <button type="button" id="report-start" class="button">Escolher no mapa</button>
+            </div>
             <p class="hint" id="report-hint" hidden>Clique no mapa onde está o problema.</p>
+            <p class="hint" id="report-adjust" hidden>Para corrigir o ponto, arraste o marcador ou clique no mapa.</p>
             <form id="report-form" hidden>
                 <label>Categoria
                     <select name="category" id="report-category" required></select>

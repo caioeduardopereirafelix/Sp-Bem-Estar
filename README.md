@@ -41,7 +41,8 @@ Este projeto ataca três pontos:
 ## Funcionalidades
 
 **Cidadão**
-- Reportar um problema com foto, localização e categoria
+- Reportar um problema com foto, localização e categoria; o local vem do GPS do aparelho ("Usar minha localização") ou de um clique no mapa, e o marcador pode ser arrastado para corrigir
+- Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 
@@ -214,6 +215,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 ### Outras proteções
 - **Foto com teto de 40 megapixels.** O limite é conferido no cabeçalho da imagem, antes de decodificá-la. Sem ele, um PNG de 1 MB que declara 30 000 × 30 000 pixels exigiria gigabytes de memória ao ser aberto (*decompression bomb*) e derrubaria a API.
 - **Content Security Policy no mapa.** A página só carrega scripts, estilos e imagens da própria API, do Leaflet no cdnjs e dos tiles do OpenStreetMap, e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
+- **Permissions-Policy.** Só a própria página pode pedir a localização do usuário, e câmera, microfone, pagamento e USB ficam bloqueados para qualquer script. A localização fica no navegador: a API recebe apenas o ponto de um relato enviado, como ao clicar no mapa.
 - **Leaflet com Subresource Integrity.** O navegador confere o hash do arquivo e o recusa se o CDN entregar algo diferente da versão 1.9.4.
 - **Métricas com senha.** O `/actuator/prometheus` revela rotas, volumes e erros, por isso exige `METRICS_USER` e `METRICS_PASSWORD` (HTTP Basic, como o Prometheus espera). Sem essas variáveis, ninguém lê as métricas.
 - **Bancos só em `127.0.0.1`.** O Docker Compose publica PostgreSQL, RabbitMQ e MongoDB apenas na máquina local. Sem isso, o Docker abre as portas para a rede inteira, inclusive passando por cima do firewall do host (ufw).

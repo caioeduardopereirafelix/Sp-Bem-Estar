@@ -30,6 +30,7 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
@@ -76,6 +77,9 @@ public class SecurityConfig {
             "base-uri 'self'",
             "form-action 'self'",
             "frame-ancestors 'none'");
+
+    /** O mapa pede a localização do usuário; nada mais da página usa recursos do aparelho. */
+    static final String PERMISSIONS_POLICY = "geolocation=(self), camera=(), microphone=(), payment=(), usb=()";
 
     /** O Swagger UI traz um {@code <style>} inline; só nas páginas dele os estilos inline são aceitos. */
     static final String SWAGGER_CONTENT_SECURITY_POLICY = CONTENT_SECURITY_POLICY
@@ -161,7 +165,8 @@ public class SecurityConfig {
                         .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(SWAGGER_UI,
                                 new ContentSecurityPolicyHeaderWriter(SWAGGER_CONTENT_SECURITY_POLICY)))
                         .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(new NegatedRequestMatcher(SWAGGER_UI),
-                                new ContentSecurityPolicyHeaderWriter(CONTENT_SECURITY_POLICY))))
+                                new ContentSecurityPolicyHeaderWriter(CONTENT_SECURITY_POLICY)))
+                        .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy", PERMISSIONS_POLICY)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/issues/*/status").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports/*/block-reporter").hasRole("OPERATOR")
