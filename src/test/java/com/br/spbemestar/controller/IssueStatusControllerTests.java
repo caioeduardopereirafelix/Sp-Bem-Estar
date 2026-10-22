@@ -97,6 +97,28 @@ class IssueStatusControllerTests {
     }
 
     @Test
+    void recordsWhichOperatorChangedTheStatus() {
+        Long id = newIssue(-24.05);
+        String operator = TestOperators.bearer(auth, users);
+        Long operatorId = users.findByEmail(TestOperators.EMAIL).orElseThrow().getId();
+
+        assertThat(changeStatus(id, "CONFIRMED")).hasStatusOk();
+
+        assertThat(jdbc.queryForObject("SELECT changed_by FROM issue_status_history WHERE issue_id = ?",
+                Long.class, id)).isEqualTo(operatorId);
+        assertThat(jdbc.queryForObject("""
+                SELECT payload ->> 'changedBy' FROM outbox_event
+                WHERE aggregate_id = ? AND type = 'IssueStatusChanged'
+                """, String.class, id)).isEqualTo(operatorId.toString());
+
+        // o operador vê o nome de quem mudou; o mapa público vê o histórico sem nomes
+        assertThat(mvc.get().uri("/api/v1/issues/{id}", id).header(HttpHeaders.AUTHORIZATION, operator).exchange())
+                .bodyJson().extractingPath("$.history[0].changedBy").isEqualTo("Operador de teste");
+        assertThat(mvc.get().uri("/api/v1/issues/{id}", id).exchange())
+                .bodyJson().extractingPath("$.history[0].changedBy").isNull();
+    }
+
+    @Test
     void detectsConcurrentModificationThroughVersion() {
         Long id = newIssue(-24.04);
 
@@ -104,7 +126,7 @@ class IssueStatusControllerTests {
             Issue issue = issues.findById(id).orElseThrow();
             // Outra transação altera o chamado depois que ele foi lido
             jdbc.update("UPDATE issue SET version = version + 1 WHERE id = ?", id);
-            issue.changeStatus(IssueStatus.CONFIRMED, Instant.now());
+            issue.changeStatus(IssueStatus.CONFIRMED, Instant.now(), null);
             issues.flush();
         })).isInstanceOf(ObjectOptimisticLockingFailureException.class);
 

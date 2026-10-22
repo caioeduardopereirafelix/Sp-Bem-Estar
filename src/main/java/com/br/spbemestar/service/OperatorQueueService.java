@@ -50,6 +50,7 @@ public class OperatorQueueService {
                 issue.getStatus().name(),
                 issue.getNeighborhood() == null ? null : issue.getNeighborhood().getName(),
                 issue.getReportCount(),
+                issue.getReporterCount(),
                 pending.getOrDefault(issue.getId(), 0L),
                 issue.getPriorityScore(),
                 issue.getFirstReportedAt(),

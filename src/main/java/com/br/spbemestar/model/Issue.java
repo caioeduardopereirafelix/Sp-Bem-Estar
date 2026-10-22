@@ -57,6 +57,10 @@ public class Issue {
     @Column(name = "report_count", nullable = false)
     private int reportCount;
 
+    // pessoas distintas entre os relatos: calculado no banco junto com a prioridade (IssueRepository)
+    @Column(name = "reporter_count", nullable = false, insertable = false, updatable = false)
+    private int reporterCount;
+
     @Column(name = "priority_score", nullable = false, precision = 10, scale = 4)
     private BigDecimal priorityScore;
 
@@ -97,7 +101,7 @@ public class Issue {
         }
     }
 
-    public IssueStatusHistory changeStatus(IssueStatus target, Instant changedAt) {
+    public IssueStatusHistory changeStatus(IssueStatus target, Instant changedAt, Long operatorId) {
         if (!status.canTransitionTo(target)) {
             throw new InvalidStatusTransitionException(status, target);
         }
@@ -106,7 +110,7 @@ public class Issue {
         if (target == IssueStatus.RESOLVED) {
             resolvedAt = changedAt;
         }
-        return new IssueStatusHistory(this, previous, target, changedAt);
+        return new IssueStatusHistory(this, previous, target, changedAt, operatorId);
     }
 
     /**
@@ -114,7 +118,7 @@ public class Issue {
      *
      * @return a mudança de status, quando o chamado é descartado
      */
-    public Optional<IssueStatusHistory> removeRejectedReport(Instant changedAt) {
+    public Optional<IssueStatusHistory> removeRejectedReport(Instant changedAt, Long operatorId) {
         if (status == IssueStatus.DISCARDED) {
             throw new IllegalStateException("Chamado já descartado: " + id);
         }
@@ -125,7 +129,7 @@ public class Issue {
         IssueStatus previous = status;
         status = IssueStatus.DISCARDED;
         resolvedAt = null;
-        return Optional.of(new IssueStatusHistory(this, previous, IssueStatus.DISCARDED, changedAt));
+        return Optional.of(new IssueStatusHistory(this, previous, IssueStatus.DISCARDED, changedAt, operatorId));
     }
 
     public void updatePriorityScore(BigDecimal score) {

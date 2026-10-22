@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.config.OpenApiConfig;
+import com.br.spbemestar.config.SecurityConfig;
 import com.br.spbemestar.dto.BoundingBox;
 import com.br.spbemestar.dto.ChangeStatusRequest;
 import com.br.spbemestar.dto.GeoJsonFeatureCollection;
@@ -9,6 +10,7 @@ import com.br.spbemestar.dto.PageResponse;
 import com.br.spbemestar.dto.QueueItem;
 import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.model.IssueStatus;
+import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.service.IssueQueryService;
 import com.br.spbemestar.service.IssueStatusService;
 import com.br.spbemestar.service.OperatorQueueService;
@@ -17,6 +19,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,6 +28,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/issues")
@@ -60,14 +66,17 @@ public class IssueController {
         return operatorQueue.queue(status, category, neighborhoodId, page, size);
     }
 
+    /** O nome de quem mudou cada status só aparece para operadores; o mapa público vê o histórico sem nomes. */
     @GetMapping("/{id}")
-    public IssueDetailResponse detail(@PathVariable Long id) {
-        return issueQueryService.detail(id);
+    public IssueDetailResponse detail(@PathVariable Long id, @AuthenticationPrincipal Jwt viewer) {
+        List<String> roles = viewer == null ? null : viewer.getClaimAsStringList(SecurityConfig.ROLES_CLAIM);
+        return issueQueryService.detail(id, roles != null && roles.contains(UserRole.OPERATOR.name()));
     }
 
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @PatchMapping("/{id}/status")
-    public StatusChangeResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request) {
-        return issueStatusService.change(id, request.status());
+    public StatusChangeResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request,
+                                             @AuthenticationPrincipal Jwt operator) {
+        return issueStatusService.change(id, request.status(), Long.valueOf(operator.getSubject()));
     }
 }

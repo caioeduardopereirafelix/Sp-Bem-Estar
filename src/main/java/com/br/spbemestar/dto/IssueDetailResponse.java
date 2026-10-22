@@ -13,6 +13,7 @@ public record IssueDetailResponse(
         double longitude,
         String neighborhood,
         int reportCount,
+        int reporterCount,
         BigDecimal priorityScore,
         Instant firstReportedAt,
         Instant lastReportedAt,
@@ -24,6 +25,9 @@ public record IssueDetailResponse(
     public record ReportItem(Long id, Instant createdAt, String photoUrl, String classificationStatus) {
     }
 
-    public record StatusChange(String from, String to, Instant changedAt) {
+    /**
+     * @param changedBy nome do operador que fez a mudança; só preenchido para quem está logado como operador
+     */
+    public record StatusChange(String from, String to, Instant changedAt, String changedBy) {
     }
 }

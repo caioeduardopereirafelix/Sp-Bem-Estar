@@ -18,6 +18,7 @@ public record GeoJsonFeatureCollection(String type, List<Feature> features) {
             properties.put("categoryName", issue.categoryName());
             properties.put("status", issue.status());
             properties.put("reportCount", issue.reportCount());
+            properties.put("reporterCount", issue.reporterCount());
             properties.put("priorityScore", issue.priorityScore());
             properties.put("neighborhood", issue.neighborhoodName());
             properties.put("firstReportedAt", issue.firstReportedAt());
