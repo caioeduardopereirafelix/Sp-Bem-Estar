@@ -56,6 +56,8 @@ class SecurityHardeningTests {
                 .contains("script-src 'self' https://cdnjs.cloudflare.com", "frame-ancestors 'none'")
                 .doesNotContain("unsafe-inline", "unsafe-eval");
         assertThat(page).hasHeader("X-Content-Type-Options", "nosniff");
+        // a localização do usuário só pode ser pedida pela própria página, e câmera e microfone por ninguém
+        assertThat(page).hasHeader("Permissions-Policy", "geolocation=(self), camera=(), microphone=(), payment=(), usb=()");
     }
 
     @Test

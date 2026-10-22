@@ -25,7 +25,7 @@ const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, max
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 
 const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null,
-    session: loadSession(), reporter: null, markers: new Map()};
+    session: loadSession(), reporter: null, markers: new Map(), userLocation: null};
 
 // Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
 function loadSession() {
@@ -175,6 +175,66 @@ async function sendReport(data) {
         return body;
     }
 }
+
+// Localização do usuário pelo navegador. Fica só nesta página: a API recebe apenas o ponto de um relato
+// enviado, como já acontecia ao clicar no mapa.
+const LOW_ACCURACY_METERS = 50;
+const GEOLOCATION_ERRORS = {
+    1: 'Sem permissão para usar sua localização. Libere nas configurações do navegador ou escolha o local no mapa.',
+    2: 'Sua localização não está disponível agora. Escolha o local no mapa.',
+    3: 'A localização demorou demais. Tente de novo ou escolha o local no mapa.',
+};
+
+function currentPosition() {
+    return new Promise((resolve, reject) => {
+        if (!window.isSecureContext || !('geolocation' in navigator)) {
+            reject(new Error('Este navegador não informa a localização aqui (é preciso HTTPS). Escolha o local no mapa.'));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(resolve,
+            (error) => reject(new Error(GEOLOCATION_ERRORS[error.code] ?? 'Não foi possível obter sua localização.')),
+            {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000});
+    });
+}
+
+// Ponto azul com o círculo de precisão, como nos apps de mapa
+function showUserLocation(position) {
+    const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
+    state.userLocation?.remove();
+    const accuracy = L.circle(latlng, {radius: position.coords.accuracy, color: '#1a73e8', weight: 1,
+        fillOpacity: 0.12, interactive: false});
+    state.userLocation = L.layerGroup([
+        accuracy,
+        L.circleMarker(latlng, {radius: 7, color: '#fff', weight: 2, fillColor: '#1a73e8', fillOpacity: 1})
+            .bindTooltip('Você está aqui'),
+    ]).addTo(map);
+    // com GPS preciso, aproxima até a rua; com precisão baixa, mostra o círculo inteiro
+    map.fitBounds(accuracy.getBounds(), {maxZoom: 17, animate: false});
+    return latlng;
+}
+
+const locateControl = L.control({position: 'topleft'});
+locateControl.onAdd = () => {
+    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control locate-control');
+    container.innerHTML = `<button type="button" title="Mostrar minha localização" aria-label="Mostrar minha localização">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>
+        </svg></button>`;
+    const button = container.querySelector('button');
+    L.DomEvent.disableClickPropagation(container);
+    button.addEventListener('click', async () => {
+        button.disabled = true;
+        try {
+            showUserLocation(await currentPosition());
+        } catch (error) {
+            setReportMessage(error.message, 'error');
+        } finally {
+            button.disabled = false;
+        }
+    });
+    return container;
+};
+locateControl.addTo(map);
 
 function shapeSvg(status, size = 18) {
     const {color, shape} = STATUS[status];
@@ -400,28 +460,112 @@ function resetReport() {
     reportForm.reset();
     reportForm.hidden = true;
     document.getElementById('report-hint').hidden = true;
-    document.getElementById('report-start').hidden = false;
+    document.getElementById('report-adjust').hidden = true;
+    document.getElementById('report-choice').hidden = false;
     document.body.classList.remove('picking');
 }
 
-document.getElementById('report-start').addEventListener('click', () => {
-    setReportMessage('');
-    document.getElementById('report-start').hidden = true;
+// Ponto do relato: o marcador pode ser arrastado, e um clique no mapa o move
+function pickLocation(latlng) {
+    state.pickedLocation = latlng;
+    state.pickMarker?.remove();
+    state.pickMarker = L.marker(latlng, {draggable: true, title: 'Local do relato'}).addTo(map);
+    state.pickMarker.on('dragend', () => {
+        state.pickedLocation = state.pickMarker.getLatLng();
+    });
+    document.body.classList.add('picking');
+    document.getElementById('report-choice').hidden = true;
+    document.getElementById('report-hint').hidden = true;
+    document.getElementById('report-adjust').hidden = false;
+    reportForm.hidden = false;
+}
+
+function startManualPick(message = '', kind) {
+    setReportMessage(message, kind);
+    document.getElementById('report-choice').hidden = true;
     document.getElementById('report-hint').hidden = false;
     document.body.classList.add('picking');
+}
+
+async function locateForReport() {
+    setReportMessage('Buscando sua localização…');
+    try {
+        const position = await currentPosition();
+        pickLocation(showUserLocation(position));
+        const accuracy = Math.round(position.coords.accuracy);
+        setReportMessage(accuracy > LOW_ACCURACY_METERS
+            ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o marcador antes de enviar.`
+            : '');
+    } catch (error) {
+        // sem localização, o relato continua: o ponto é escolhido no mapa
+        startManualPick(error.message, 'error');
+    }
+}
+
+// Estado da permissão sem disparar o pedido do navegador; sem a Permissions API (Safari antigo), "prompt"
+async function geolocationPermission() {
+    if (!window.isSecureContext || !('geolocation' in navigator)) {
+        return 'unsupported';
+    }
+    try {
+        return (await navigator.permissions.query({name: 'geolocation'})).state;
+    } catch {
+        return 'prompt';
+    }
+}
+
+const locationDialog = document.getElementById('location-dialog');
+const LOCATION_DIALOG = {
+    prompt: {
+        title: 'Permitir acesso à localização?',
+        text: 'Para registrar o problema no lugar certo, o mapa usa a localização do seu aparelho. '
+            + 'Ela só marca o ponto do relato e não é guardada. Na próxima tela, o navegador vai pedir sua permissão.',
+        allow: true,
+    },
+    denied: {
+        title: 'Localização bloqueada',
+        text: 'O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado do '
+            + 'endereço e permita a localização. Você também pode escolher o ponto no mapa.',
+        allow: false,
+    },
+    unsupported: {
+        title: 'Localização indisponível',
+        text: 'Este navegador não informa a localização nesta página (é preciso HTTPS). Escolha o ponto no mapa.',
+        allow: false,
+    },
+};
+
+document.getElementById('report-begin').addEventListener('click', async () => {
+    setReportMessage('');
+    const permission = await geolocationPermission();
+    if (permission === 'granted') {
+        await locateForReport(); // já permitido: vai direto para o ponto do GPS
+        return;
+    }
+    const content = LOCATION_DIALOG[permission] ?? LOCATION_DIALOG.prompt;
+    document.getElementById('location-dialog-title').textContent = content.title;
+    document.getElementById('location-dialog-text').textContent = content.text;
+    document.getElementById('location-allow').hidden = !content.allow;
+    locationDialog.showModal();
+    (content.allow ? document.getElementById('location-allow') : document.getElementById('location-manual')).focus();
+});
+
+document.getElementById('location-allow').addEventListener('click', () => {
+    locationDialog.close();
+    locateForReport(); // aqui o navegador mostra o pedido de permissão do aparelho
+});
+
+document.getElementById('location-manual').addEventListener('click', () => {
+    locationDialog.close();
+    startManualPick();
 });
 
 document.getElementById('report-cancel').addEventListener('click', resetReport);
 
 map.on('click', (event) => {
-    if (!document.body.classList.contains('picking')) {
-        return;
+    if (document.body.classList.contains('picking')) {
+        pickLocation(event.latlng);
     }
-    state.pickedLocation = event.latlng;
-    state.pickMarker?.remove();
-    state.pickMarker = L.marker(event.latlng).addTo(map);
-    document.getElementById('report-hint').hidden = true;
-    reportForm.hidden = false;
 });
 
 reportForm.addEventListener('submit', async (event) => {
