@@ -480,30 +480,84 @@ function pickLocation(latlng) {
     reportForm.hidden = false;
 }
 
-document.getElementById('report-start').addEventListener('click', () => {
-    setReportMessage('');
+function startManualPick(message = '', kind) {
+    setReportMessage(message, kind);
     document.getElementById('report-choice').hidden = true;
     document.getElementById('report-hint').hidden = false;
     document.body.classList.add('picking');
-});
+}
 
-document.getElementById('report-locate').addEventListener('click', async (event) => {
-    const button = event.currentTarget;
+async function locateForReport() {
     setReportMessage('Buscando sua localização…');
-    button.disabled = true;
     try {
         const position = await currentPosition();
-        const latlng = showUserLocation(position);
-        pickLocation(latlng);
+        pickLocation(showUserLocation(position));
         const accuracy = Math.round(position.coords.accuracy);
         setReportMessage(accuracy > LOW_ACCURACY_METERS
             ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o marcador antes de enviar.`
             : '');
     } catch (error) {
-        setReportMessage(error.message, 'error');
-    } finally {
-        button.disabled = false;
+        // sem localização, o relato continua: o ponto é escolhido no mapa
+        startManualPick(error.message, 'error');
     }
+}
+
+// Estado da permissão sem disparar o pedido do navegador; sem a Permissions API (Safari antigo), "prompt"
+async function geolocationPermission() {
+    if (!window.isSecureContext || !('geolocation' in navigator)) {
+        return 'unsupported';
+    }
+    try {
+        return (await navigator.permissions.query({name: 'geolocation'})).state;
+    } catch {
+        return 'prompt';
+    }
+}
+
+const locationDialog = document.getElementById('location-dialog');
+const LOCATION_DIALOG = {
+    prompt: {
+        title: 'Permitir acesso à localização?',
+        text: 'Para registrar o problema no lugar certo, o mapa usa a localização do seu aparelho. '
+            + 'Ela só marca o ponto do relato e não é guardada. Na próxima tela, o navegador vai pedir sua permissão.',
+        allow: true,
+    },
+    denied: {
+        title: 'Localização bloqueada',
+        text: 'O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado do '
+            + 'endereço e permita a localização. Você também pode escolher o ponto no mapa.',
+        allow: false,
+    },
+    unsupported: {
+        title: 'Localização indisponível',
+        text: 'Este navegador não informa a localização nesta página (é preciso HTTPS). Escolha o ponto no mapa.',
+        allow: false,
+    },
+};
+
+document.getElementById('report-begin').addEventListener('click', async () => {
+    setReportMessage('');
+    const permission = await geolocationPermission();
+    if (permission === 'granted') {
+        await locateForReport(); // já permitido: vai direto para o ponto do GPS
+        return;
+    }
+    const content = LOCATION_DIALOG[permission] ?? LOCATION_DIALOG.prompt;
+    document.getElementById('location-dialog-title').textContent = content.title;
+    document.getElementById('location-dialog-text').textContent = content.text;
+    document.getElementById('location-allow').hidden = !content.allow;
+    locationDialog.showModal();
+    (content.allow ? document.getElementById('location-allow') : document.getElementById('location-manual')).focus();
+});
+
+document.getElementById('location-allow').addEventListener('click', () => {
+    locationDialog.close();
+    locateForReport(); // aqui o navegador mostra o pedido de permissão do aparelho
+});
+
+document.getElementById('location-manual').addEventListener('click', () => {
+    locationDialog.close();
+    startManualPick();
 });
 
 document.getElementById('report-cancel').addEventListener('click', resetReport);

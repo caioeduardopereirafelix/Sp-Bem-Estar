@@ -41,7 +41,7 @@ Este projeto ataca três pontos:
 ## Funcionalidades
 
 **Cidadão**
-- Reportar um problema com foto, localização e categoria; o local vem do GPS do aparelho ("Usar minha localização") ou de um clique no mapa, e o marcador pode ser arrastado para corrigir
+- Reportar um problema com foto, localização e categoria. Antes do relato, um pop-up explica para que serve a localização e leva ao pedido de permissão do aparelho; com a permissão, o ponto vem do GPS, e sem ela o ponto é escolhido no mapa. O marcador pode ser arrastado para corrigir
 - Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status

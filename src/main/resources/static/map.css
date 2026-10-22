@@ -167,6 +167,31 @@ select, input[type="file"] {
     flex-wrap: wrap;
 }
 
+.location-dialog {
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.location-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.location-dialog h2 {
+    margin: 0 0 8px;
+    font-size: 17px;
+}
+
+.location-dialog p {
+    margin: 0 0 16px;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
 /* Botão "minha localização" no mapa, no mesmo estilo dos controles de zoom do Leaflet */
 .locate-control button {
     width: 34px;
