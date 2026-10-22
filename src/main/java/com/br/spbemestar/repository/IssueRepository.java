@@ -1,12 +1,16 @@
 package com.br.spbemestar.repository;
 
 import com.br.spbemestar.model.Issue;
+import com.br.spbemestar.model.IssueStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Optional;
 
 public interface IssueRepository extends JpaRepository<Issue, Long> {
@@ -19,13 +23,13 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
                 )::numeric, 4)
             FROM category c
             WHERE c.code = i.category_code
-              AND i.status <> 'RESOLVED'
+              AND i.status NOT IN ('RESOLVED', 'DISCARDED')
             """;
 
     @Query(value = """
             SELECT i.* FROM issue i
             WHERE i.category_code = :category
-              AND i.status <> 'RESOLVED'
+              AND i.status NOT IN ('RESOLVED', 'DISCARDED')
               AND i.last_reported_at > :since
               AND ST_DWithin(i.location, ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography, :radius)
             ORDER BY i.location <-> ST_SetSRID(ST_MakePoint(:longitude, :latitude), 4326)::geography
@@ -36,6 +40,24 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
                                     @Param("longitude") double longitude,
                                     @Param("radius") double radiusMeters,
                                     @Param("since") Instant since);
+
+    /** Fila de atendimento: mais urgente primeiro; no empate, o mais antigo. */
+    @Query(value = """
+            SELECT i FROM Issue i JOIN FETCH i.category LEFT JOIN FETCH i.neighborhood
+            WHERE i.status IN :statuses
+              AND (:category IS NULL OR i.category.code = :category)
+              AND (:neighborhoodId IS NULL OR i.neighborhood.id = :neighborhoodId)
+            ORDER BY i.priorityScore DESC, i.firstReportedAt, i.id
+            """, countQuery = """
+            SELECT count(i) FROM Issue i
+            WHERE i.status IN :statuses
+              AND (:category IS NULL OR i.category.code = :category)
+              AND (:neighborhoodId IS NULL OR i.neighborhood.id = :neighborhoodId)
+            """)
+    Page<Issue> findQueue(@Param("statuses") Collection<IssueStatus> statuses,
+                          @Param("category") String category,
+                          @Param("neighborhoodId") Long neighborhoodId,
+                          Pageable pageable);
 
     @Modifying(flushAutomatically = true)
     @Query(value = RECALCULATE_PRIORITY + " AND i.id = :id", nativeQuery = true)

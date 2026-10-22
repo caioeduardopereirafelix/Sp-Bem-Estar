@@ -55,6 +55,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.CONFLICT, "Relato sem autor", e.getMessage());
     }
 
+    @ExceptionHandler(ReportAlreadyModeratedException.class)
+    ProblemDetail handleAlreadyModerated(ReportAlreadyModeratedException e) {
+        return problem(HttpStatus.CONFLICT, "Relato já moderado", e.getMessage());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     ProblemDetail handleNotFound(ResourceNotFoundException e) {
         return problem(HttpStatus.NOT_FOUND, "Não encontrado", e.getMessage());

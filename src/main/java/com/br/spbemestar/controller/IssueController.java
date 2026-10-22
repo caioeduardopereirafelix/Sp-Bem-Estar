@@ -5,10 +5,13 @@ import com.br.spbemestar.dto.BoundingBox;
 import com.br.spbemestar.dto.ChangeStatusRequest;
 import com.br.spbemestar.dto.GeoJsonFeatureCollection;
 import com.br.spbemestar.dto.IssueDetailResponse;
+import com.br.spbemestar.dto.PageResponse;
+import com.br.spbemestar.dto.QueueItem;
 import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.service.IssueQueryService;
 import com.br.spbemestar.service.IssueStatusService;
+import com.br.spbemestar.service.OperatorQueueService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -29,6 +32,7 @@ public class IssueController {
 
     private final IssueQueryService issueQueryService;
     private final IssueStatusService issueStatusService;
+    private final OperatorQueueService operatorQueue;
 
     /**
      * Sem {@code status}, devolve apenas chamados não resolvidos.
@@ -40,6 +44,20 @@ public class IssueController {
                                            @RequestParam(defaultValue = "500") @Min(1) @Max(1000) int limit) {
         BoundingBox box = bbox == null ? null : BoundingBox.parse(bbox);
         return issueQueryService.search(box, category, status, limit);
+    }
+
+    /**
+     * Fila de atendimento do operador: sem {@code status}, os chamados abertos, confirmados e em andamento,
+     * do maior {@code priorityScore} para o menor.
+     */
+    @SecurityRequirement(name = OpenApiConfig.BEARER)
+    @GetMapping("/queue")
+    public PageResponse<QueueItem> queue(@RequestParam(required = false) IssueStatus status,
+                                         @RequestParam(required = false) String category,
+                                         @RequestParam(required = false) Long neighborhoodId,
+                                         @RequestParam(defaultValue = "0") @Min(0) int page,
+                                         @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return operatorQueue.queue(status, category, neighborhoodId, page, size);
     }
 
     @GetMapping("/{id}")

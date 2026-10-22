@@ -81,6 +81,37 @@
             <p class="message" id="login-message" aria-live="polite"></p>
         </section>
 
+        <section class="card" id="queue-card" hidden>
+            <h2>Fila de atendimento</h2>
+            <p class="hint">Chamados em aberto, do mais urgente para o menos.</p>
+            <div class="filters">
+                <label>Categoria
+                    <select id="queue-category">
+                        <option value="">Todas</option>
+                    </select>
+                </label>
+                <label>Status
+                    <select id="queue-status">
+                        <option value="">Em aberto (todos)</option>
+                        <option value="OPEN">Aberto</option>
+                        <option value="CONFIRMED">Confirmado</option>
+                        <option value="IN_PROGRESS">Em andamento</option>
+                    </select>
+                </label>
+            </div>
+            <ol class="queue" id="queue-list"></ol>
+            <p class="hint" id="queue-summary" aria-live="polite"></p>
+            <button type="button" class="button" id="queue-more" hidden>Mostrar mais</button>
+        </section>
+
+        <section class="card" id="moderation-card" hidden>
+            <h2>Moderação <span class="badge" id="moderation-count"></span></h2>
+            <p class="hint">Relatos em que o classificador discordou da categoria ou teve pouca confiança.</p>
+            <ul class="moderation" id="moderation-list"></ul>
+            <button type="button" class="button" id="moderation-more" hidden>Mostrar mais</button>
+            <p class="message" id="moderation-message" aria-live="polite"></p>
+        </section>
+
         <section class="card">
             <h2>Distritos com mais chamados</h2>
             <p class="hint">Chamados abertos a cada 10 mil habitantes</p>

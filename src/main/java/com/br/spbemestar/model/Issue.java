@@ -24,6 +24,7 @@ import org.locationtech.jts.geom.Point;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 
 @Getter
@@ -87,8 +88,8 @@ public class Issue {
     }
 
     public void registerReport(Instant reportedAt) {
-        if (status == IssueStatus.RESOLVED) {
-            throw new IllegalStateException("Chamado resolvido não recebe novos relatos: " + id);
+        if (!isOpen()) {
+            throw new IllegalStateException("Chamado " + status + " não recebe novos relatos: " + id);
         }
         reportCount++;
         if (reportedAt.isAfter(lastReportedAt)) {
@@ -108,11 +109,30 @@ public class Issue {
         return new IssueStatusHistory(this, previous, target, changedAt);
     }
 
+    /**
+     * Tira do chamado um relato rejeitado pela moderação. Sem nenhum relato válido, o chamado é descartado.
+     *
+     * @return a mudança de status, quando o chamado é descartado
+     */
+    public Optional<IssueStatusHistory> removeRejectedReport(Instant changedAt) {
+        if (status == IssueStatus.DISCARDED) {
+            throw new IllegalStateException("Chamado já descartado: " + id);
+        }
+        reportCount--;
+        if (reportCount > 0) {
+            return Optional.empty();
+        }
+        IssueStatus previous = status;
+        status = IssueStatus.DISCARDED;
+        resolvedAt = null;
+        return Optional.of(new IssueStatusHistory(this, previous, IssueStatus.DISCARDED, changedAt));
+    }
+
     public void updatePriorityScore(BigDecimal score) {
         this.priorityScore = Objects.requireNonNull(score);
     }
 
     public boolean isOpen() {
-        return status != IssueStatus.RESOLVED;
+        return status != IssueStatus.RESOLVED && status != IssueStatus.DISCARDED;
     }
 }

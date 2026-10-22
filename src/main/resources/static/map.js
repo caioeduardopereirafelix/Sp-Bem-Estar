@@ -25,7 +25,7 @@ const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, max
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 
 const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null,
-    session: loadSession(), reporter: null};
+    session: loadSession(), reporter: null, markers: new Map()};
 
 // Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
 function loadSession() {
@@ -293,6 +293,7 @@ async function loadIssues() {
 
     const collection = await api(`/issues?${params}`);
     issueLayer.clearLayers();
+    state.markers.clear();
     for (const feature of collection.features) {
         const [lon, lat] = feature.geometry.coordinates;
         const p = feature.properties;
@@ -305,6 +306,7 @@ async function loadIssues() {
         marker.bindPopup('Carregando…', {maxWidth: 320});
         marker.on('popupopen', () => showIssue(feature.id, marker));
         issueLayer.addLayer(marker);
+        state.markers.set(feature.id, marker);
     }
     const count = collection.features.length;
     document.getElementById('issue-count').textContent =
@@ -376,7 +378,7 @@ async function changeStatus(id, status, marker) {
             body: JSON.stringify({status}),
         });
         marker.closePopup();
-        await Promise.all([loadIssues(), loadDistricts()]);
+        await Promise.all([loadIssues(), loadDistricts(), loadQueue()]);
     } catch (error) {
         marker.setPopupContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
     }
@@ -455,8 +457,139 @@ function renderSession() {
     document.getElementById('operator-session').hidden = !session;
     document.getElementById('operator-name').textContent = session
         ? `Conectado como ${session.name}. Abra um chamado no mapa para alterar o status.` : '';
+    document.getElementById('queue-card').hidden = !session;
+    document.getElementById('moderation-card').hidden = !session;
     map.closePopup();
+    if (session) {
+        loadOperatorQueues();
+    }
 }
+
+// Filas do operador: atendimento (por prioridade) e moderação (relatos marcados pelo classificador)
+const PAGE_SIZE = 20;
+const queue = {page: 0, items: []};
+const moderation = {page: 0, items: []};
+const moderationMessage = document.getElementById('moderation-message');
+
+function loadOperatorQueues() {
+    Promise.all([loadQueue(), loadModeration()]).catch((error) => {
+        moderationMessage.textContent = error.message;
+        moderationMessage.className = 'message error';
+    });
+}
+
+async function loadQueue(append = false) {
+    if (!state.session) {
+        return;
+    }
+    queue.page = append ? queue.page + 1 : 0;
+    const params = new URLSearchParams({page: queue.page, size: PAGE_SIZE});
+    const category = document.getElementById('queue-category').value;
+    const status = document.getElementById('queue-status').value;
+    if (category) params.set('category', category);
+    if (status) params.set('status', status);
+
+    const result = await api(`/issues/queue?${params}`);
+    queue.items = append ? queue.items.concat(result.items) : result.items;
+    const list = document.getElementById('queue-list');
+    list.innerHTML = queue.items.map((item, index) => `<li>
+        <button type="button" class="queue-item" data-issue="${item.id}">
+            <span class="queue-rank">${index + 1}</span>
+            <span class="queue-body">
+                <strong>${escapeHtml(item.categoryName)} · #${item.id}</strong>
+                <span>${statusLabel(item.status)} · ${escapeHtml(item.neighborhood ?? 'Fora dos distritos importados')}</span>
+                <span class="queue-meta">Prioridade ${Number(item.priorityScore).toFixed(2)} · ${item.reportCount} relato(s)${
+                    item.pendingModeration ? ` · ${item.pendingModeration} para moderar` : ''}</span>
+            </span>
+        </button></li>`).join('');
+    list.querySelectorAll('[data-issue]').forEach((button, index) => {
+        button.addEventListener('click', () => focusIssue(queue.items[index]));
+    });
+    document.getElementById('queue-summary').textContent = result.total === 0
+        ? 'Nenhum chamado em aberto.'
+        : `${numberFormat.format(queue.items.length)} de ${numberFormat.format(result.total)} chamado(s).`;
+    document.getElementById('queue-more').hidden = queue.items.length >= result.total;
+}
+
+// Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
+async function focusIssue(item) {
+    map.setView([item.latitude, item.longitude], 18, {animate: false});
+    clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
+    await loadIssues();
+    state.markers.get(item.id)?.openPopup();
+}
+
+async function loadModeration(append = false) {
+    if (!state.session) {
+        return;
+    }
+    moderation.page = append ? moderation.page + 1 : 0;
+    const result = await api(`/moderation/reports?page=${moderation.page}&size=${PAGE_SIZE}`);
+    moderation.items = append ? moderation.items.concat(result.items) : result.items;
+    document.getElementById('moderation-count').textContent = result.total ? numberFormat.format(result.total) : '';
+    const list = document.getElementById('moderation-list');
+    list.innerHTML = moderation.items.length === 0
+        ? '<li class="hint">Nenhum relato esperando moderação.</li>'
+        : moderation.items.map((item) => {
+            const confidence = item.confidence == null ? '' : ` (${Math.round(Number(item.confidence) * 100)}%)`;
+            const verdict = item.classificationStatus === 'LOW_CONFIDENCE'
+                ? `Modelo em dúvida: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`
+                : `Modelo viu: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`;
+            return `<li class="moderation-item">
+                <a href="${item.photoUrl}" target="_blank" rel="noopener"><img src="${item.photoUrl}" alt="Foto do relato ${item.reportId}" loading="lazy"></a>
+                <div class="moderation-body">
+                    <strong>Relato #${item.reportId} · chamado #${item.issueId}</strong>
+                    <span>Enviado como: ${escapeHtml(item.categoryName)}</span>
+                    <span class="queue-meta">${verdict}</span>
+                    ${item.reporterBlocked ? '<span class="queue-meta">Autor já bloqueado</span>' : ''}
+                    <div class="actions">
+                        <button type="button" class="button" data-report="${item.reportId}" data-decision="APPROVED">Aprovar</button>
+                        <button type="button" class="button" data-report="${item.reportId}" data-decision="REJECTED">Rejeitar</button>
+                        ${item.reporterBlocked ? '' : `<button type="button" class="button" data-report="${item.reportId}"
+                            data-decision="REJECTED" data-block="true">Rejeitar e bloquear autor</button>`}
+                    </div>
+                </div>
+            </li>`;
+        }).join('');
+    list.querySelectorAll('[data-decision]').forEach((button) => {
+        button.addEventListener('click', () => moderate(button.dataset.report, button.dataset.decision,
+            button.dataset.block === 'true', button));
+    });
+    document.getElementById('moderation-more').hidden = moderation.items.length >= result.total;
+}
+
+async function moderate(reportId, decision, blockReporter, button) {
+    if (decision === 'REJECTED' && !confirm(blockReporter
+        ? `Rejeitar o relato #${reportId} e bloquear quem o enviou? A foto será apagada.`
+        : `Rejeitar o relato #${reportId}? Ele deixa de contar no chamado e a foto será apagada.`)) {
+        return;
+    }
+    button.disabled = true;
+    moderationMessage.className = 'message';
+    try {
+        const result = await api(`/moderation/reports/${reportId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({decision, blockReporter}),
+        });
+        moderationMessage.textContent = decision === 'APPROVED'
+            ? `Relato #${reportId} aprovado.`
+            : result.issueStatus === 'DISCARDED'
+                ? `Relato #${reportId} rejeitado; o chamado #${result.issueId} ficou sem relatos e foi descartado.`
+                : `Relato #${reportId} rejeitado; o chamado #${result.issueId} agora tem ${result.issueReportCount} relato(s).`;
+        moderationMessage.className = 'message success';
+        await Promise.all([loadModeration(), loadQueue(), loadIssues(), loadDistricts()]);
+    } catch (error) {
+        button.disabled = false;
+        moderationMessage.textContent = error.message;
+        moderationMessage.className = 'message error';
+    }
+}
+
+document.getElementById('queue-category').addEventListener('change', () => loadQueue());
+document.getElementById('queue-status').addEventListener('change', () => loadQueue());
+document.getElementById('queue-more').addEventListener('click', () => loadQueue(true));
+document.getElementById('moderation-more').addEventListener('click', () => loadModeration(true));
 
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -487,6 +620,7 @@ async function loadCategories() {
     state.categories = await api('/categories');
     const options = state.categories.map((c) => `<option value="${c.code}">${escapeHtml(c.name)}</option>`).join('');
     document.getElementById('filter-category').insertAdjacentHTML('beforeend', options);
+    document.getElementById('queue-category').insertAdjacentHTML('beforeend', options);
     document.getElementById('report-category').innerHTML = options;
 }
 
