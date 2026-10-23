@@ -33,16 +33,17 @@ public class IssueStatusService {
     private final Clock clock;
 
     @Transactional
-    public StatusChangeResponse change(Long issueId, IssueStatus target) {
+    public StatusChangeResponse change(Long issueId, IssueStatus target, Long operatorId) {
         Issue issue = issues.findById(issueId).orElseThrow(() -> new ResourceNotFoundException("Chamado", issueId));
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MICROS);
 
-        IssueStatusHistory change = history.save(issue.changeStatus(target, now));
+        IssueStatusHistory change = history.save(issue.changeStatus(target, now, operatorId));
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("issueId", issueId);
         payload.put("from", change.getFromStatus().name());
         payload.put("to", change.getToStatus().name());
+        payload.put("changedBy", operatorId);
         outbox.save(OutboxEvent.of(issueId, ISSUE_STATUS_CHANGED, json.writeValueAsString(payload), now));
 
         return new StatusChangeResponse(issueId, change.getFromStatus().name(), change.getToStatus().name(),

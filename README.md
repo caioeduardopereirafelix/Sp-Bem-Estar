@@ -45,6 +45,7 @@ Este projeto ataca três pontos:
 - Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
+- Para o operador logado, o histórico mostra quem fez cada mudança de status (o mapa público mostra o histórico sem nomes)
 
 **Órgão público**
 - Ranking de bairros por problemas a cada 10 mil habitantes
@@ -118,10 +119,15 @@ Os testes disparam 20 relatos simultâneos no mesmo ponto e na borda entre duas 
 Bairros com mais usuários de smartphone reportam mais — o que não significa que tenham mais problemas. Por isso:
 
 ```
-score = peso_severidade × ln(1 + relatos) × (1 + dias_em_aberto / 30)
+score = peso_severidade × ln(1 + pessoas) × (1 + dias_em_aberto / 30)
 ```
 
-O `ln` reduz o efeito de volume bruto, o fator de idade impede que chamados antigos sejam esquecidos, e os indicadores de bairro são apresentados **por 10 mil habitantes** (dados do IBGE).
+- **Pessoas, não relatos:** contam os autores distintos dos relatos (pelo `reporter_hash`), sem os rejeitados pela moderação. Quem reporta o mesmo buraco cinco vezes conta uma, então insistir não fura a fila. Relatos anteriores à identidade anônima não têm autor e contam um cada.
+- **O `ln`** reduz o efeito de volume bruto.
+- **O fator de idade** impede que chamados antigos sejam esquecidos.
+- **Indicadores de bairro** são apresentados **por 10 mil habitantes** (dados do IBGE).
+
+O chamado guarda as duas contagens: `reportCount` (relatos) e `reporterCount` (pessoas). O mapa mostra, por exemplo, "6 relatos de 5 pessoas".
 
 ### Outbox transacional
 Gravar no banco e publicar no broker em passos separados pode perder ou duplicar eventos. O evento é gravado na **mesma transação** do relato e publicado depois por um processo dedicado. Os consumidores são idempotentes e há **DLQ** para mensagens com falha.

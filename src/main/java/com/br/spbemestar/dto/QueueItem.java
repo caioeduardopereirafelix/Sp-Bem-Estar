@@ -6,6 +6,7 @@ import java.time.Instant;
 /**
  * Chamado na fila de atendimento.
  *
+ * @param reporterCount     pessoas distintas que reportaram; é o que entra na prioridade
  * @param pendingModeration relatos deste chamado que o classificador marcou e ainda esperam moderação
  */
 public record QueueItem(
@@ -15,6 +16,7 @@ public record QueueItem(
         String status,
         String neighborhood,
         int reportCount,
+        int reporterCount,
         long pendingModeration,
         BigDecimal priorityScore,
         Instant firstReportedAt,

@@ -253,6 +253,13 @@ function shapeSvg(status, size = 18) {
         <g fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round">${mark}</g></svg>`;
 }
 
+// "5 relatos de 2 pessoas": a prioridade conta pessoas, e quem reporta de novo não soma
+function reportsLabel(reports, reporters) {
+    const text = `${numberFormat.format(reports)} relato${reports === 1 ? '' : 's'}`;
+    return reporters === reports ? text
+        : `${text} de ${numberFormat.format(reporters)} pessoa${reporters === 1 ? '' : 's'}`;
+}
+
 function statusLabel(status) {
     return `<span class="status-label">${shapeSvg(status, 14)}${STATUS[status].label}</span>`;
 }
@@ -334,6 +341,11 @@ function renderRanking(stats) {
 }
 
 function scheduleIssueLoad() {
+    // o Leaflet desloca o mapa para o popup caber na tela; recarregar aqui recriaria o marcador e fecharia o popup
+    if (state.autoPanning) {
+        state.autoPanning = false;
+        return;
+    }
     clearTimeout(state.loadTimer);
     state.loadTimer = setTimeout(loadIssues, 250);
 }
@@ -379,7 +391,8 @@ async function showIssue(id, marker) {
         const photos = issue.reports.slice(0, 4).map((r) =>
             `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img src="${r.photoUrl}" alt="Foto do relato ${r.id}" loading="lazy"></a>`).join('');
         const history = issue.history.map((h) =>
-            `<li>${STATUS[h.from]?.label ?? '—'} → ${STATUS[h.to].label} · ${dateFormat.format(new Date(h.changedAt))}</li>`).join('');
+            `<li>${STATUS[h.from]?.label ?? '—'} → ${STATUS[h.to].label} · ${dateFormat.format(new Date(h.changedAt))}${
+                h.changedBy ? ` · ${escapeHtml(h.changedBy)}` : ''}</li>`).join('');
         const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
             `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
         const canChange = TRANSITIONS[issue.status].length > 0;
@@ -390,7 +403,7 @@ async function showIssue(id, marker) {
             <h3>${escapeHtml(issue.categoryName)} · #${issue.id}</h3>
             ${statusLabel(issue.status)}
             <dl>
-                <dt>Relatos</dt><dd>${issue.reportCount}</dd>
+                <dt>Relatos</dt><dd>${reportsLabel(issue.reportCount, issue.reporterCount)}</dd>
                 <dt>Prioridade</dt><dd>${Number(issue.priorityScore).toFixed(2)}</dd>
                 <dt>Distrito</dt><dd>${escapeHtml(issue.neighborhood ?? 'Fora dos distritos importados')}</dd>
                 <dt>1º relato</dt><dd>${dateFormat.format(new Date(issue.firstReportedAt))}</dd>
@@ -642,7 +655,7 @@ async function loadQueue(append = false) {
             <span class="queue-body">
                 <strong>${escapeHtml(item.categoryName)} · #${item.id}</strong>
                 <span>${statusLabel(item.status)} · ${escapeHtml(item.neighborhood ?? 'Fora dos distritos importados')}</span>
-                <span class="queue-meta">Prioridade ${Number(item.priorityScore).toFixed(2)} · ${item.reportCount} relato(s)${
+                <span class="queue-meta">Prioridade ${Number(item.priorityScore).toFixed(2)} · ${reportsLabel(item.reportCount, item.reporterCount)}${
                     item.pendingModeration ? ` · ${item.pendingModeration} para moderar` : ''}</span>
             </span>
         </button></li>`).join('');
@@ -770,6 +783,9 @@ async function loadCategories() {
 
 document.getElementById('filter-category').addEventListener('change', loadIssues);
 document.getElementById('filter-status').addEventListener('change', loadIssues);
+map.on('autopanstart', () => {
+    state.autoPanning = true;
+});
 map.on('moveend', scheduleIssueLoad);
 
 map.whenReady(() => map.invalidateSize());

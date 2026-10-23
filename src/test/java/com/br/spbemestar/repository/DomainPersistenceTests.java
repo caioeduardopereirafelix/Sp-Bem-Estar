@@ -106,8 +106,8 @@ class DomainPersistenceTests {
         Category pothole = categories.findById("POTHOLE").orElseThrow();
         Issue issue = issues.save(Issue.open(pothole, GeoPoints.of(LAT, LON), null, Instant.now()));
 
-        history.save(issue.changeStatus(IssueStatus.CONFIRMED, Instant.now()));
-        history.save(issue.changeStatus(IssueStatus.RESOLVED, Instant.now()));
+        history.save(issue.changeStatus(IssueStatus.CONFIRMED, Instant.now(), null));
+        history.save(issue.changeStatus(IssueStatus.RESOLVED, Instant.now(), null));
         flushAndClear();
 
         Issue loaded = issues.findById(issue.getId()).orElseThrow();
@@ -122,11 +122,11 @@ class DomainPersistenceTests {
     void resolvedIssueRejectsNewReportsAndTransitions() {
         Category pothole = categories.findById("POTHOLE").orElseThrow();
         Issue issue = Issue.open(pothole, GeoPoints.of(LAT, LON), null, Instant.now());
-        issue.changeStatus(IssueStatus.RESOLVED, Instant.now());
+        issue.changeStatus(IssueStatus.RESOLVED, Instant.now(), null);
 
         assertThatThrownBy(() -> issue.registerReport(Instant.now()))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> issue.changeStatus(IssueStatus.OPEN, Instant.now()))
+        assertThatThrownBy(() -> issue.changeStatus(IssueStatus.OPEN, Instant.now(), null))
                 .isInstanceOf(InvalidStatusTransitionException.class);
     }
 

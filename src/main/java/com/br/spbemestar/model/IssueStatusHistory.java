@@ -42,10 +42,15 @@ public class IssueStatusHistory {
     @Column(name = "changed_at", nullable = false)
     private Instant changedAt;
 
-    IssueStatusHistory(Issue issue, IssueStatus fromStatus, IssueStatus toStatus, Instant changedAt) {
+    /** Operador que fez a mudança; vazio nas mudanças anteriores ao registro do autor. */
+    @Column(name = "changed_by")
+    private Long changedBy;
+
+    IssueStatusHistory(Issue issue, IssueStatus fromStatus, IssueStatus toStatus, Instant changedAt, Long changedBy) {
         this.issue = issue;
         this.fromStatus = fromStatus;
         this.toStatus = toStatus;
         this.changedAt = changedAt;
+        this.changedBy = changedBy;
     }
 }

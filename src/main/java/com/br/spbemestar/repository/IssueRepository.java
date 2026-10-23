@@ -15,14 +15,30 @@ import java.util.Optional;
 
 public interface IssueRepository extends JpaRepository<Issue, Long> {
 
-    // prioridade = peso da categoria × ln(1 + relatos) × (1 + dias em aberto / 30)
-    String RECALCULATE_PRIORITY = """
+    /*
+     * prioridade = peso da categoria × ln(1 + pessoas) × (1 + dias em aberto / 30)
+     *
+     * "Pessoas" são os autores distintos dos relatos não rejeitados: reportar o mesmo problema várias vezes
+     * não sobe a prioridade. Relatos sem reporter_hash (anteriores à identidade anônima) contam um cada.
+     * O texto é montado em partes para a versão de um chamado só filtrar também a contagem.
+     */
+    String COUNT_REPORTERS = """
+            WITH reporters AS (
+                SELECT r.issue_id, count(DISTINCT coalesce(r.reporter_hash, 'relato-' || r.id)) AS total
+                FROM report r
+                WHERE r.moderation_status IS DISTINCT FROM 'REJECTED'
+            """;
+    String UPDATE_PRIORITY = """
+                GROUP BY r.issue_id
+            )
             UPDATE issue i
-            SET priority_score = round((c.severity_weight * ln(1 + i.report_count)
+            SET reporter_count = rp.total,
+                priority_score = round((c.severity_weight * ln(1 + rp.total)
                     * (1 + GREATEST(EXTRACT(EPOCH FROM (CAST(:now AS timestamptz) - i.first_reported_at)), 0) / 2592000)
                 )::numeric, 4)
-            FROM category c
+            FROM category c, reporters rp
             WHERE c.code = i.category_code
+              AND rp.issue_id = i.id
               AND i.status NOT IN ('RESOLVED', 'DISCARDED')
             """;
 
@@ -60,10 +76,10 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
                           Pageable pageable);
 
     @Modifying(flushAutomatically = true)
-    @Query(value = RECALCULATE_PRIORITY + " AND i.id = :id", nativeQuery = true)
+    @Query(value = COUNT_REPORTERS + " AND r.issue_id = :id " + UPDATE_PRIORITY + " AND i.id = :id", nativeQuery = true)
     int recalculatePriority(@Param("id") Long id, @Param("now") Instant now);
 
     @Modifying
-    @Query(value = RECALCULATE_PRIORITY, nativeQuery = true)
+    @Query(value = COUNT_REPORTERS + UPDATE_PRIORITY, nativeQuery = true)
     int recalculateOpenPriorities(@Param("now") Instant now);
 }

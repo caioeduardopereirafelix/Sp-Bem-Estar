@@ -97,7 +97,9 @@ class OperatorQueueTests {
         Long flagged = reportService.create(TestReporters.ID, "POTHOLE", -27.20, -47.00, TestPhotos.jpeg()).reportId();
         classification.apply(flagged, "TRASH", 0.95); // o modelo discorda da categoria
 
-        assertThat(itemOf(queue(""), issueId)).containsEntry("reportCount", 2).containsEntry("pendingModeration", 1);
+        // os dois relatos são do mesmo cidadão: 2 relatos, 1 pessoa
+        assertThat(itemOf(queue(""), issueId)).containsEntry("reportCount", 2).containsEntry("reporterCount", 1)
+                .containsEntry("pendingModeration", 1);
     }
 
     @Test

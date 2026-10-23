@@ -112,6 +112,10 @@ class ModerationTests {
 
         assertThat(jdbc.queryForList("SELECT from_status || '->' || to_status FROM issue_status_history WHERE issue_id = ?",
                 String.class, issueId)).contains("OPEN->DISCARDED");
+        // o histórico registra qual operador descartou
+        assertThat(jdbc.queryForObject("""
+                SELECT changed_by FROM issue_status_history WHERE issue_id = ? AND to_status = 'DISCARDED'
+                """, Long.class, issueId)).isEqualTo(users.findByEmail(TestOperators.EMAIL).orElseThrow().getId());
         assertThat(mvc.get().uri("/api/v1/issues/{id}", issueId).exchange()).hasStatus(HttpStatus.NOT_FOUND);
         // nenhum operador muda o status de um chamado descartado
         assertThat(mvc.patch().uri("/api/v1/issues/{id}/status", issueId)

@@ -9,6 +9,7 @@ public record IssueSummary(
         String categoryName,
         String status,
         int reportCount,
+        int reporterCount,
         BigDecimal priorityScore,
         Instant firstReportedAt,
         Instant lastReportedAt,

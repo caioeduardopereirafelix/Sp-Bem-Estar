@@ -22,6 +22,7 @@ public class IssueQueryRepository {
             rs.getString("category_name"),
             rs.getString("status"),
             rs.getInt("report_count"),
+            rs.getInt("reporter_count"),
             rs.getBigDecimal("priority_score"),
             rs.getObject("first_reported_at", OffsetDateTime.class).toInstant(),
             rs.getObject("last_reported_at", OffsetDateTime.class).toInstant(),
@@ -33,7 +34,7 @@ public class IssueQueryRepository {
 
     public List<IssueSummary> search(BoundingBox bbox, String category, IssueStatus status, int limit) {
         StringBuilder sql = new StringBuilder("""
-                SELECT i.id, i.category_code, c.name AS category_name, i.status, i.report_count,
+                SELECT i.id, i.category_code, c.name AS category_name, i.status, i.report_count, i.reporter_count,
                        i.priority_score, i.first_reported_at, i.last_reported_at,
                        n.name AS neighborhood_name,
                        ST_Y(i.location::geometry) AS latitude, ST_X(i.location::geometry) AS longitude

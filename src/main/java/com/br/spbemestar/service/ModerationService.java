@@ -92,7 +92,8 @@ public class ModerationService {
 
         Issue issue = report.getIssue();
         if (request.decision() == ModerationDecision.REJECTED) {
-            issue.removeRejectedReport(now).ifPresentOrElse(history::save, () -> priority.recalculate(issue.getId()));
+            issue.removeRejectedReport(now, operatorId)
+                    .ifPresentOrElse(history::save, () -> priority.recalculate(issue.getId()));
             deletePhotoAfterCommit(report.getPhotoId());
             if (request.blockReporter()) {
                 reporterTokens.blockAuthorOf(reportId, operatorId);
