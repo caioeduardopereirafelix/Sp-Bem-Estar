@@ -1,0 +1,100 @@
+# promtool test rules alerts.test.yml (roda no CI)
+rule_files:
+  - alerts.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: API fora dispara depois de 1 minuto
+    interval: 15s
+    input_series:
+      - series: 'up{job="spbemestar-api", instance="api:8080"}'
+        values: "1 1 0 0 0 0 0 0"
+    alert_rule_test:
+      - eval_time: 45s
+        alertname: ApiFora
+        exp_alerts: []
+      - eval_time: 105s
+        alertname: ApiFora
+        exp_alerts:
+          - exp_labels: {severity: critical, job: spbemestar-api, instance: "api:8080"}
+            exp_annotations:
+              summary: "API fora do ar"
+              description: "O Prometheus não consegue ler api:8080 há mais de 1 minuto."
+
+  - name: outbox parada só alerta quando passa de 5 minutos por 5 minutos
+    interval: 1m
+    input_series:
+      - series: 'spbemestar_outbox_oldest_age_seconds{job="spbemestar-api"}'
+        values: "0 60 120 180 240 300 360 420 480 540 600 660 720"
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: OutboxParada
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: OutboxParada
+        exp_alerts:
+          - exp_labels: {severity: critical, job: spbemestar-api}
+            exp_annotations:
+              summary: "Outbox sem publicar há mais de 5 minutos"
+              description: "O evento pendente mais antigo tem 11m 0s. Confira a conexão com o RabbitMQ."
+
+  - name: taxa de 5xx acima de 5%
+    interval: 1m
+    input_series:
+      # 10 requisições por minuto, 1 delas com erro: 10%
+      - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="200"}'
+        values: "0+9x15"
+      - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="500"}'
+        values: "0+1x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ErrosNaApi
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Mais de 5% das requisições com erro 5xx"
+              description: "10% das respostas são 5xx. Procure o traceId da resposta nos logs."
+
+  - name: poucos erros não alertam
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="200"}'
+        values: "0+99x15"
+      - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="500"}'
+        values: "0+1x15"
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: ErrosNaApi
+        exp_alerts: []
+
+  - name: mensagem na DLQ por 15 minutos
+    interval: 1m
+    input_series:
+      - series: 'spbemestar_rabbitmq_dead_letters{job="spbemestar-api", queue="report.classification.dlq"}'
+        values: "0 1x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: MensagensNaDlq
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: MensagensNaDlq
+        exp_alerts:
+          - exp_labels: {severity: warning, job: spbemestar-api, queue: report.classification.dlq}
+            exp_annotations:
+              summary: "Mensagens paradas na report.classification.dlq"
+              description: "Há 15 minutos a fila tem 1 mensagem(ns). Elas não voltam sozinhas: veja o motivo no painel do RabbitMQ."
+
+  - name: refresh reutilizado alerta na hora
+    interval: 1m
+    input_series:
+      - series: 'spbemestar_reporters_events_total{job="spbemestar-api", event="refresh_reused"}'
+        values: "0 0 1 1"
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: RefreshTokenReutilizado
+        exp_alerts:
+          - exp_labels: {severity: warning}
+            exp_annotations:
+              summary: "Refresh token de cidadão reutilizado"
+              description: "Um refresh já trocado foi usado de novo, o que indica token copiado. A família foi revogada."

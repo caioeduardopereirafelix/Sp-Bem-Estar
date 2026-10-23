@@ -4,6 +4,8 @@ import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.RabbitConfig;
+import com.br.spbemestar.model.OutboxEvent;
+import com.br.spbemestar.repository.OutboxEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.AmqpAdmin;
@@ -16,6 +18,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -33,6 +36,7 @@ class OutboxPublisherTests {
     @Autowired AmqpAdmin admin;
     @Autowired JdbcTemplate jdbc;
     @Autowired JsonMapper json;
+    @Autowired OutboxEventRepository outbox;
 
     @BeforeEach
     void drainPending() {
@@ -88,6 +92,21 @@ class OutboxPublisherTests {
         assertThat(dead).isNotNull();
         assertThat(dead.getMessageProperties().getMessageId()).isEqualTo(eventIdOf(reportId).toString());
         assertThat(rabbit.receive(RabbitConfig.CLASSIFICATION_QUEUE)).isNull();
+    }
+
+    @Test
+    void publishingContinuesTheTraceOfTheRequestThatCreatedTheEvent() {
+        String traceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+        outbox.save(OutboxEvent.of(-1L, ReportService.REPORT_CREATED, "{\"reportId\": -1}", Instant.now(),
+                "00-" + traceId + "-00f067aa0ba902b7-01"));
+
+        publisher.publishPending();
+
+        List<Message> messages = drain(RabbitConfig.CLASSIFICATION_QUEUE);
+        assertThat(messages).hasSize(1);
+        // o worker recebe o mesmo traceId do pedido HTTP, mesmo publicado depois por um job
+        assertThat((String) messages.getFirst().getMessageProperties().getHeader("traceparent"))
+                .startsWith("00-" + traceId + "-");
     }
 
     private UUID eventIdOf(Long reportId) {

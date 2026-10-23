@@ -76,3 +76,24 @@ jobs:
           name: classifier-worker-test-reports
           path: classifier-worker/target/surefire-reports/
           retention-days: 7
+
+  observability:
+    name: Observabilidade
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configuração e alertas do Prometheus
+        run: |
+          mkdir -p "$RUNNER_TEMP/secrets"
+          printf ci > "$RUNNER_TEMP/secrets/metrics_user"
+          printf ci > "$RUNNER_TEMP/secrets/metrics_password"
+          image=$(docker compose --profile observability config --images | grep prometheus)
+          docker run --rm --entrypoint promtool -v "$PWD/observability/prometheus:/etc/prometheus:ro" \
+            -v "$RUNNER_TEMP/secrets:/run/secrets:ro" "$image" check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint promtool -w /rules -v "$PWD/observability/prometheus:/rules:ro" \
+            "$image" test rules alerts.test.yml
+      - name: Configuração do Alloy
+        run: |
+          image=$(docker compose --profile observability config --images | grep alloy)
+          docker run --rm -v "$PWD/observability/alloy:/etc/alloy:ro" "$image" fmt /etc/alloy/config.alloy > /dev/null

@@ -2,6 +2,7 @@ package com.br.spbemestar.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.micrometer.core.instrument.MeterRegistry;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import io.github.bucket4j.TimeMeter;
@@ -49,8 +50,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Cache<String, Bucket> buckets;
     private final TimeMeter time;
     private final JsonMapper json;
+    private final MeterRegistry meters;
 
-    public RateLimitFilter(RateLimitProperties properties, Clock clock, JsonMapper json) {
+    public RateLimitFilter(RateLimitProperties properties, Clock clock, JsonMapper json, MeterRegistry meters) {
         this.rules = properties.rules().stream().map(CompiledRule::of).toList();
         Duration longestPeriod = rules.stream().map(CompiledRule::period)
                 .max(Comparator.naturalOrder()).orElse(Duration.ofMinutes(1));
@@ -61,6 +63,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 .build();
         this.time = new ClockTimeMeter(clock);
         this.json = json;
+        this.meters = meters;
+        // com zero desde a subida, para o increase() do Prometheus contar o primeiro 429 de cada regra
+        rules.forEach(rule -> meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()));
     }
 
     @Override
@@ -85,6 +90,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         // arredonda para cima: voltar no segundo indicado sempre encontra uma ficha
         long retryAfter = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999) / 1_000_000_000);
         // debug, não warn: sob ataque seria uma linha por requisição; o total de 429 já aparece no /actuator/prometheus
+        meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()).increment();
         log.debug("Rate limit '{}' atingido por {} em {} {}", rule.name(), client,
                 request.getMethod(), request.getRequestURI());
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS,
