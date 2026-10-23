@@ -13,6 +13,7 @@ import org.springframework.amqp.core.AmqpAdmin;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageBuilder;
 import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -43,6 +44,7 @@ class ReportCreatedListenerTests {
     @Autowired GridFsTemplate gridFs;
     @Autowired JsonMapper json;
     @Autowired MeterRegistry meters;
+    @Autowired ConnectionFactory connectionFactory;
 
     @BeforeEach
     void purge() {
@@ -120,6 +122,27 @@ class ReportCreatedListenerTests {
         assertThat(dead).isNotNull();
         assertThat(dead.getMessageProperties().getMessageId()).isEqualTo(eventId);
         assertThat(reports("photo_unreadable", "none")).isEqualTo(before + 1);
+    }
+
+    @Test
+    void resultContinuesTheTraceOfTheReport() {
+        String traceId = "0af7651916cd43dd8448eb211c80319c";
+        String photoId = storePhoto(TestImages.jpeg(Color.RED));
+        String payload = """
+                {"reportId": 43, "issueId": 1, "category": "POTHOLE", "photoId": "%s"}
+                """.formatted(photoId);
+        Message message = MessageBuilder.withBody(payload.getBytes(StandardCharsets.UTF_8))
+                .setContentType(MessageProperties.CONTENT_TYPE_JSON)
+                .setMessageId(UUID.randomUUID().toString())
+                .setType(RabbitConfig.REPORT_CREATED)
+                .setHeader("traceparent", "00-" + traceId + "-b7ad6b7169203331-01")
+                .build();
+        // template sem observação, para o traceparent da mensagem ser exatamente o que a API mandaria
+        new RabbitTemplate(connectionFactory).send(RabbitConfig.EVENTS_EXCHANGE, RabbitConfig.REPORT_CREATED, message);
+
+        Message result = rabbit.receive(RabbitConfig.RESULT_QUEUE, TIMEOUT_MS);
+        assertThat(result).isNotNull();
+        assertThat((String) result.getMessageProperties().getHeader("traceparent")).startsWith("00-" + traceId + "-");
     }
 
     private double reports(String outcome, String label) {

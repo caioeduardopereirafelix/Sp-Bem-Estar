@@ -2,6 +2,7 @@ package com.br.spbemestar.service;
 
 import com.br.spbemestar.config.OutboxProperties;
 import com.br.spbemestar.config.RabbitConfig;
+import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.model.OutboxEvent;
 import com.br.spbemestar.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class OutboxPublisher {
     private final RabbitTemplate rabbit;
     private final OutboxProperties properties;
     private final Clock clock;
+    private final TraceContext traceContext;
 
     @Scheduled(fixedDelayString = "${app.outbox.publish-interval-ms:1000}",
             initialDelayString = "${app.outbox.publish-interval-ms:1000}")
@@ -49,7 +51,8 @@ public class OutboxPublisher {
         int published = 0;
         for (OutboxEvent event : batch) {
             // Para no primeiro erro para não publicar fora de ordem; o restante fica para o próximo ciclo
-            if (!send(event)) {
+            // continua o trace do pedido que criou o evento: o mesmo traceId chega ao worker
+            if (!traceContext.continueTrace(event.getTraceParent(), "outbox " + event.getType(), () -> send(event))) {
                 break;
             }
             event.markPublished(Instant.now(clock));

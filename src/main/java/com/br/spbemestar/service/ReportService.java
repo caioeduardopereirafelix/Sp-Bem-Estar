@@ -1,5 +1,6 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.exception.ReporterBlockedException;
 import com.br.spbemestar.exception.UnknownCategoryException;
 import com.br.spbemestar.model.Category;
@@ -40,6 +41,7 @@ public class ReportService {
     private final BlockedReporterRepository blockedReporters;
     private final TransactionTemplate transaction;
     private final JsonMapper json;
+    private final TraceContext traceContext;
     private final Clock clock;
 
     /**
@@ -84,7 +86,7 @@ public class ReportService {
                 "issueId", issue.getId(),
                 "category", category.getCode(),
                 "photoId", photoId));
-        outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now));
+        outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now, traceContext.currentTraceParent()));
         priority.recalculate(issue.getId());
 
         return new ReportResult(report.getId(), issue.getId(), dedup.created(),

@@ -1,5 +1,6 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.exception.ResourceNotFoundException;
 import com.br.spbemestar.model.Issue;
@@ -30,6 +31,7 @@ public class IssueStatusService {
     private final IssueStatusHistoryRepository history;
     private final OutboxEventRepository outbox;
     private final JsonMapper json;
+    private final TraceContext traceContext;
     private final Clock clock;
 
     @Transactional
@@ -44,7 +46,8 @@ public class IssueStatusService {
         payload.put("from", change.getFromStatus().name());
         payload.put("to", change.getToStatus().name());
         payload.put("changedBy", operatorId);
-        outbox.save(OutboxEvent.of(issueId, ISSUE_STATUS_CHANGED, json.writeValueAsString(payload), now));
+        outbox.save(OutboxEvent.of(issueId, ISSUE_STATUS_CHANGED, json.writeValueAsString(payload), now,
+                traceContext.currentTraceParent()));
 
         return new StatusChangeResponse(issueId, change.getFromStatus().name(), change.getToStatus().name(),
                 change.getChangedAt(), issue.getResolvedAt());

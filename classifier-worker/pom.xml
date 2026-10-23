@@ -66,6 +66,13 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- traceId em cada log, propagado por HTTP e RabbitMQ (W3C traceparent); spans só são exportados
+             se MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT for configurado -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
 
         <!-- Testes -->

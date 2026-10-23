@@ -11,8 +11,11 @@ spring:
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
     publisher-confirm-type: simple # o resultado só é dado como entregue após o ack do broker
+    template:
+      observation-enabled: true # o traceparent vai no header da mensagem
     listener:
       simple:
+        observation-enabled: true # e o trace do relato continua aqui
         prefetch: 10
         default-requeue-rejected: false # falha definitiva vai para a DLQ em vez de voltar para a fila
         retry:
@@ -43,6 +46,20 @@ management:
         enabled: true
       # status de cada parte (modelo, RabbitMQ, MongoDB), sem os detalhes; o worker não fica exposto na internet
       show-components: always
+  # traceId em todo log e propagado por HTTP e RabbitMQ; sem exportar spans, amostrar tudo não custa nada.
+  # Para exportar (Tempo, Jaeger), defina MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT.
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
+
+# Em produção, LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs troca o console por JSON (Elastic Common Schema).
+# LOG_FILE grava também um arquivo em JSON, que o Alloy do docker compose envia para o Loki.
+logging:
+  file:
+    name: ${LOG_FILE:}
+  structured:
+    format:
+      file: ecs
 
 app:
   # Usuário do Prometheus no /actuator/prometheus (HTTP Basic), o mesmo da API; vazio = ninguém lê
