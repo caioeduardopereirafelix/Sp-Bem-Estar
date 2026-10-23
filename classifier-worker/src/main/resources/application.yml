@@ -28,6 +28,28 @@ spring:
       gridfs:
         bucket: report-photos
 
+# Só o Actuator usa HTTP: health check e métricas para o Prometheus
+server:
+  port: ${WORKER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus # prometheus exige METRICS_USER e METRICS_PASSWORD
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # status de cada parte (modelo, RabbitMQ, MongoDB), sem os detalhes; o worker não fica exposto na internet
+      show-components: always
+
+app:
+  # Usuário do Prometheus no /actuator/prometheus (HTTP Basic), o mesmo da API; vazio = ninguém lê
+  metrics:
+    username: ${METRICS_USER:}
+    password: ${METRICS_PASSWORD:}
+
 classifier:
   model: ${CLASSIFIER_MODEL:file:models/classifier.onnx}
   model-version: ${CLASSIFIER_MODEL_VERSION:dev}

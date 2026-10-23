@@ -65,6 +65,14 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
                 properties.model().getDescription(), inputSize, inputSize, labels);
     }
 
+    public List<String> labels() {
+        return labels;
+    }
+
+    public int inputSize() {
+        return inputSize;
+    }
+
     @Override
     public Classification classify(byte[] photo) {
         float[] pixels = ImagePreprocessor.toChw(decode(photo), inputSize);

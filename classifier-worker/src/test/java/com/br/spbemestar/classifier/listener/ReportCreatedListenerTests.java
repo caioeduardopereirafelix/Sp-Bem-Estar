@@ -3,6 +3,9 @@ package com.br.spbemestar.classifier.listener;
 import com.br.spbemestar.classifier.TestImages;
 import com.br.spbemestar.classifier.TestcontainersConfiguration;
 import com.br.spbemestar.classifier.config.RabbitConfig;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.bson.types.ObjectId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,6 +42,7 @@ class ReportCreatedListenerTests {
     @Autowired AmqpAdmin admin;
     @Autowired GridFsTemplate gridFs;
     @Autowired JsonMapper json;
+    @Autowired MeterRegistry meters;
 
     @BeforeEach
     void purge() {
@@ -50,6 +54,8 @@ class ReportCreatedListenerTests {
     void classifiesThePhotoAndPublishesTheResult() {
         String photoId = storePhoto(TestImages.jpeg(Color.RED));
         String eventId = UUID.randomUUID().toString();
+        double classifiedBefore = reports("classified", "POTHOLE");
+        long inferencesBefore = inferences();
 
         sendReportCreated(eventId, 42L, photoId);
 
@@ -65,6 +71,11 @@ class ReportCreatedListenerTests {
         assertThat(body.get("predictedCategory").asString()).isEqualTo("POTHOLE");
         assertThat(body.get("confidence").asDouble()).isGreaterThan(0.99);
         assertThat(body.get("modelVersion").asString()).isEqualTo("color-test");
+
+        // métricas: um relato classificado, uma inferência medida e a confiança registrada
+        assertThat(reports("classified", "POTHOLE")).isEqualTo(classifiedBefore + 1);
+        assertThat(inferences()).isEqualTo(inferencesBefore + 1);
+        assertThat(meters.find("classifier.confidence").tag("model", "color-test").summary()).isNotNull();
     }
 
     @Test
@@ -86,6 +97,7 @@ class ReportCreatedListenerTests {
     @Test
     void missingPhotoGoesToDeadLetterQueue() {
         String eventId = UUID.randomUUID().toString();
+        double before = reports("photo_missing", "none");
 
         sendReportCreated(eventId, 99L, new ObjectId().toHexString());
 
@@ -93,18 +105,31 @@ class ReportCreatedListenerTests {
         assertThat(dead).isNotNull();
         assertThat(dead.getMessageProperties().getMessageId()).isEqualTo(eventId);
         assertThat(rabbit.receive(RabbitConfig.RESULT_QUEUE, 500)).isNull();
+        assertThat(reports("photo_missing", "none")).isEqualTo(before + 1);
     }
 
     @Test
     void unreadablePhotoGoesToDeadLetterQueue() {
         String photoId = storePhoto("não é uma foto".getBytes(StandardCharsets.UTF_8));
         String eventId = UUID.randomUUID().toString();
+        double before = reports("photo_unreadable", "none");
 
         sendReportCreated(eventId, 100L, photoId);
 
         Message dead = rabbit.receive(RabbitConfig.CLASSIFICATION_DLQ, TIMEOUT_MS);
         assertThat(dead).isNotNull();
         assertThat(dead.getMessageProperties().getMessageId()).isEqualTo(eventId);
+        assertThat(reports("photo_unreadable", "none")).isEqualTo(before + 1);
+    }
+
+    private double reports(String outcome, String label) {
+        Counter counter = meters.find("classifier.reports").tag("outcome", outcome).tag("label", label).counter();
+        return counter == null ? 0 : counter.count();
+    }
+
+    private long inferences() {
+        Timer timer = meters.find("classifier.inference").timer();
+        return timer == null ? 0 : timer.count();
     }
 
     private String storePhoto(byte[] content) {

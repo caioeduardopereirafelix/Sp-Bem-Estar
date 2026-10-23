@@ -1,5 +1,7 @@
 package com.br.spbemestar.classifier.config;
 
+import com.br.spbemestar.classifier.exception.RejectedReportException;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
@@ -7,6 +9,8 @@ import org.springframework.amqp.core.ExchangeBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,6 +34,28 @@ public class RabbitConfig {
     public static final String CLASSIFICATION_DLQ = "report.classification.dlq";
     public static final String RESULT_QUEUE = "report.classification.result";
     public static final String RESULT_DLQ = "report.classification.result.dlq";
+
+    /**
+     * Roda uma vez por mensagem, quando o listener desiste (direto, ou depois das novas tentativas) e a
+     * mensagem vai para a DLQ. Contar aqui, e não no listener, evita contar cada tentativa.
+     */
+    @Bean
+    MessageRecoverer deadLetterRecoverer(MeterRegistry meters) {
+        RejectAndDontRequeueRecoverer reject = new RejectAndDontRequeueRecoverer();
+        return (message, cause) -> {
+            meters.counter("classifier.reports", "outcome", reasonOf(cause), "label", "none").increment();
+            reject.recover(message, cause);
+        };
+    }
+
+    private static String reasonOf(Throwable error) {
+        for (Throwable t = error; t != null; t = t.getCause()) {
+            if (t instanceof RejectedReportException rejected) {
+                return rejected.reason();
+            }
+        }
+        return "error"; // falha transitória que esgotou as tentativas
+    }
 
     @Bean
     TopicExchange eventsExchange() {
