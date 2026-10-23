@@ -12,6 +12,7 @@ import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.OutboxEventRepository;
 import com.br.spbemestar.repository.ReportRepository;
 import com.br.spbemestar.util.GeoPoints;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -42,6 +43,7 @@ public class ReportService {
     private final TransactionTemplate transaction;
     private final JsonMapper json;
     private final TraceContext traceContext;
+    private final MeterRegistry meters;
     private final Clock clock;
 
     /**
@@ -62,7 +64,10 @@ public class ReportService {
         String photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
 
         try {
-            return transaction.execute(status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
+            ReportResult result = transaction.execute(
+                    status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
+            meters.counter("spbemestar.reports.created", "category", categoryCode).increment();
+            return result;
         } catch (RuntimeException e) {
             photoStorage.delete(photoId);
             throw e;

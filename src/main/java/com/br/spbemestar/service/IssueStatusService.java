@@ -10,6 +10,7 @@ import com.br.spbemestar.model.OutboxEvent;
 import com.br.spbemestar.repository.IssueRepository;
 import com.br.spbemestar.repository.IssueStatusHistoryRepository;
 import com.br.spbemestar.repository.OutboxEventRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class IssueStatusService {
     private final OutboxEventRepository outbox;
     private final JsonMapper json;
     private final TraceContext traceContext;
+    private final MeterRegistry meters;
     private final Clock clock;
 
     @Transactional
@@ -49,6 +51,7 @@ public class IssueStatusService {
         outbox.save(OutboxEvent.of(issueId, ISSUE_STATUS_CHANGED, json.writeValueAsString(payload), now,
                 traceContext.currentTraceParent()));
 
+        meters.counter("spbemestar.issues.status.changes", "to", target.name()).increment();
         return new StatusChangeResponse(issueId, change.getFromStatus().name(), change.getToStatus().name(),
                 change.getChangedAt(), issue.getResolvedAt());
     }

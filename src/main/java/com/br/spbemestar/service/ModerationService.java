@@ -17,6 +17,7 @@ import com.br.spbemestar.repository.BlockedReporterRepository;
 import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.IssueStatusHistoryRepository;
 import com.br.spbemestar.repository.ReportRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -52,6 +53,7 @@ public class ModerationService {
     private final PriorityService priority;
     private final PhotoStorage photoStorage;
     private final Clock clock;
+    private final MeterRegistry meters;
 
     @Transactional(readOnly = true)
     public PageResponse<ModerationItem> pending(int page, int size) {
@@ -99,6 +101,8 @@ public class ModerationService {
                 reporterTokens.blockAuthorOf(reportId, operatorId);
             }
         }
+        meters.counter("spbemestar.moderation.decisions", "decision", request.decision().name(),
+                "blockReporter", String.valueOf(request.blockReporter())).increment();
         log.info("Relato {} {} pelo operador {}{}", reportId, request.decision(), operatorId,
                 request.blockReporter() ? ", autor bloqueado" : "");
 

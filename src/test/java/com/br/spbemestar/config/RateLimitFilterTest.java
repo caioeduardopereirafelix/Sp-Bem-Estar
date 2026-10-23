@@ -1,5 +1,6 @@
 package com.br.spbemestar.config;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.mock.web.MockFilterChain;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class RateLimitFilterTest {
 
     private final MutableClock clock = new MutableClock();
+    private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
     @Test
     void refillsGraduallyAndTellsWhenToComeBack() throws Exception {
@@ -31,6 +33,8 @@ class RateLimitFilterTest {
         assertThat(blocked.getStatus()).isEqualTo(429);
         // capacidade 2 por minuto: uma ficha volta a cada 30 s
         assertThat(blocked.getHeader(HttpHeaders.RETRY_AFTER)).isEqualTo("30");
+        // cada recusa vira métrica, por regra: um pico em "login" é tentativa de força bruta
+        assertThat(meters.counter("spbemestar.ratelimit.rejected", "rule", "api").count()).isEqualTo(1);
 
         clock.advance(Duration.ofSeconds(29));
         assertThat(call(filter).getStatus()).isEqualTo(429);
@@ -69,7 +73,7 @@ class RateLimitFilterTest {
 
     private RateLimitFilter filter(RateLimitProperties.Rule rule) {
         return new RateLimitFilter(new RateLimitProperties(true, 1000, List.of(rule)), clock,
-                JsonMapper.builder().build());
+                JsonMapper.builder().build(), meters);
     }
 
     private static MockHttpServletResponse call(RateLimitFilter filter) throws Exception {

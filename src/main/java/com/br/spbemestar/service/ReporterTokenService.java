@@ -14,6 +14,7 @@ import com.br.spbemestar.model.ReporterRefreshToken;
 import com.br.spbemestar.repository.BlockedReporterRepository;
 import com.br.spbemestar.repository.ReportRepository;
 import com.br.spbemestar.repository.ReporterRefreshTokenRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -53,9 +54,11 @@ public class ReporterTokenService {
     private final ReporterProperties properties;
     private final SecurityProperties security;
     private final Clock clock;
+    private final MeterRegistry meters;
 
     @Transactional
     public ReporterTokenResponse register() {
+        event("registered");
         return issue(UUID.randomUUID(), now());
     }
 
@@ -68,6 +71,7 @@ public class ReporterTokenService {
         if (current.isSpent()) {
             int revoked = refreshTokens.revokeAllOf(current.getReporterId(), now);
             log.warn("Refresh token reutilizado; {} tokens do mesmo cidadão revogados", revoked);
+            event("refresh_reused");
             throw new InvalidRefreshTokenException();
         }
         if (current.isExpired(now)) {
@@ -75,9 +79,11 @@ public class ReporterTokenService {
         }
         if (isBlocked(current.getReporterId())) {
             refreshTokens.revokeAllOf(current.getReporterId(), now);
+            event("refresh_blocked");
             throw new ReporterBlockedException();
         }
         current.markUsed(now);
+        event("refreshed");
         return issue(current.getReporterId(), now);
     }
 
@@ -99,6 +105,7 @@ public class ReporterTokenService {
         if (!blockedReporters.existsById(reporterHash)) {
             blockedReporters.save(BlockedReporter.of(reporterHash, now(), operatorId, reportId));
             log.info("Autor do relato {} bloqueado pelo operador {}", reportId, operatorId);
+            event("blocked");
         }
     }
 
@@ -132,6 +139,11 @@ public class ReporterTokenService {
         refreshTokens.save(ReporterRefreshToken.of(reporterId, ReporterHasher.tokenHash(refreshToken), now,
                 refreshExpiresAt));
         return new ReporterTokenResponse(accessToken, "Bearer", accessExpiresAt, refreshToken, refreshExpiresAt);
+    }
+
+    /** Emissões, renovações, reusos e bloqueios: um pico de "registered" num IP indica alguém trocando de identidade. */
+    private void event(String name) {
+        meters.counter("spbemestar.reporters.events", "event", name).increment();
     }
 
     private Instant now() {
