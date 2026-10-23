@@ -55,3 +55,6 @@ build/
 ### Modelos treinados (grandes; distribuídos fora do git) ###
 /models/
 /classifier-worker/models/
+
+### Logs locais (LOG_FILE=logs/api.log) ###
+/logs/

@@ -15,6 +15,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.List;
+
 /**
  * Mesma topologia declarada pela API ({@code com.br.spbemestar.config.RabbitConfig}). Declarar nos dois
  * lados deixa o worker e a API subirem em qualquer ordem sem perder mensagens; os argumentos precisam
@@ -42,6 +44,10 @@ public class RabbitConfig {
     @Bean
     MessageRecoverer deadLetterRecoverer(MeterRegistry meters) {
         RejectAndDontRequeueRecoverer reject = new RejectAndDontRequeueRecoverer();
+        // com zero desde a subida: sem isso, o increase() do Prometheus perde a primeira rejeição de cada motivo
+        for (String reason : List.of("invalid_message", "photo_missing", "photo_unreadable", "error")) {
+            meters.counter("classifier.reports", "outcome", reason, "label", "none");
+        }
         return (message, cause) -> {
             meters.counter("classifier.reports", "outcome", reasonOf(cause), "label", "none").increment();
             reject.recover(message, cause);

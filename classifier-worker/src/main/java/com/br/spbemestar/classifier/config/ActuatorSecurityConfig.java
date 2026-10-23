@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
@@ -19,8 +20,9 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableConfigurationProperties(MetricsProperties.class)
 public class ActuatorSecurityConfig {
 
+    /** Sendo um bean, também impede o Spring Boot de criar um usuário padrão e imprimir a senha dele no log. */
     @Bean
-    SecurityFilterChain actuatorFilterChain(HttpSecurity http, MetricsProperties metrics) throws Exception {
+    UserDetailsService metricsUsers(MetricsProperties metrics) {
         PasswordEncoder passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
         InMemoryUserDetailsManager users = new InMemoryUserDetailsManager();
         if (metrics.enabled()) {
@@ -29,6 +31,11 @@ public class ActuatorSecurityConfig {
                     .roles("METRICS")
                     .build());
         }
+        return users;
+    }
+
+    @Bean
+    SecurityFilterChain actuatorFilterChain(HttpSecurity http, UserDetailsService users) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

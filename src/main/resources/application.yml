@@ -58,6 +58,16 @@ management:
         order: DOWN, OUT_OF_SERVICE, DEGRADED, UNKNOWN, UP
         http-mapping:
           DEGRADED: 200
+  # buckets da latência HTTP, para o Prometheus calcular p95 e p99 somando todas as rotas
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  # o starter do OpenTelemetry também envia métricas por OTLP; aqui elas saem pelo /actuator/prometheus
+  otlp:
+    metrics:
+      export:
+        enabled: false
   # traceId em todo log e propagado por HTTP e RabbitMQ; sem exportar spans, amostrar tudo não custa nada.
   # Para exportar (Tempo, Jaeger), defina MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT.
   tracing:

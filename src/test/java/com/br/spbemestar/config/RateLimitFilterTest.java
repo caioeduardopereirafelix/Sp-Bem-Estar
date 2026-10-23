@@ -26,6 +26,8 @@ class RateLimitFilterTest {
     @Test
     void refillsGraduallyAndTellsWhenToComeBack() throws Exception {
         RateLimitFilter filter = filter(new RateLimitProperties.Rule("api", null, "/api/**", 2, Duration.ofMinutes(1)));
+        // existe com zero antes do primeiro 429, para o Prometheus enxergar esse primeiro aumento
+        assertThat(meters.find("spbemestar.ratelimit.rejected").tag("rule", "api").counter()).isNotNull();
 
         assertThat(call(filter).getStatus()).isEqualTo(200);
         assertThat(call(filter).getStatus()).isEqualTo(200);

@@ -46,6 +46,11 @@ management:
         enabled: true
       # status de cada parte (modelo, RabbitMQ, MongoDB), sem os detalhes; o worker não fica exposto na internet
       show-components: always
+  # o starter do OpenTelemetry também envia métricas por OTLP; aqui elas saem pelo /actuator/prometheus
+  otlp:
+    metrics:
+      export:
+        enabled: false
   # traceId em todo log e propagado por HTTP e RabbitMQ; sem exportar spans, amostrar tudo não custa nada.
   # Para exportar (Tempo, Jaeger), defina MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT.
   tracing:

@@ -50,6 +50,74 @@ services:
       timeout: 5s
       retries: 10
 
+  # --- Observabilidade: docker compose --profile observability up -d ---
+  # Grafana em http://localhost:3000, Prometheus em http://localhost:9090. A API e o worker continuam
+  # rodando no host; o Prometheus os lê por host.docker.internal e o Alloy lê os logs de ./logs.
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./observability/prometheus:/etc/prometheus:ro
+      - promdata:/prometheus
+    secrets:
+      - metrics_user
+      - metrics_password
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  loki:
+    image: grafana/loki:3.7.8
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./observability/loki/loki.yml:/etc/loki/loki.yml:ro
+      - lokidata:/loki
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    profiles: ["observability"]
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./logs:/logs:ro
+      - alloydata:/var/lib/alloy/data # posição de leitura de cada arquivo, para não reenviar logs
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin} # com admin, o Grafana pede a troca no primeiro login
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/spbemestar.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+# O Prometheus lê as credenciais das métricas como arquivos, sem gravá-las na configuração
+secrets:
+  metrics_user:
+    environment: METRICS_USER
+  metrics_password:
+    environment: METRICS_PASSWORD
+
 volumes:
   pgdata:
   mongodata:
+  promdata:
+  lokidata:
+  alloydata:
+  grafanadata:

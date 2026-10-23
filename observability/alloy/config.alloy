@@ -1,0 +1,41 @@
+// Lê os logs em JSON (ECS) que a API e o worker gravam em ./logs quando LOG_FILE está definido
+// e os envia ao Loki. Só nível e serviço viram label; traceId fica no corpo, para não multiplicar
+// as séries do Loki, e se busca com: {service_name="spbemestar-api"} | json | traceId="..."
+local.file_match "app" {
+  path_targets = [{"__path__" = "/logs/*.log"}]
+}
+
+loki.source.file "app" {
+  targets    = local.file_match.app.targets
+  forward_to = [loki.process.ecs.receiver]
+}
+
+loki.process "ecs" {
+  stage.json {
+    expressions = {
+      timestamp    = "\"@timestamp\"",
+      level        = "log.level",
+      service_name = "service.name",
+    }
+  }
+
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+
+  stage.labels {
+    values = {
+      level        = "",
+      service_name = "",
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

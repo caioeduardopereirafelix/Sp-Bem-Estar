@@ -10,6 +10,7 @@ import com.br.spbemestar.service.ClassificationService;
 import com.br.spbemestar.service.ReportService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,7 @@ class BusinessMetricsTests {
 
     @Autowired MockMvcTester mvc;
     @Autowired MeterRegistry meters;
+    @Autowired PrometheusMeterRegistry prometheus;
     @Autowired ReportService reportService;
     @Autowired ClassificationService classification;
     @Autowired AuthService auth;
@@ -40,14 +42,28 @@ class BusinessMetricsTests {
 
     @Test
     void countsReportsAndTheirClassification() {
-        double created = count("spbemestar.reports.created", "category", "SEWAGE");
+        double created = count("spbemestar.reports.received", "category", "SEWAGE");
         double mismatches = count("spbemestar.reports.classified", "status", "MISMATCH");
 
         Long reportId = reportService.create(TestReporters.ID, "SEWAGE", -29.50, -49.50, TestPhotos.jpeg()).reportId();
         classification.apply(reportId, "TRASH", 0.97);
 
-        assertThat(count("spbemestar.reports.created", "category", "SEWAGE")).isEqualTo(created + 1);
+        assertThat(count("spbemestar.reports.received", "category", "SEWAGE")).isEqualTo(created + 1);
         assertThat(count("spbemestar.reports.classified", "status", "MISMATCH")).isEqualTo(mismatches + 1);
+        // nomes que o dashboard e os alertas consultam; o Prometheus remove sufixos reservados como _created
+        assertThat(prometheus.scrape()).contains("spbemestar_reports_received_total{category=\"SEWAGE\"}",
+                "spbemestar_reports_classified_total{status=\"MISMATCH\"}");
+    }
+
+    @Test
+    void rareEventsAreExportedFromStartup() {
+        // sem a série desde a subida, o Prometheus não vê o primeiro incremento e o alerta não dispara
+        assertThat(prometheus.scrape()).contains(
+                "spbemestar_reporters_events_total{event=\"refresh_reused\"}",
+                "spbemestar_auth_logins_total{result=\"failure\"}",
+                "spbemestar_moderation_decisions_total{blockReporter=\"true\",decision=\"REJECTED\"}",
+                "spbemestar_issues_status_changes_total{to=\"RESOLVED\"}",
+                "spbemestar_reports_received_total{category=\"FLOODING\"}");
     }
 
     @Test

@@ -66,7 +66,7 @@ public class ReportService {
         try {
             ReportResult result = transaction.execute(
                     status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
-            meters.counter("spbemestar.reports.created", "category", categoryCode).increment();
+            meters.counter("spbemestar.reports.received", "category", categoryCode).increment();
             return result;
         } catch (RuntimeException e) {
             photoStorage.delete(photoId);

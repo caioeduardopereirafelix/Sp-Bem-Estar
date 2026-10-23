@@ -64,6 +64,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.time = new ClockTimeMeter(clock);
         this.json = json;
         this.meters = meters;
+        // com zero desde a subida, para o increase() do Prometheus contar o primeiro 429 de cada regra
+        rules.forEach(rule -> meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()));
     }
 
     @Override

@@ -1,0 +1,113 @@
+# Cada alerta diz o que o operador vê e por onde começar. Sem Alertmanager configurado, eles
+# aparecem em http://localhost:9090/alerts e no painel do Grafana.
+groups:
+  - name: disponibilidade
+    rules:
+      - alert: ApiFora
+        expr: up{job="spbemestar-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API fora do ar"
+          description: "O Prometheus não consegue ler {{ $labels.instance }} há mais de 1 minuto."
+
+      - alert: WorkerFora
+        expr: up{job="classifier-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker de classificação fora do ar"
+          description: "Sem o worker, os relatos ficam sem classificação e a fila report.classification cresce."
+
+      - alert: ErrosNaApi
+        expr: |
+          sum(rate(http_server_requests_seconds_count{job="spbemestar-api", status=~"5.."}[5m]))
+            / sum(rate(http_server_requests_seconds_count{job="spbemestar-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mais de 5% das requisições com erro 5xx"
+          description: "{{ $value | humanizePercentage }} das respostas são 5xx. Procure o traceId da resposta nos logs."
+
+      - alert: ApiLenta
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job="spbemestar-api", uri!~"/actuator.*"}[5m]))) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 da API acima de 1 s"
+          description: "95% das requisições levam até {{ $value | humanizeDuration }}."
+
+  - name: filas
+    rules:
+      - alert: OutboxParada
+        expr: spbemestar_outbox_oldest_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outbox sem publicar há mais de 5 minutos"
+          description: "O evento pendente mais antigo tem {{ $value | humanizeDuration }}. Confira a conexão com o RabbitMQ."
+
+      - alert: MensagensNaDlq
+        expr: spbemestar_rabbitmq_dead_letters > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mensagens paradas na {{ $labels.queue }}"
+          description: "Há 15 minutos a fila tem {{ $value }} mensagem(ns). Elas não voltam sozinhas: veja o motivo no painel do RabbitMQ."
+
+      - alert: FilaDeModeracaoAcumulada
+        expr: spbemestar_moderation_pending > 50
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mais de 50 relatos esperando moderação"
+          description: "{{ $value }} relatos na fila há mais de 1 hora."
+
+  - name: classificador
+    rules:
+      - alert: ClassificadorRejeitando
+        expr: sum by (outcome) (increase(classifier_reports_total{outcome!="classified"}[15m])) > 5
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker rejeitando relatos ({{ $labels.outcome }})"
+          description: "{{ $value | humanize }} relatos foram para a DLQ nos últimos 15 minutos."
+
+      - alert: ConfiancaBaixa
+        # le="0.6" é o limite da API: abaixo dele o relato vai para moderação
+        expr: |
+          sum(rate(classifier_confidence_bucket{le="0.6"}[1h])) / sum(rate(classifier_confidence_count[1h])) > 0.5
+          and sum(increase(classifier_confidence_count[1h])) > 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mais da metade das fotos com confiança abaixo de 0,6"
+          description: "O modelo pode ter ficado desatualizado para as fotos que estão chegando."
+
+  - name: seguranca
+    rules:
+      - alert: ForcaBrutaNoLogin
+        expr: sum(rate(spbemestar_auth_logins_total{result="failure"}[5m])) * 60 > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mais de 10 logins recusados por minuto"
+          description: "Taxa de {{ $value | humanize }} por minuto. O rate limit barra cada IP, mas não um ataque distribuído."
+
+      - alert: RefreshTokenReutilizado
+        expr: sum(increase(spbemestar_reporters_events_total{event="refresh_reused"}[15m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Refresh token de cidadão reutilizado"
+          description: "Um refresh já trocado foi usado de novo, o que indica token copiado. A família foi revogada."
