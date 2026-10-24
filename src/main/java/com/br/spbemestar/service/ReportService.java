@@ -1,5 +1,6 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.exception.ReporterBlockedException;
 import com.br.spbemestar.exception.UnknownCategoryException;
 import com.br.spbemestar.model.Category;
@@ -11,6 +12,7 @@ import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.OutboxEventRepository;
 import com.br.spbemestar.repository.ReportRepository;
 import com.br.spbemestar.util.GeoPoints;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -40,6 +42,8 @@ public class ReportService {
     private final BlockedReporterRepository blockedReporters;
     private final TransactionTemplate transaction;
     private final JsonMapper json;
+    private final TraceContext traceContext;
+    private final MeterRegistry meters;
     private final Clock clock;
 
     /**
@@ -60,7 +64,10 @@ public class ReportService {
         String photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
 
         try {
-            return transaction.execute(status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
+            ReportResult result = transaction.execute(
+                    status -> persist(reporterHash, categoryCode, latitude, longitude, photoId));
+            meters.counter("spbemestar.reports.received", "category", categoryCode).increment();
+            return result;
         } catch (RuntimeException e) {
             photoStorage.delete(photoId);
             throw e;
@@ -84,7 +91,7 @@ public class ReportService {
                 "issueId", issue.getId(),
                 "category", category.getCode(),
                 "photoId", photoId));
-        outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now));
+        outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now, traceContext.currentTraceParent()));
         priority.recalculate(issue.getId());
 
         return new ReportResult(report.getId(), issue.getId(), dedup.created(),

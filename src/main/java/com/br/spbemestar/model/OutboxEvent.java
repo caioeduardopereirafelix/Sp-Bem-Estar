@@ -39,16 +39,22 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    private OutboxEvent(Long aggregateId, String type, String payload, Instant createdAt) {
+    /** {@code traceparent} W3C de quem criou o evento; a publicação continua esse trace. */
+    @Column(name = "trace_parent")
+    private String traceParent;
+
+    private OutboxEvent(Long aggregateId, String type, String payload, Instant createdAt, String traceParent) {
         this.id = UUID.randomUUID();
         this.aggregateId = Objects.requireNonNull(aggregateId);
         this.type = Objects.requireNonNull(type);
         this.payload = Objects.requireNonNull(payload);
         this.createdAt = Objects.requireNonNull(createdAt);
+        this.traceParent = traceParent;
     }
 
-    public static OutboxEvent of(Long aggregateId, String type, String payload, Instant createdAt) {
-        return new OutboxEvent(aggregateId, type, payload, createdAt);
+    public static OutboxEvent of(Long aggregateId, String type, String payload, Instant createdAt,
+                                 String traceParent) {
+        return new OutboxEvent(aggregateId, type, payload, createdAt, traceParent);
     }
 
     public void markPublished(Instant publishedAt) {

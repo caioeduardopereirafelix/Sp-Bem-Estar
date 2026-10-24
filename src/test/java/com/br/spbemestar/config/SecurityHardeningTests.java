@@ -33,7 +33,10 @@ class SecurityHardeningTests {
 
         MvcTestResult ok = metrics(basic("prometheus-teste", "senha-do-prometheus-teste"));
         assertThat(ok).hasStatusOk();
-        assertThat(ok).bodyText().contains("jvm_memory_used_bytes");
+        assertThat(ok).bodyText().contains("jvm_memory_used_bytes")
+                // métricas do sistema: filas de trabalho e chamados em aberto
+                .contains("spbemestar_outbox_pending", "spbemestar_moderation_pending", "spbemestar_issues_open",
+                        "spbemestar_rabbitmq_dead_letters");
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.br.spbemestar.config;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterProperties;
@@ -17,9 +18,9 @@ public class RateLimitConfig {
     @Bean
     @ConditionalOnBooleanProperty(name = "app.rate-limit.enabled", matchIfMissing = true)
     FilterRegistrationBean<RateLimitFilter> rateLimitFilter(RateLimitProperties properties, Clock clock,
-                                                            JsonMapper json) {
+                                                            JsonMapper json, MeterRegistry meters) {
         FilterRegistrationBean<RateLimitFilter> registration =
-                new FilterRegistrationBean<>(new RateLimitFilter(properties, clock, json));
+                new FilterRegistrationBean<>(new RateLimitFilter(properties, clock, json, meters));
         // antes do Spring Security, e depois do filtro que aplica o X-Forwarded-For quando ele é confiável
         registration.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER - 10);
         return registration;

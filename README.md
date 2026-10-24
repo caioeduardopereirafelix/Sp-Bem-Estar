@@ -22,6 +22,7 @@ API para o cidadão reportar problemas urbanos — buracos, lixo descartado irre
 - [Modelo de dados](#modelo-de-dados)
 - [Endpoints](#endpoints)
 - [Como rodar](#como-rodar)
+- [Observabilidade](#observabilidade)
 - [Testes](#testes)
 - [Estrutura do projeto](#estrutura-do-projeto)
 - [Roadmap](#roadmap)
@@ -342,6 +343,11 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
 | `API_DOCS_ENABLED` | opcional; `false` desliga o Swagger UI e o `/v3/api-docs` (padrão `true`) |
+| `LOG_FILE` | opcional; grava também um arquivo de log em JSON (ex.: `logs/api.log`), que o [Alloy](#observabilidade) envia ao Loki |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | opcional; `ecs` troca o console por JSON, para quem coleta o stdout (Docker, Kubernetes) |
+| `TRACING_SAMPLING_PROBABILITY` | opcional; fração dos traces exportados (padrão `1.0`); só pesa se o exportador OTLP estiver ligado |
+| `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | opcional; envia os spans para um coletor OTLP (Tempo, Jaeger), ex.: `http://localhost:4318/v1/traces` |
+| `GRAFANA_ADMIN_PASSWORD` | opcional; senha do `admin` do Grafana (padrão `admin`, que ele pede para trocar no primeiro login) |
 
 Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
 
@@ -353,19 +359,8 @@ Com o operador criado, entre pela **Área do operador** no mapa para mudar o sta
 | Health | http://localhost:8080/actuator/health |
 | Métricas | http://localhost:8080/actuator/prometheus (usuário e senha do Prometheus) |
 | Painel RabbitMQ | http://localhost:15672 (usuário e senha do `.env`) |
-
-No Prometheus, o job fica assim:
-
-```yaml
-scrape_configs:
-  - job_name: spbemestar-api
-    metrics_path: /actuator/prometheus
-    basic_auth:
-      username: prometheus           # METRICS_USER
-      password_file: /etc/prometheus/spbemestar-password  # conteúdo de METRICS_PASSWORD
-    static_configs:
-      - targets: ["api:8080"]
-```
+| Grafana | http://localhost:3000 (com o perfil [`observability`](#observabilidade)) |
+| Prometheus | http://localhost:9090 (com o perfil `observability`) |
 
 > Na primeira subida com volumes novos, o PostgreSQL reinicia uma vez para instalar a extensão PostGIS. Se a aplicação falhar ao conectar, aguarde alguns segundos e execute novamente.
 
@@ -395,7 +390,7 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 ### Worker de classificação
 
-O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele usa o mesmo `.env` da raiz.
+O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele usa o mesmo `.env` da raiz e só abre HTTP para ser monitorado, na porta `8081` (`WORKER_PORT`): `/actuator/health` é público e mostra o estado do modelo, do RabbitMQ e do MongoDB; `/actuator/prometheus` exige o mesmo `METRICS_USER` e `METRICS_PASSWORD` da API; qualquer outra rota é recusada.
 
 ```bash
 ./mvnw -f classifier-worker/pom.xml package
@@ -412,6 +407,56 @@ Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o model
 | `classifier.labels` | — (lidos do modelo) | só para modelos sem o metadado `names`; se informado junto com ele, precisa ser igual |
 | `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
 | `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
+
+## Observabilidade
+
+```bash
+# Prometheus, Grafana, Loki e Alloy, além dos serviços de sempre
+docker compose --profile observability up -d --wait
+
+# API e worker gravando o log em JSON em ./logs, de onde o Alloy lê
+LOG_FILE=logs/api.log ./mvnw spring-boot:run
+LOG_FILE=logs/worker.log java -jar classifier-worker/target/classifier-worker-0.0.1-SNAPSHOT.jar
+```
+
+O Grafana abre direto no dashboard **SP Bem-Estar** (http://localhost:3000), com saúde da API e do worker, latência e erros, relatos e classificação, filas, segurança, JVM e os logs. A configuração fica em [`observability/`](observability) e é carregada na subida; o dashboard não é editável pela interface, para o arquivo continuar sendo a fonte.
+
+**traceId de ponta a ponta.** Toda resposta da API traz o header `X-Trace-Id`, e o mesmo id aparece em cada linha de log do pedido, segue pela outbox (a coluna `trace_parent` guarda o contexto, porque a publicação roda depois, num job) e pelo RabbitMQ (header W3C `traceparent`) até o worker e o resultado da classificação. Um erro inesperado responde 500 sem detalhes internos e com o código para o suporte:
+
+```json
+{ "title": "Erro interno", "status": 500,
+  "detail": "Algo deu errado do nosso lado. Se continuar, informe o código 4bf92f3577b34da6a3ce929d0e0e4736.",
+  "traceId": "4bf92f3577b34da6a3ce929d0e0e4736" }
+```
+
+Esse código vai no filtro **traceId** do painel de logs, ou direto no Loki: `{service_name="spbemestar-api"} |= "4bf92f35..."`.
+
+**Health.** Além de banco, RabbitMQ e MongoDB, o `/actuator/health` da API olha a outbox: se o evento pendente mais antigo passar de 5 minutos (`app.observability.outbox-lag-limit`), o status vira `DEGRADED`, que ainda responde 200 — a API atende, mas os relatos não chegam ao classificador. O worker carrega o modelo na subida e não fica de pé sem ele; o health mostra também a versão do modelo e quantas categorias ele tem, para conferir um deploy.
+
+**Métricas de negócio**, além das de HTTP, JVM e RabbitMQ que o Spring já exporta:
+
+| Métrica | Tags | O que mostra |
+|---|---|---|
+| `spbemestar_reports_received_total` | `category` | relatos recebidos |
+| `spbemestar_reports_classified_total` | `status` | resultado da classificação (`AGREED`, `MISMATCH`, `LOW_CONFIDENCE`) |
+| `spbemestar_issues_open` | `status` | chamados em aberto |
+| `spbemestar_issues_status_changes_total` | `to` | mudanças de status feitas pelos operadores |
+| `spbemestar_moderation_pending` | — | relatos esperando moderação |
+| `spbemestar_moderation_decisions_total` | `decision`, `blockReporter` | decisões da moderação |
+| `spbemestar_outbox_pending`, `spbemestar_outbox_oldest_age_seconds` | — | eventos esperando publicação e a idade do mais antigo |
+| `spbemestar_rabbitmq_dead_letters` | `queue` | mensagens paradas nas DLQs |
+| `spbemestar_auth_logins_total` | `result` | logins de operador (`success`, `failure`) |
+| `spbemestar_reporters_events_total` | `event` | identidades de cidadão emitidas, renovadas, reutilizadas e bloqueadas |
+| `spbemestar_ratelimit_rejected_total` | `rule` | requisições barradas pelo rate limit |
+| `classifier_inference_seconds` | `model` | tempo de inferência (histograma) |
+| `classifier_confidence` | — | confiança das previsões, com faixas em 0,6, 0,8 e 0,9 |
+| `classifier_reports_total` | `outcome`, `label` | fotos classificadas ou enviadas à DLQ, com o motivo |
+
+Os medidores de fila e de chamados são lidos do banco a cada 30 s (`app.observability.backlog-interval`), não a cada scrape. Os contadores de eventos raros já começam em zero, porque o Prometheus não enxerga o primeiro incremento de uma série nova e um alerta como o de refresh reutilizado não dispararia.
+
+**Alertas.** As regras ficam em [`observability/prometheus/alerts.yml`](observability/prometheus/alerts.yml), com testes em `alerts.test.yml` que o CI roda com o `promtool`: API ou worker fora, mais de 5% de respostas 5xx, p95 acima de 1 s, outbox parada, mensagens na DLQ, fila de moderação acumulada, worker rejeitando fotos, confiança do modelo em queda, força bruta no login e refresh token reutilizado. Elas aparecem em http://localhost:9090/alerts e no painel; para receber notificação, ligue um Alertmanager ao Prometheus.
+
+> O Prometheus lê a API e o worker em `host.docker.internal:8080` e `:8081`, onde eles rodam em desenvolvimento. Em produção, troque os alvos em `observability/prometheus/prometheus.yml`. O exportador OTLP de métricas do OpenTelemetry fica desligado, porque as métricas já saem pelo Prometheus.
 
 ## Testes
 
@@ -439,7 +484,8 @@ Cenários cobertos:
 - o autor bloqueado não envia relatos nem renova o token, mesmo com um JWT ainda válido;
 - a fila de atendimento ordena por prioridade e idade, filtra por categoria, status e bairro, pagina e conta os relatos à espera de moderação; ela e a moderação exigem o token do operador;
 - a moderação lista só os relatos marcados e sem decisão; aprovar mantém o relato; rejeitar desconta o chamado, recalcula a prioridade e apaga a foto; rejeitar o único relato descarta o chamado, que some do mapa e não recebe relatos novos; decidir duas vezes recebe 409;
-- o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres.
+- o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres;
+- o traceId do pedido HTTP chega à mensagem publicada pela outbox e ao resultado do worker; o erro 500 esconde a causa e mostra o código; o health fica `DEGRADED` com a outbox parada; as métricas de negócio saem com os nomes que o dashboard e os alertas usam, e o log de login recusado não traz o e-mail.
 
 Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.
 
@@ -455,8 +501,11 @@ src/main/java/com/br/spbemestar/
 ├── repository/   # acesso a dados (Spring Data JPA + consultas PostGIS)
 ├── model/        # entidades JPA e enums: Issue, Report, Category, Neighborhood, OutboxEvent
 ├── exception/    # exceções de domínio
+├── observability/ # métricas de negócio e health check da outbox
 └── util/         # utilitários geográficos
 ```
+
+A stack de monitoramento do `docker compose --profile observability` fica em `observability/`: configuração e alertas do Prometheus, Loki, Alloy e o dashboard provisionado do Grafana.
 
 O worker de classificação é um projeto Maven à parte, na mesma estrutura de camadas:
 
@@ -486,7 +535,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 | Mensageria | RabbitMQ 4 |
 | Classificação | YOLO de classificação exportado em ONNX, executado em Java com ONNX Runtime (worker separado) |
 | Documentação | springdoc-openapi |
-| Observabilidade | Micrometer + Prometheus |
+| Observabilidade | Micrometer, OpenTelemetry (traceId), Prometheus, Grafana, Loki e Alloy |
 | Testes | JUnit 6, Testcontainers |
 
 ## Roadmap
@@ -518,4 +567,5 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [ ] Endpoints Open311
 - [ ] Carga com dataset público e benchmarks
 - [x] CI com GitHub Actions
+- [x] Observabilidade: métricas de negócio, logs em JSON, traceId de ponta a ponta, dashboard e alertas
 - [ ] Deploy com demo pública
