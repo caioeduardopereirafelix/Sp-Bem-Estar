@@ -1,5 +1,6 @@
 package com.br.spbemestar.config;
 
+import com.br.spbemestar.service.IssueStatusService;
 import com.br.spbemestar.service.ReportService;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
@@ -31,6 +32,8 @@ public class RabbitConfig {
     public static final String CLASSIFICATION_DLQ = "report.classification.dlq";
     public static final String RESULT_QUEUE = "report.classification.result";
     public static final String RESULT_DLQ = "report.classification.result.dlq";
+    public static final String STATUS_NOTIFICATION_QUEUE = "issue.status.notification";
+    public static final String STATUS_NOTIFICATION_DLQ = "issue.status.notification.dlq";
 
     @Bean
     TopicExchange eventsExchange() {
@@ -68,6 +71,32 @@ public class RabbitConfig {
     @Bean
     Queue resultDeadLetterQueue() {
         return QueueBuilder.durable(RESULT_DLQ).build();
+    }
+
+    // Mudanças de status dos chamados, para avisar por push quem relatou
+    @Bean
+    Queue statusNotificationQueue() {
+        return QueueBuilder.durable(STATUS_NOTIFICATION_QUEUE)
+                .deadLetterExchange(DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(STATUS_NOTIFICATION_DLQ)
+                .build();
+    }
+
+    @Bean
+    Queue statusNotificationDeadLetterQueue() {
+        return QueueBuilder.durable(STATUS_NOTIFICATION_DLQ).build();
+    }
+
+    @Bean
+    Binding statusNotificationBinding() {
+        return BindingBuilder.bind(statusNotificationQueue()).to(eventsExchange())
+                .with(IssueStatusService.ISSUE_STATUS_CHANGED);
+    }
+
+    @Bean
+    Binding statusNotificationDeadLetterBinding() {
+        return BindingBuilder.bind(statusNotificationDeadLetterQueue()).to(deadLetterExchange())
+                .with(STATUS_NOTIFICATION_DLQ);
     }
 
     @Bean

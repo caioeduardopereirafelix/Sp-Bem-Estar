@@ -55,7 +55,8 @@ public class BacklogMonitor implements HealthIndicator {
     private final AtomicLong outboxPending = new AtomicLong();
     private final AtomicLong outboxOldestSeconds = new AtomicLong();
     private final Map<String, AtomicLong> deadLetters = Map.of(
-            RabbitConfig.CLASSIFICATION_DLQ, new AtomicLong(), RabbitConfig.RESULT_DLQ, new AtomicLong());
+            RabbitConfig.CLASSIFICATION_DLQ, new AtomicLong(), RabbitConfig.RESULT_DLQ, new AtomicLong(),
+            RabbitConfig.STATUS_NOTIFICATION_DLQ, new AtomicLong());
 
     public BacklogMonitor(JdbcTemplate jdbc, AmqpAdmin amqp, MeterRegistry meters,
                           @Value("${app.observability.outbox-lag-limit:5m}") Duration outboxLagLimit) {

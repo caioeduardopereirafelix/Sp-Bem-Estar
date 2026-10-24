@@ -82,4 +82,7 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     @Modifying
     @Query(value = COUNT_REPORTERS + UPDATE_PRIORITY, nativeQuery = true)
     int recalculateOpenPriorities(@Param("now") Instant now);
+
+    @Query("SELECT c.name FROM Issue i JOIN i.category c WHERE i.id = :id")
+    Optional<String> findCategoryNameById(@Param("id") Long id);
 }

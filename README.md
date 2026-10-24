@@ -46,6 +46,8 @@ Este projeto ataca três pontos:
 - Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
+- **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta
+- Receber uma notificação push quando um chamado relatado for confirmado, entrar em andamento ou for resolvido, mesmo com o mapa fechado
 - Para o operador logado, o histórico mostra quem fez cada mudança de status (o mapa público mostra o histórico sem nomes)
 
 **Órgão público**
@@ -196,6 +198,21 @@ Para enviar um relato, o cidadão precisa de um token, mas não de conta: sem no
 - **Bloqueio pela moderação.** `POST /api/v1/reports/{id}/block-reporter` (operador) bloqueia quem enviou aquele relato: novos relatos e renovações dele são recusados. Ele pode pedir outra identidade, mas o rate limit por IP limita quantas.
 - **Relatos sem ligação direta com o token.** O relato guarda só o `reporter_hash`, um HMAC do id do cidadão com a chave `REPORTER_HASH`, que não fica no banco. Quem tem o banco vê que dois relatos são da mesma pessoa, mas não consegue ligá-los aos tokens.
 
+### Meus relatos e avisos por push
+O cidadão acompanha os próprios relatos em `GET /api/v1/reporters/me/reports`, com o mesmo token anônimo. A lista vem do `reporter_hash`, então mostra o que foi enviado com aquela identidade; quem limpa os dados do navegador começa uma lista nova. O histórico vem sem o nome do operador.
+
+Os avisos usam **Web Push com VAPID**, o padrão dos navegadores (Chrome, Firefox, Edge e Safari; no iPhone, com o site adicionado à tela de início):
+
+1. O mapa registra um service worker (`sw.js`) e, depois do primeiro relato, oferece "Avisar quando o status mudar". O navegador cria a inscrição no serviço de push dele (Google, Mozilla, Apple) e o mapa a envia para `PUT /api/v1/reporters/me/push-subscription`.
+2. A mudança de status já gera um evento na outbox. Uma fila nova, `issue.status.notification`, entrega esse evento a um listener da própria API, fora da requisição do operador: um serviço de push lento não atrasa quem muda o status.
+3. A API cifra a mensagem para aquele navegador (RFC 8291) e assina o pedido com a chave VAPID (RFC 8292), tudo com o JDK e a biblioteca de JWT que o Spring Security já traz. O serviço de push só repassa bytes que não consegue ler.
+4. Avisos vão para `CONFIRMED`, `IN_PROGRESS` e `RESOLVED`, só para autores de relatos que contam no chamado (rejeitados e autores bloqueados ficam de fora). Uma inscrição que o serviço de push dá como vencida (404 ou 410) é apagada.
+
+Cuidados:
+- **O endpoint vem do navegador**, e a API faz um POST nele. Sem controle, isso seria um SSRF: dava para apontar para a rede interna. Só são aceitos endpoints `https` dos serviços de push conhecidos (`app.push.allowed-hosts`), e redirecionamentos não são seguidos.
+- **O mesmo navegador é uma inscrição só.** Inscrever de novo o mesmo endpoint (por exemplo, depois que a identidade foi trocada) move a inscrição para a identidade atual. Cada cidadão tem no máximo 5 navegadores; o mais antigo sai.
+- **Sem as chaves, o recurso fica desligado:** `GET /api/v1/reporters/push/config` responde `enabled: false` e o mapa não oferece a opção. Gere o par com `node scripts/generate-vapid-keys.mjs`; a API não sobe com um par que não confere.
+
 O que essa identidade **não** faz: ela não prova quem é a pessoa. Quem troca de IP e de navegador consegue uma identidade nova. Para "uma pessoa, uma conta" seria preciso login de verdade (gov.br), o que acabaria com o anonimato.
 
 ### Rate limit por IP
@@ -303,6 +320,10 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 |---|---|---|
 | `POST` | `/api/v1/reporters` | Identidade anônima do cidadão; devolve access token e refresh token |
 | `POST` | `/api/v1/reporters/refresh` | Troca o refresh token por um par novo |
+| `GET` | `/api/v1/reporters/me/reports?page=&size=` | Relatos do cidadão com o andamento de cada chamado (🔑 cidadão) |
+| `GET` | `/api/v1/reporters/push/config` | Se o push está ligado e a chave VAPID para a inscrição |
+| `PUT` | `/api/v1/reporters/me/push-subscription` | Inscreve o navegador nos avisos de mudança de status (🔑 cidadão) |
+| `DELETE` | `/api/v1/reporters/me/push-subscription` | Cancela a inscrição deste navegador (🔑 cidadão) |
 | `POST` | `/api/v1/reports` | Cria um relato (multipart: foto, lat, lon, categoria) (🔑 cidadão) |
 | `POST` | `/api/v1/reports/{id}/block-reporter` | Bloqueia o autor do relato (🔒 operador) |
 | `GET` | `/api/v1/issues/queue?status=&category=&neighborhoodId=&page=&size=` | Fila de atendimento por prioridade (🔒 operador) |
@@ -347,6 +368,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `LOGGING_STRUCTURED_FORMAT_CONSOLE` | opcional; `ecs` troca o console por JSON, para quem coleta o stdout (Docker, Kubernetes) |
 | `TRACING_SAMPLING_PROBABILITY` | opcional; fração dos traces exportados (padrão `1.0`); só pesa se o exportador OTLP estiver ligado |
 | `MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT` | opcional; envia os spans para um coletor OTLP (Tempo, Jaeger), ex.: `http://localhost:4318/v1/traces` |
+| `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` | opcionais; ligam os [avisos por push](#meus-relatos-e-avisos-por-push). Gere o par com `node scripts/generate-vapid-keys.mjs`; o subject é um `mailto:` ou `https://` de contato, exigido pelos serviços de push |
 | `GRAFANA_ADMIN_PASSWORD` | opcional; senha do `admin` do Grafana (padrão `admin`, que ele pede para trocar no primeiro login) |
 
 Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
@@ -448,6 +470,7 @@ Esse código vai no filtro **traceId** do painel de logs, ou direto no Loki: `{s
 | `spbemestar_auth_logins_total` | `result` | logins de operador (`success`, `failure`) |
 | `spbemestar_reporters_events_total` | `event` | identidades de cidadão emitidas, renovadas, reutilizadas e bloqueadas |
 | `spbemestar_ratelimit_rejected_total` | `rule` | requisições barradas pelo rate limit |
+| `spbemestar_push_sent_total` | `result` | avisos por push entregues, com inscrição vencida ou recusados |
 | `classifier_inference_seconds` | `model` | tempo de inferência (histograma) |
 | `classifier_confidence` | — | confiança das previsões, com faixas em 0,6, 0,8 e 0,9 |
 | `classifier_reports_total` | `outcome`, `label` | fotos classificadas ou enviadas à DLQ, com o motivo |
@@ -485,6 +508,8 @@ Cenários cobertos:
 - a fila de atendimento ordena por prioridade e idade, filtra por categoria, status e bairro, pagina e conta os relatos à espera de moderação; ela e a moderação exigem o token do operador;
 - a moderação lista só os relatos marcados e sem decisão; aprovar mantém o relato; rejeitar desconta o chamado, recalcula a prioridade e apaga a foto; rejeitar o único relato descarta o chamado, que some do mapa e não recebe relatos novos; decidir duas vezes recebe 409;
 - o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres;
+- "meus relatos" mostra só os relatos da própria identidade, do mais novo para o mais antigo, com o histórico sem o nome do operador;
+- a mudança de status chega ao navegador do autor pelo push: a mensagem cifrada confere com o exemplo da RFC 8291 e é decifrada pelo teste no papel do navegador, o JWT VAPID é verificado, quem não relatou não recebe e a inscrição vencida é apagada; endpoints fora dos serviços de push são recusados;
 - o traceId do pedido HTTP chega à mensagem publicada pela outbox e ao resultado do worker; o erro 500 esconde a causa e mostra o código; o health fica `DEGRADED` com a outbox parada; as métricas de negócio saem com os nomes que o dashboard e os alertas usam, e o log de login recusado não traz o e-mail.
 
 Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.

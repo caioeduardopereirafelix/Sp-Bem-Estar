@@ -58,6 +58,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "Autor bloqueado", e.getMessage());
     }
 
+    @ExceptionHandler(InvalidPushSubscriptionException.class)
+    ProblemDetail handleInvalidPushSubscription(InvalidPushSubscriptionException e) {
+        return problem(HttpStatus.BAD_REQUEST, "Inscrição inválida", e.getMessage());
+    }
+
+    @ExceptionHandler(PushDisabledException.class)
+    ProblemDetail handlePushDisabled(PushDisabledException e) {
+        return problem(HttpStatus.NOT_FOUND, "Notificações desligadas", e.getMessage());
+    }
+
     @ExceptionHandler(ReportWithoutReporterException.class)
     ProblemDetail handleReportWithoutReporter(ReportWithoutReporterException e) {
         return problem(HttpStatus.CONFLICT, "Relato sem autor", e.getMessage());

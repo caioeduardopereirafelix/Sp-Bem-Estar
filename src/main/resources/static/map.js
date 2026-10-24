@@ -157,23 +157,24 @@ function reporterToken(forceRenew = false) {
     return reporterRequest;
 }
 
-async function sendReport(data) {
+// Requisição com o token do cidadão; se ele for recusado (vencido ou revogado), renova e tenta uma vez
+async function reporterFetch(path, options = {}) {
     for (const forceRenew of [false, true]) {
         const token = await reporterToken(forceRenew);
-        const response = await fetch(`${API}/reports`, {
-            method: 'POST',
-            body: data,
-            headers: {Authorization: `Bearer ${token}`},
-        });
+        const response = await fetch(API + path, {...options, headers: {...options.headers, Authorization: `Bearer ${token}`}});
         const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
         if (response.status === 401 && !forceRenew) {
-            continue; // token recusado (vencido ou revogado): renova e tenta uma vez
+            continue;
         }
         if (!response.ok) {
             throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
         }
         return body;
     }
+}
+
+function sendReport(data) {
+    return reporterFetch('/reports', {method: 'POST', body: data});
 }
 
 // Localização do usuário pelo navegador. Fica só nesta página: a API recebe apenas o ponto de um relato
@@ -595,13 +596,202 @@ reportForm.addEventListener('submit', async (event) => {
         setReportMessage(result.newIssue
             ? `Relato registrado: novo chamado #${result.issueId}.`
             : `Relato agrupado ao chamado #${result.issueId}, que agora tem ${result.issueReportCount} relatos.`, 'success');
-        await Promise.all([loadIssues(), loadDistricts()]);
+        await Promise.all([loadIssues(), loadDistricts(), loadMyReports()]);
     } catch (error) {
         setReportMessage(error.message, 'error');
     } finally {
         submit.disabled = false;
     }
 });
+
+// Meus relatos: o que o cidadão enviou deste navegador e como cada chamado andou
+const myReports = {page: 0, items: [], total: 0};
+const myReportsMessage = document.getElementById('my-reports-message');
+
+function setMyReportsMessage(text, kind) {
+    myReportsMessage.textContent = text;
+    myReportsMessage.className = `message ${kind ?? ''}`;
+}
+
+function myReportStatus(item) {
+    if (item.rejected) {
+        return '<span class="queue-meta">Não aprovado pela moderação</span>';
+    }
+    return STATUS[item.issueStatus] ? statusLabel(item.issueStatus) : '<span class="queue-meta">Descartado</span>';
+}
+
+async function loadMyReports(append = false) {
+    const list = document.getElementById('my-reports-list');
+    if (!loadReporter()) {
+        // sem identidade guardada: nada a buscar, e nem vale criar uma só para ver a lista vazia
+        list.innerHTML = '';
+        return;
+    }
+    myReports.page = append ? myReports.page + 1 : 0;
+    const result = await reporterFetch(`/reporters/me/reports?page=${myReports.page}&size=10`);
+    myReports.items = append ? myReports.items.concat(result.items) : result.items;
+    myReports.total = result.total;
+    list.innerHTML = myReports.items.map((item, index) => {
+        const open = !item.rejected && STATUS[item.issueStatus];
+        return `<li><button type="button" class="queue-item single" data-index="${index}" ${open ? '' : 'disabled'}>
+            <span class="queue-body">
+                <strong>${escapeHtml(item.categoryName)} · chamado #${item.issueId}</strong>
+                <span>${myReportStatus(item)}</span>
+                <span class="queue-meta">Enviado em ${dateFormat.format(new Date(item.sentAt))}${
+                    item.history.length ? ` · atualizado em ${dateFormat.format(new Date(item.updatedAt))}` : ''}</span>
+            </span>
+        </button></li>`;
+    }).join('');
+    list.querySelectorAll('[data-index]:not([disabled])').forEach((button) => {
+        const item = myReports.items[Number(button.dataset.index)];
+        button.addEventListener('click', () => focusIssue({id: item.issueId, latitude: item.latitude,
+            longitude: item.longitude, status: item.issueStatus, category: item.category}));
+    });
+    document.getElementById('my-reports-hint').textContent = result.total === 0
+        ? 'Os relatos enviados deste navegador aparecem aqui, com o andamento de cada chamado.'
+        : 'Toque num relato para ver o chamado no mapa.';
+    document.getElementById('my-reports-more').hidden = myReports.items.length >= result.total;
+    renderPush();
+}
+
+document.getElementById('my-reports-more').addEventListener('click', () =>
+    loadMyReports(true).catch((error) => setMyReportsMessage(error.message, 'error')));
+
+// Avisos por push: o service worker recebe a mensagem cifrada mesmo com a página fechada
+const push = {config: null, registration: null, subscription: null};
+const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+function base64UrlToBytes(value) {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+    return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+}
+
+function sameKey(buffer, key) {
+    if (!buffer) {
+        return false;
+    }
+    const a = new Uint8Array(buffer);
+    const b = base64UrlToBytes(key);
+    return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
+async function setupPush() {
+    push.config = await api('/reporters/push/config');
+    if (!push.config.enabled || !pushSupported) {
+        renderPush();
+        return;
+    }
+    push.registration = await navigator.serviceWorker.register('/sw.js');
+    let subscription = await push.registration.pushManager.getSubscription();
+    if (subscription && !sameKey(subscription.options.applicationServerKey, push.config.publicKey)) {
+        await subscription.unsubscribe(); // o servidor trocou as chaves VAPID: a inscrição antiga não recebe mais nada
+        subscription = null;
+    }
+    push.subscription = subscription;
+    if (subscription && loadReporter()) {
+        // liga o navegador à identidade atual, que pode ter sido trocada depois da inscrição
+        await saveSubscription(subscription);
+    }
+    renderPush();
+}
+
+function renderPush() {
+    const box = document.getElementById('push-box');
+    const status = document.getElementById('push-status');
+    const toggle = document.getElementById('push-toggle');
+    // só depois do primeiro relato: antes disso não há o que acompanhar
+    box.hidden = !push.config?.enabled || myReports.total === 0;
+    if (box.hidden) {
+        return;
+    }
+    toggle.hidden = true;
+    if (!pushSupported) {
+        status.textContent = 'Este navegador não recebe notificações deste site. No iPhone, adicione o site à tela de início para recebê-las.';
+    } else if (Notification.permission === 'denied') {
+        status.textContent = 'As notificações deste site estão bloqueadas. Libere nas configurações do navegador para ser avisado.';
+    } else if (push.subscription) {
+        status.textContent = 'Você será avisado neste aparelho quando um chamado seu mudar de status.';
+        toggle.textContent = 'Desligar avisos';
+        toggle.hidden = false;
+    } else {
+        status.textContent = 'Quer saber quando a prefeitura confirmar, começar ou resolver o que você relatou?';
+        toggle.textContent = 'Avisar quando o status mudar';
+        toggle.hidden = false;
+    }
+}
+
+function saveSubscription(subscription) {
+    return reporterFetch('/reporters/me/push-subscription', {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(subscription.toJSON()),
+    });
+}
+
+async function togglePush() {
+    const toggle = document.getElementById('push-toggle');
+    toggle.disabled = true;
+    setMyReportsMessage('');
+    try {
+        if (push.subscription) {
+            const subscription = push.subscription;
+            await reporterFetch('/reporters/me/push-subscription', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(subscription.toJSON()),
+            });
+            await subscription.unsubscribe();
+            push.subscription = null;
+        } else if (await Notification.requestPermission() === 'granted') {
+            const subscription = await push.registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: base64UrlToBytes(push.config.publicKey),
+            });
+            await saveSubscription(subscription);
+            push.subscription = subscription;
+            setMyReportsMessage('Avisos ligados.', 'success');
+        }
+    } catch (error) {
+        setMyReportsMessage(`Não foi possível alterar os avisos: ${error.message}`, 'error');
+    } finally {
+        toggle.disabled = false;
+        renderPush();
+    }
+}
+
+document.getElementById('push-toggle').addEventListener('click', togglePush);
+
+// O service worker avisa a página aberta: a lista se atualiza e o clique na notificação abre o chamado
+navigator.serviceWorker?.addEventListener('message', (event) => {
+    if (event.data?.type === 'issue-status') {
+        loadMyReports().catch(() => {});
+    } else if (event.data?.type === 'open-issue') {
+        openIssueById(event.data.issueId);
+    }
+});
+
+async function openIssueById(id) {
+    if (!Number.isInteger(Number(id)) || Number(id) <= 0) {
+        return;
+    }
+    try {
+        const issue = await api(`/issues/${Number(id)}`);
+        await focusIssue({id: issue.id, latitude: issue.latitude, longitude: issue.longitude,
+            status: issue.status, category: issue.category});
+    } catch (error) {
+        setMyReportsMessage(`Chamado #${Number(id)}: ${error.message}`, 'error');
+    }
+}
+
+// Link da notificação: /?issue=123 abre o chamado
+function openLinkedIssue() {
+    const params = new URLSearchParams(location.search);
+    const id = params.get('issue');
+    if (id) {
+        history.replaceState(null, '', location.pathname);
+        return openIssueById(id);
+    }
+}
 
 // Área do operador
 const loginForm = document.getElementById('login-form');
@@ -670,6 +860,16 @@ async function loadQueue(append = false) {
 
 // Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
 async function focusIssue(item) {
+    // um chamado resolvido, ou de outro status/categoria, não estaria no mapa com os filtros atuais
+    const statusFilter = document.getElementById('filter-status');
+    const visible = statusFilter.value ? statusFilter.value === item.status : item.status !== 'RESOLVED';
+    if (item.status && !visible) {
+        statusFilter.value = item.status;
+    }
+    const categoryFilter = document.getElementById('filter-category');
+    if (item.category && categoryFilter.value && categoryFilter.value !== item.category) {
+        categoryFilter.value = '';
+    }
     map.setView([item.latitude, item.longitude], 18, {animate: false});
     clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
     await loadIssues();
@@ -791,4 +991,6 @@ map.on('moveend', scheduleIssueLoad);
 map.whenReady(() => map.invalidateSize());
 renderSession();
 Promise.all([loadCategories(), loadDistricts(), loadIssues()])
+    .then(openLinkedIssue)
     .catch((error) => setReportMessage(`Não foi possível carregar o mapa: ${error.message}`, 'error'));
+loadMyReports().then(setupPush).catch((error) => setMyReportsMessage(error.message, 'error'));

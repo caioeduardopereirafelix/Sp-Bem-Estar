@@ -46,6 +46,23 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Object[]> countPendingModerationByIssue(@Param("issueIds") Collection<Long> issueIds,
                                                  @Param("flags") Collection<ClassificationStatus> flags);
 
+    /** Relatos do cidadão, do mais novo para o mais antigo, com o chamado e a categoria já carregados. */
+    @Query(value = """
+            SELECT r FROM Report r JOIN FETCH r.issue JOIN FETCH r.category
+            WHERE r.reporterHash = :reporterHash
+            ORDER BY r.createdAt DESC, r.id DESC
+            """, countQuery = "SELECT count(r) FROM Report r WHERE r.reporterHash = :reporterHash")
+    Page<Report> findByReporter(@Param("reporterHash") String reporterHash, Pageable pageable);
+
+    /** Quem deve ser avisado de uma mudança no chamado: autores de relatos que contam e não foram bloqueados. */
+    @Query("""
+            SELECT DISTINCT r.reporterHash FROM Report r
+            WHERE r.issue.id = :issueId AND r.reporterHash IS NOT NULL
+              AND (r.moderationStatus IS NULL OR r.moderationStatus <> com.br.spbemestar.model.ModerationDecision.REJECTED)
+              AND r.reporterHash NOT IN (SELECT b.reporterHash FROM BlockedReporter b)
+            """)
+    List<String> findReportersToNotify(@Param("issueId") Long issueId);
+
     // Trava o relato: dois operadores decidindo ao mesmo tempo não podem descontar o chamado duas vezes
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT r FROM Report r JOIN FETCH r.issue WHERE r.id = :id")
