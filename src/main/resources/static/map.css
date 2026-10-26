@@ -365,6 +365,12 @@ body.doc-page {
     overflow-wrap: anywhere;
 }
 
+/* o botão e o rótulo "Você" não encolhem: sem isso, "Você" quebrava em duas linhas */
+.team-item > .button, .team-item > .queue-meta {
+    flex-shrink: 0;
+    overflow-wrap: normal;
+}
+
 .team-item.inactive .queue-body {
     opacity: 0.6;
 }
