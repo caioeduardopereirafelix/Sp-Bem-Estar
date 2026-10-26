@@ -77,7 +77,7 @@ async function api(path, options = {}) {
     const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
     if (response.status === 401 && state.session) {
         saveSession(null);
-        throw new Error('Sua sessão expirou. Entre de novo na área do operador.');
+        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Entre de novo na área do operador.');
     }
     if (!response.ok) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
@@ -806,11 +806,138 @@ function renderSession() {
         ? `Conectado como ${session.name}. Abra um chamado no mapa para alterar o status.` : '';
     document.getElementById('queue-card').hidden = !session;
     document.getElementById('moderation-card').hidden = !session;
+    document.getElementById('team-card').hidden = session?.role !== 'ADMIN';
     map.closePopup();
     if (session) {
         loadOperatorQueues();
     }
+    if (session?.role === 'ADMIN') {
+        loadTeam().catch((error) => setTeamMessage(error.message, 'error'));
+    }
 }
+
+// Equipe (só o administrador) e troca da própria senha
+const teamMessage = document.getElementById('team-message');
+const ROLE_LABELS = {OPERATOR: 'Operador', ADMIN: 'Administrador'};
+
+function setTeamMessage(text, kind) {
+    teamMessage.textContent = text;
+    teamMessage.className = `message ${kind ?? ''}`;
+}
+
+// id do operador logado, lido do próprio token: o administrador não pode desativar a si mesmo
+function sessionUserId() {
+    try {
+        const payload = state.session.accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        return Number(JSON.parse(atob(payload)).sub);
+    } catch {
+        return null;
+    }
+}
+
+async function loadTeam() {
+    const team = await api('/operators');
+    const me = sessionUserId();
+    const list = document.getElementById('team-list');
+    list.innerHTML = team.map((user) => `<li class="team-item ${user.active ? '' : 'inactive'}">
+        <span class="queue-body">
+            <strong>${escapeHtml(user.name)}</strong>
+            <span class="queue-meta">${escapeHtml(user.email)} · ${ROLE_LABELS[user.role] ?? escapeHtml(user.role)}${
+                user.active ? '' : ' · desativado'}</span>
+        </span>
+        ${user.id === me ? '<span class="queue-meta">Você</span>'
+            : `<button type="button" class="button" data-user="${user.id}" data-active="${!user.active}">${
+                user.active ? 'Desativar' : 'Reativar'}</button>`}
+    </li>`).join('');
+    list.querySelectorAll('[data-user]').forEach((button) => {
+        button.addEventListener('click', () => setUserActive(button.dataset.user, button.dataset.active === 'true', button));
+    });
+}
+
+async function setUserActive(id, active, button) {
+    const name = button.closest('li').querySelector('strong').textContent;
+    if (!active && !confirm(`Desativar ${name}? A pessoa perde o acesso agora, mesmo com a sessão aberta.`)) {
+        return;
+    }
+    button.disabled = true;
+    try {
+        await api(`/operators/${Number(id)}`, {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({active}),
+        });
+        setTeamMessage(`Acesso de ${name} ${active ? 'reativado' : 'desativado'}.`, 'success');
+        await loadTeam();
+    } catch (error) {
+        button.disabled = false;
+        setTeamMessage(error.message, 'error');
+    }
+}
+
+// 18 caracteres de um alfabeto sem letras ambíguas (l, I, O, 0), sorteados pelo navegador
+function generatePassword() {
+    const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.getRandomValues(new Uint32Array(18));
+    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+}
+
+const teamForm = document.getElementById('team-form');
+document.getElementById('team-generate').addEventListener('click', () => {
+    teamForm.elements.password.value = generatePassword();
+});
+
+teamForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = teamForm.querySelector('[type="submit"]');
+    const data = new FormData(teamForm);
+    submit.disabled = true;
+    setTeamMessage('');
+    try {
+        const user = await api('/operators', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: data.get('name'), email: data.get('email'), password: data.get('password'),
+                role: data.get('role')}),
+        });
+        teamForm.reset();
+        setTeamMessage(`Cadastro de ${user.name} feito. A pessoa já pode entrar com o e-mail e a senha inicial.`, 'success');
+        await loadTeam();
+    } catch (error) {
+        setTeamMessage(error.message, 'error');
+    } finally {
+        submit.disabled = false;
+    }
+});
+
+const passwordForm = document.getElementById('password-form');
+passwordForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = new FormData(passwordForm);
+    if (data.get('newPassword') !== data.get('confirmPassword')) {
+        loginMessage.textContent = 'A senha nova e a repetição não são iguais.';
+        loginMessage.className = 'message error';
+        return;
+    }
+    const submit = passwordForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    try {
+        const session = await api('/auth/password', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({currentPassword: data.get('currentPassword'), newPassword: data.get('newPassword')}),
+        });
+        passwordForm.reset();
+        passwordForm.closest('details').open = false;
+        saveSession(session); // o token antigo deixou de valer: segue com o novo
+        loginMessage.textContent = 'Senha trocada. As outras sessões foram encerradas.';
+        loginMessage.className = 'message success';
+    } catch (error) {
+        loginMessage.textContent = error.message;
+        loginMessage.className = 'message error';
+    } finally {
+        submit.disabled = false;
+    }
+});
 
 // Filas do operador: atendimento (por prioridade) e moderação (relatos marcados pelo classificador)
 const PAGE_SIZE = 20;

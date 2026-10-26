@@ -45,6 +45,10 @@ public class AppUser {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** Tokens emitidos antes disso não valem mais: senha trocada ou usuário desativado. */
+    @Column(name = "tokens_valid_after")
+    private Instant tokensValidAfter;
+
     private AppUser(String email, String name, String passwordHash, UserRole role, Instant createdAt) {
         this.email = normalizeEmail(email);
         this.name = Objects.requireNonNull(name);
@@ -58,8 +62,24 @@ public class AppUser {
         return new AppUser(email, name, passwordHash, role, createdAt);
     }
 
-    public void deactivate() {
+    /** Desativar corta o acesso na hora: o token que a pessoa já tem deixa de valer. */
+    public void deactivate(Instant now) {
         this.active = false;
+        this.tokensValidAfter = Objects.requireNonNull(now);
+    }
+
+    public void activate() {
+        this.active = true;
+    }
+
+    /** Trocar a senha encerra as outras sessões: quem tinha o token antigo (talvez roubado) perde o acesso. */
+    public void changePassword(String passwordHash, Instant now) {
+        this.passwordHash = Objects.requireNonNull(passwordHash);
+        this.tokensValidAfter = Objects.requireNonNull(now);
+    }
+
+    public boolean acceptsTokenIssuedAt(Instant issuedAt) {
+        return active && (tokensValidAfter == null || (issuedAt != null && !issuedAt.isBefore(tokensValidAfter)));
     }
 
     public static String normalizeEmail(String email) {

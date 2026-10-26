@@ -53,6 +53,7 @@ Este projeto ataca três pontos:
 **Órgão público**
 - Ranking de bairros por problemas a cada 10 mil habitantes
 - Fila de atendimento: chamados em aberto do mais urgente para o menos, com filtro por categoria, status e bairro
+- Equipe: o administrador cadastra, desativa e reativa operadores; cada um troca a própria senha
 - Fila de moderação: relatos em que o classificador discordou da categoria ou teve pouca confiança; o operador aprova, rejeita ou rejeita e bloqueia o autor
 - Atualização de status: `OPEN → CONFIRMED → IN_PROGRESS → RESOLVED`
 - Exportação no padrão Open311 GeoReport v2
@@ -167,6 +168,9 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para 
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
+- **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pelo card **Equipe** do mapa. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
+- **Revogação apesar do JWT.** Um JWT vale até vencer, mas a cada requisição a API confere se o usuário continua ativo e se o token foi emitido depois da última troca de senha ou desativação (`tokens_valid_after`). Quem é desativado perde o acesso na hora; quem troca a senha (`PUT /api/v1/auth/password`) encerra as outras sessões e recebe um token novo. A conferência é uma consulta por chave primária, só nas rotas do operador.
+- **Senhas de 12 a 72 bytes.** Abaixo de 12 caracteres a senha é recusada; acima de 72 bytes também, porque o bcrypt ignoraria o resto sem avisar.
 
 ### Filas do operador
 **Atendimento** (`GET /api/v1/issues/queue`): chamados abertos, confirmados e em andamento, ordenados pelo `priority_score` e, no empate, pelo mais antigo. Cada item diz quantos relatos do chamado esperam moderação. Na área do operador do mapa, clicar num item leva até o chamado e abre o popup com as ações.
@@ -223,6 +227,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 | `login` | `POST /api/v1/auth/login` | 5 por minuto |
 | `reporter-register` | `POST /api/v1/reporters` | 10 por hora (cada identidade nova escapa de um bloqueio) |
 | `reporter-refresh` | `POST /api/v1/reporters/refresh` | 60 por hora |
+| `password` | `PUT /api/v1/auth/password` | 5 a cada 15 minutos (a troca confere a senha atual) |
 | `reports` | `POST /api/v1/reports` | 20 por hora |
 | `metrics` | `GET /actuator/prometheus` | 30 por minuto (um scrape a cada 15 s usa 4) |
 | `api` | demais rotas em `/api/**` | 300 por minuto |
@@ -250,6 +255,9 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 - Metadados EXIF são descartados antes do armazenamento.
 - O autor do relato é guardado apenas como HMAC do id anônimo dele, com uma chave fora do banco.
 - Nenhum endpoint público expõe dados pessoais.
+- A página [`/privacidade.html`](src/main/resources/static/privacidade.html) explica ao cidadão o que é guardado, quem vê, por quanto tempo, quais serviços de terceiros o mapa usa e como pedir a exclusão. O formulário de relato e o pop-up de localização levam a ela e lembram que a foto fica pública. O nome do responsável e o contato do encarregado (DPO) vêm de `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT`.
+
+> Antes de abrir o serviço ao público, o texto da página precisa ser revisado pelo jurídico e pelo encarregado do órgão: ele descreve o que o sistema faz, mas a base legal e os prazos de guarda são decisões do controlador.
 
 ## Modelo de dados
 
@@ -332,6 +340,11 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
 | `POST` | `/api/v1/auth/login` | Login do órgão público; devolve um token JWT |
+| `PUT` | `/api/v1/auth/password` | Troca a própria senha e encerra as outras sessões (🔒 operador) |
+| `GET` | `/api/v1/operators` | Equipe do órgão público (🔒 administrador) |
+| `POST` | `/api/v1/operators` | Cadastra operador ou administrador (🔒 administrador) |
+| `PATCH` | `/api/v1/operators/{id}` | Desativa ou reativa (`active`); desativar corta o acesso na hora (🔒 administrador) |
+| `GET` | `/api/v1/privacy` | Responsável pelos dados e contato do encarregado, para a página de privacidade |
 | `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado (🔒 operador) |
 | `GET` | `/api/v1/neighborhoods?city=` | Distritos em GeoJSON com os indicadores (para o mapa) |
 | `GET` | `/api/v1/neighborhoods/stats` | Indicadores por bairro (normalizados) |
@@ -360,7 +373,8 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 |---|---|
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
 | `REPORTER_HASH` | chave do HMAC que identifica o autor dos relatos, com no mínimo 32 bytes (`openssl rand -base64 48`); trocá-la faz os relatos antigos pararem de casar com os novos do mesmo cidadão |
-| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro operador do órgão público, criado na subida se ainda não existir (senha com 12+ caracteres) |
+| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir (senha com 12+ caracteres); ele cadastra o resto da equipe |
+| `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT` | órgão responsável pelos dados e e-mail (ou página `https://`) do encarregado, mostrados na [página de privacidade](#privacidade-lgpd) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
 | `API_DOCS_ENABLED` | opcional; `false` desliga o Swagger UI e o `/v3/api-docs` (padrão `true`) |
@@ -508,6 +522,7 @@ Cenários cobertos:
 - a fila de atendimento ordena por prioridade e idade, filtra por categoria, status e bairro, pagina e conta os relatos à espera de moderação; ela e a moderação exigem o token do operador;
 - a moderação lista só os relatos marcados e sem decisão; aprovar mantém o relato; rejeitar desconta o chamado, recalcula a prioridade e apaga a foto; rejeitar o único relato descarta o chamado, que some do mapa e não recebe relatos novos; decidir duas vezes recebe 409;
 - o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres;
+- o administrador cadastra operadores, recusa e-mail repetido e senha fraca; operador comum não gerencia a equipe; desativar recusa na hora o token que a pessoa já tinha, e trocar a senha invalida o token antigo e devolve um novo;
 - "meus relatos" mostra só os relatos da própria identidade, do mais novo para o mais antigo, com o histórico sem o nome do operador;
 - a mudança de status chega ao navegador do autor pelo push: a mensagem cifrada confere com o exemplo da RFC 8291 e é decifrada pelo teste no papel do navegador, o JWT VAPID é verificado, quem não relatou não recebe e a inscrição vencida é apagada; endpoints fora dos serviços de push são recusados;
 - o traceId do pedido HTTP chega à mensagem publicada pela outbox e ao resultado do worker; o erro 500 esconde a causa e mostra o código; o health fica `DEGRADED` com a outbox parada; as métricas de negócio saem com os nomes que o dashboard e os alertas usam, e o log de login recusado não traz o e-mail.

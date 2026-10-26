@@ -11,8 +11,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
 /**
- * Cria o primeiro operador a partir de {@code app.security.bootstrap-operator}, para o órgão público
- * conseguir entrar logo após a instalação. Nunca altera um usuário que já existe.
+ * Cria o primeiro usuário, como administrador, a partir de {@code app.security.bootstrap-operator}, para o
+ * órgão público conseguir entrar logo após a instalação. Nunca altera um usuário que já existe.
  */
 @Slf4j
 @Component
@@ -33,7 +33,8 @@ public class OperatorBootstrapRunner implements ApplicationRunner {
         if (users.existsByEmail(email)) {
             return;
         }
-        authService.createUser(email, operator.name(), operator.password(), UserRole.OPERATOR);
-        log.info("Operador inicial {} criado", email);
+        // o primeiro usuário é o administrador: é ele quem cadastra o resto da equipe
+        AppUser admin = authService.createUser(email, operator.name(), operator.password(), UserRole.ADMIN);
+        log.info("Administrador inicial criado (usuário {})", admin.getId());
     }
 }

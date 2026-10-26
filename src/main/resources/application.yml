@@ -91,6 +91,10 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:true}
 
 app:
+  # Responsável pelos dados e contato do encarregado (DPO), mostrados em /privacidade.html
+  privacy:
+    controller: ${PRIVACY_CONTROLLER:}
+    contact: ${PRIVACY_CONTACT:}
   # Avisos por push quando um chamado relatado pelo cidadão muda de status. Sem as chaves, fica desligado.
   # Gere o par com: node scripts/generate-vapid-keys.mjs
   push:
@@ -123,6 +127,11 @@ app:
         path: /api/v1/auth/login
         capacity: 5
         period: 1m
+      - name: password # troca de senha confere a senha atual: com um token roubado, seria outra força bruta
+        method: PUT
+        path: /api/v1/auth/password
+        capacity: 5
+        period: 15m
       - name: reports # cada relato grava foto e passa pelo classificador
         method: POST
         path: /api/v1/reports

@@ -58,6 +58,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "Autor bloqueado", e.getMessage());
     }
 
+    @ExceptionHandler(InvalidPasswordException.class)
+    ProblemDetail handleInvalidPassword(InvalidPasswordException e) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha inválida", e.getMessage());
+    }
+
+    @ExceptionHandler(OperatorAlreadyExistsException.class)
+    ProblemDetail handleOperatorExists(OperatorAlreadyExistsException e) {
+        return problem(HttpStatus.CONFLICT, "E-mail já cadastrado", e.getMessage());
+    }
+
+    @ExceptionHandler(OperatorChangeNotAllowedException.class)
+    ProblemDetail handleOperatorChange(OperatorChangeNotAllowedException e) {
+        return problem(HttpStatus.CONFLICT, "Alteração não permitida", e.getMessage());
+    }
+
     @ExceptionHandler(InvalidPushSubscriptionException.class)
     ProblemDetail handleInvalidPushSubscription(InvalidPushSubscriptionException e) {
         return problem(HttpStatus.BAD_REQUEST, "Inscrição inválida", e.getMessage());

@@ -4,6 +4,7 @@ import com.br.spbemestar.config.SecurityConfig;
 import com.br.spbemestar.config.SecurityProperties;
 import com.br.spbemestar.dto.TokenResponse;
 import com.br.spbemestar.exception.InvalidCredentialsException;
+import com.br.spbemestar.exception.InvalidPasswordException;
 import com.br.spbemestar.model.AppUser;
 import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.repository.AppUserRepository;
@@ -18,10 +19,10 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -73,7 +74,7 @@ public class AuthService {
                 .expiresAt(expiresAt)
                 .claim("email", user.getEmail())
                 .claim("name", user.getName())
-                .claim(SecurityConfig.ROLES_CLAIM, List.of(user.getRole().name()))
+                .claim(SecurityConfig.ROLES_CLAIM, user.getRole().grantedRoles())
                 .build();
         String token = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
@@ -82,9 +83,38 @@ public class AuthService {
 
     @Transactional
     public AppUser createUser(String email, String name, String rawPassword, UserRole role) {
-        if (rawPassword.length() < 12) {
-            throw new IllegalArgumentException("A senha precisa ter ao menos 12 caracteres");
-        }
+        validatePassword(rawPassword);
         return users.save(AppUser.of(email, name, passwordEncoder.encode(rawPassword), role, Instant.now(clock)));
+    }
+
+    /**
+     * Troca a própria senha. Os tokens emitidos antes deixam de valer, inclusive o desta sessão; a resposta
+     * traz um token novo para quem trocou continuar conectado.
+     */
+    @Transactional
+    public TokenResponse changePassword(Long userId, String currentPassword, String newPassword) {
+        AppUser user = users.findById(userId).filter(AppUser::isActive).orElseThrow(InvalidCredentialsException::new);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            log.warn("Troca de senha recusada para o operador {}: senha atual errada", userId);
+            throw new InvalidPasswordException("A senha atual está errada.");
+        }
+        if (currentPassword.equals(newPassword)) {
+            throw new InvalidPasswordException("A senha nova precisa ser diferente da atual.");
+        }
+        validatePassword(newPassword);
+        // em segundos, como o iat do token: o token novo, emitido no mesmo segundo, continua valendo
+        user.changePassword(passwordEncoder.encode(newPassword), Instant.now(clock).truncatedTo(ChronoUnit.SECONDS));
+        log.info("Operador {} trocou a senha", userId);
+        return issueToken(user);
+    }
+
+    /** O bcrypt só considera os primeiros 72 bytes: acima disso, o resto da senha seria ignorado sem aviso. */
+    public static void validatePassword(String rawPassword) {
+        if (rawPassword == null || rawPassword.length() < 12) {
+            throw new InvalidPasswordException("A senha precisa ter ao menos 12 caracteres.");
+        }
+        if (rawPassword.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new InvalidPasswordException("A senha pode ter no máximo 72 bytes (cerca de 70 caracteres).");
+        }
     }
 }

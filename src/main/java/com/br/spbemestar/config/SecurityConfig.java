@@ -2,6 +2,8 @@ package com.br.spbemestar.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import jakarta.servlet.http.HttpServletResponse;
+import com.br.spbemestar.repository.AppUserRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -179,10 +181,13 @@ public class SecurityConfig {
                         // antes do GET /api/v1/** público: fila e moderação são só do operador
                         .requestMatchers(HttpMethod.GET, "/api/v1/issues/queue").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/moderation/**").hasRole("OPERATOR")
+                        .requestMatchers("/api/v1/operators", "/api/v1/operators/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/auth/password").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
-                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/*.js", "/*.css", "/favicon.ico").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/*.js", "/*.css",
+                                "/favicon.ico").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
@@ -209,12 +214,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecurityProperties properties) {
+    JwtDecoder jwtDecoder(SecurityProperties properties, ObjectProvider<AppUserRepository> users) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(secretKey(properties))
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                new JwtTimestampValidator(), new JwtIssuerValidator(properties.issuer())));
+                new JwtTimestampValidator(), new JwtIssuerValidator(properties.issuer()),
+                new OperatorTokenValidator(users)));
         return decoder;
     }
 
