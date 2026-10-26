@@ -1,0 +1,19 @@
+# Caddy na frente da API: recebe a internet nas portas 80 e 443, obtém e renova sozinho o certificado
+# HTTPS (Let's Encrypt) do domínio e repassa para a API, que só existe na rede interna do Docker.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# as métricas são para o Prometheus, de dentro da rede; de fora, nem com senha
+	@metrics path /actuator/prometheus /actuator/prometheus/*
+	respond @metrics 404
+
+	# o Caddy envia X-Forwarded-For e X-Forwarded-Proto: a API vê o IP de quem acessou (para o rate
+	# limit) e sabe que a conexão é HTTPS (para o HSTS)
+	reverse_proxy api:8080
+
+	# sem log de acesso: ele gravaria o IP de cada cidadão, e a página de privacidade diz que não guardamos
+}

@@ -1,0 +1,12 @@
+# Só o código e o que a imagem precisa: sem segredos, builds locais, fotos e modelos
+.env
+*.env
+.git
+**/target
+logs
+fotos.zip
+classifier-worker/models
+classifier-worker/training
+deploy/.env
+deploy/backups
+observability
