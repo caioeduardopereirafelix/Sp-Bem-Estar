@@ -2,84 +2,163 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SP Bem-Estar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#3445d1">
+    <title>SP Bem-Estar · Relate problemas da sua rua</title>
     <!-- integrity: o navegador recusa o arquivo se o CDN entregar algo diferente desta versão -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
           integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
           crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preload" href="fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="map.css">
 </head>
 <body>
-<header class="topbar">
-    <h1>SP Bem-Estar</h1>
-    <p>Zeladoria urbana colaborativa · São Paulo</p>
-</header>
+<div id="map" class="map" aria-label="Mapa dos problemas relatados"></div>
 
-<main class="layout">
-    <div id="map" class="map" aria-label="Mapa de chamados e distritos"></div>
+<!-- No celular é uma gaveta que sobe de baixo; no computador, um painel à esquerda do mapa -->
+<aside class="panel" id="panel" data-size="half" aria-label="SP Bem-Estar">
+    <button type="button" class="sheet-handle" id="sheet-handle" aria-label="Expandir ou recolher o painel"></button>
 
-    <aside class="panel">
-        <section class="card">
-            <h2>Filtros</h2>
-            <div class="filters">
-                <label>Categoria
-                    <select id="filter-category">
-                        <option value="">Todas</option>
-                    </select>
-                </label>
-                <label>Status
-                    <select id="filter-status">
-                        <option value="">Não resolvidos</option>
-                        <option value="OPEN">Aberto</option>
-                        <option value="CONFIRMED">Confirmado</option>
-                        <option value="IN_PROGRESS">Em andamento</option>
-                        <option value="RESOLVED">Resolvido</option>
-                    </select>
-                </label>
+    <header class="panel-head">
+        <a class="brand" href="/">
+            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M16 2c-6.1 0-11 4.8-11 10.8C5 21 16 30 16 30s11-9 11-17.2C27 6.8 22.1 2 16 2z"/>
+                <path class="brand-check" d="M11 13.2l3.4 3.4L21.2 10"/>
+            </svg>
+            <span>SP Bem-Estar</span>
+        </a>
+        <nav class="tabs" aria-label="Seções">
+            <button type="button" class="tab" data-goto="explore" aria-current="page">Mapa</button>
+            <button type="button" class="tab" data-goto="mine">Meus relatos <span class="badge" id="mine-count"></span></button>
+            <button type="button" class="tab" data-goto="operator" id="operator-tab" hidden>Prefeitura</button>
+            <button type="button" class="tab" data-goto="more">Mais</button>
+        </nav>
+    </header>
+
+    <div class="views">
+        <!-- Explorar: o que já foi relatado e o convite para relatar -->
+        <section class="view" data-view="explore">
+            <h1 class="view-title">Viu um problema na rua? Avise a prefeitura.</h1>
+            <p class="lede">Buraco, lixo, poste apagado: relate com uma foto, sem cadastro, e acompanhe até ser resolvido.</p>
+            <button type="button" class="cta" id="report-begin">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                Relatar um problema
+            </button>
+
+            <h2 class="section-title" id="issue-count" aria-live="polite">Problemas nesta área</h2>
+            <div class="chips" id="category-chips" role="group" aria-label="Filtrar por tipo de problema"></div>
+            <div class="segmented" role="group" aria-label="Situação dos problemas">
+                <button type="button" data-status="" aria-pressed="true">Em aberto</button>
+                <button type="button" data-status="RESOLVED" aria-pressed="false">Resolvidos</button>
             </div>
-            <p class="hint" id="issue-count" aria-live="polite"></p>
+            <ul class="status-key" aria-label="Como ler os marcadores" id="status-key"></ul>
         </section>
 
-        <section class="card">
-            <h2>Reportar problema</h2>
-            <div class="actions" id="report-choice">
-                <button type="button" id="report-begin" class="button primary">Novo relato</button>
+        <!-- Novo relato em três etapas: local, tipo e foto -->
+        <section class="view" data-view="report" hidden>
+            <div class="view-head">
+                <h1 class="view-title">Novo relato</h1>
+                <button type="button" class="link-button" id="report-cancel">Cancelar</button>
             </div>
-            <p class="hint" id="report-hint" hidden>Clique no mapa onde está o problema.</p>
-            <p class="hint" id="report-adjust" hidden>Para corrigir o ponto, arraste o marcador ou clique no mapa.</p>
-            <form id="report-form" hidden>
-                <label>Categoria
-                    <select name="category" id="report-category" required></select>
-                </label>
-                <label>Foto (JPEG ou PNG, até 10 MB)
-                    <input type="file" name="photo" accept="image/jpeg,image/png" required>
-                </label>
-                <p class="privacy-note">A foto e o ponto ficam públicos no mapa: enquadre só o problema, sem rostos
-                    nem placas. <a href="privacidade.html" target="_blank" rel="noopener">Como usamos os dados</a></p>
-                <div class="actions">
-                    <button type="submit" class="button primary">Enviar relato</button>
-                    <button type="button" id="report-cancel" class="button">Cancelar</button>
+            <ol class="steps" aria-label="Etapas do relato">
+                <li data-step="where" aria-current="step">Local</li>
+                <li data-step="what">Tipo</li>
+                <li data-step="photo">Foto</li>
+            </ol>
+
+            <div class="step" data-step-panel="where">
+                <h2 class="step-title">Onde está o problema?</h2>
+                <p id="where-text">Use a localização do seu aparelho para marcar o ponto, ou toque no mapa.</p>
+                <div class="stack" id="where-choice">
+                    <button type="button" class="cta" id="location-allow">Usar minha localização</button>
+                    <button type="button" class="button" id="location-manual">Marcar no mapa</button>
                 </div>
+                <p class="hint pick-hint" id="report-hint" hidden>Toque no mapa, no lugar do problema.</p>
+                <div class="stack" id="where-confirm" hidden>
+                    <p class="hint" id="report-adjust">Ponto marcado. Se precisar, arraste o pino para o lugar certo.</p>
+                    <button type="button" class="cta" id="where-next">Confirmar local</button>
+                </div>
+                <p class="privacy-note">A localização fica no aparelho; só o ponto do relato vai para o servidor.
+                    <a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
+            </div>
+
+            <div class="step" data-step-panel="what" hidden>
+                <h2 class="step-title">O que você encontrou?</h2>
+                <div class="category-grid" id="category-grid" role="group" aria-label="Tipo de problema"></div>
+                <button type="button" class="link-button" data-step-back="where">Voltar para o local</button>
+            </div>
+
+            <form class="step" id="report-form" data-step-panel="photo" hidden>
+                <h2 class="step-title">Mostre o problema</h2>
+                <input type="hidden" name="category" id="report-category">
+                <label class="photo-drop" id="photo-drop">
+                    <input type="file" name="photo" accept="image/jpeg,image/png" capture="environment" required>
+                    <img id="photo-preview" alt="Prévia da foto escolhida" hidden>
+                    <span class="photo-drop-text" id="photo-drop-text">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                        Tirar ou escolher uma foto
+                    </span>
+                </label>
+                <p class="privacy-note">A foto fica pública no mapa: enquadre só o problema, sem rostos nem placas.
+                    <a href="privacidade.html" target="_blank" rel="noopener">Como usamos os dados</a></p>
+                <button type="submit" class="cta">Enviar relato</button>
+                <button type="button" class="link-button" data-step-back="what">Trocar o tipo</button>
             </form>
             <p class="message" id="report-message" aria-live="polite"></p>
         </section>
 
-        <section class="card" id="my-reports-card">
-            <h2>Meus relatos</h2>
-            <p class="hint" id="my-reports-hint">Os relatos enviados deste navegador aparecem aqui, com o andamento de cada chamado.</p>
-            <ul class="queue" id="my-reports-list"></ul>
-            <button type="button" class="button" id="my-reports-more" hidden>Mostrar mais</button>
-            <div class="push-box" id="push-box" hidden>
-                <p class="hint" id="push-status" aria-live="polite"></p>
-                <button type="button" class="button" id="push-toggle" hidden></button>
+        <!-- Depois do envio -->
+        <section class="view sent" data-view="sent" hidden>
+            <svg class="sent-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="M14 24.5l7 7 13-14"/></svg>
+            <h1 class="view-title" id="sent-title">Relato enviado</h1>
+            <p class="lede" id="sent-text"></p>
+            <div class="push-box" hidden>
+                <p data-push-status></p>
+                <button type="button" class="button" data-push-toggle hidden></button>
             </div>
+            <div class="stack">
+                <button type="button" class="cta" data-goto="mine">Acompanhar meus relatos</button>
+                <button type="button" class="button" data-goto="explore">Voltar ao mapa</button>
+            </div>
+        </section>
+
+        <!-- Meus relatos: a trilha de cada chamado, como o rastreio de uma encomenda -->
+        <section class="view" data-view="mine" hidden>
+            <h1 class="view-title">Meus relatos</h1>
+            <p class="lede" id="my-reports-hint">Os relatos que você enviar deste aparelho aparecem aqui, com o andamento de cada um.</p>
+            <ul class="tracks" id="my-reports-list"></ul>
+            <button type="button" class="button" id="my-reports-more" hidden>Mostrar mais</button>
+            <div class="push-box" hidden>
+                <p data-push-status></p>
+                <button type="button" class="button" data-push-toggle hidden></button>
+            </div>
+            <button type="button" class="cta" id="mine-empty-cta" data-goto="report-start" hidden>Relatar um problema</button>
             <p class="message" id="my-reports-message" aria-live="polite"></p>
         </section>
 
-        <section class="card">
-            <h2>Área do operador</h2>
-            <p class="hint" id="operator-hint">Órgão público: entre para confirmar, encaminhar e resolver chamados.</p>
+        <!-- Mais: privacidade, indicadores e a entrada da prefeitura -->
+        <section class="view" data-view="more" hidden>
+            <h1 class="view-title">Mais</h1>
+
+            <h2 class="section-title">Bairros com mais problemas</h2>
+            <p class="hint">Problemas em aberto a cada 10 mil moradores, para comparar distritos de tamanhos diferentes.</p>
+            <label class="switch">
+                <input type="checkbox" id="districts-toggle">
+                <span>Colorir os distritos no mapa</span>
+            </label>
+            <table class="ranking">
+                <thead>
+                <tr><th scope="col">Distrito</th><th scope="col">Abertos</th><th scope="col">Por 10 mil</th></tr>
+                </thead>
+                <tbody id="ranking-body"></tbody>
+            </table>
+
+            <h2 class="section-title">Seus dados</h2>
+            <p class="hint">Sem nome, e-mail ou CPF. Veja o que é guardado e quem vê.</p>
+            <a class="button" href="privacidade.html">Política de privacidade</a>
+
+            <h2 class="section-title" id="operator-login-title">Sou da prefeitura</h2>
+            <p class="hint" id="operator-hint">Para a equipe que confirma, encaminha e resolve os chamados.</p>
             <form id="login-form">
                 <label>E-mail
                     <input type="email" name="email" autocomplete="username" required>
@@ -87,128 +166,111 @@
                 <label>Senha
                     <input type="password" name="password" autocomplete="current-password" required>
                 </label>
-                <div class="actions">
-                    <button type="submit" class="button primary">Entrar</button>
-                </div>
+                <button type="submit" class="button">Entrar</button>
             </form>
-            <div id="operator-session" hidden>
-                <p id="operator-name"></p>
-                <button type="button" id="logout" class="button">Sair</button>
-                <details class="subform">
-                    <summary>Trocar minha senha</summary>
-                    <form id="password-form">
-                        <label>Senha atual
-                            <input type="password" name="currentPassword" autocomplete="current-password" required>
-                        </label>
-                        <label>Senha nova (12 caracteres ou mais)
-                            <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                        </label>
-                        <label>Repita a senha nova
-                            <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                        </label>
-                        <div class="actions">
-                            <button type="submit" class="button primary">Trocar senha</button>
-                        </div>
-                        <p class="hint">As outras sessões abertas com a senha antiga são encerradas.</p>
-                    </form>
-                </details>
-            </div>
             <p class="message" id="login-message" aria-live="polite"></p>
+
+            <p class="sources">
+                Mapa: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+                Distritos: <a href="https://geosampa.prefeitura.sp.gov.br" target="_blank" rel="noopener">GeoSampa</a>.
+                População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a>.
+            </p>
         </section>
 
-        <section class="card" id="team-card" hidden>
-            <h2>Equipe</h2>
-            <p class="hint">Quem pode alterar status e moderar. Desativar corta o acesso na hora.</p>
-            <ul class="queue" id="team-list"></ul>
-            <details class="subform">
-                <summary>Cadastrar operador</summary>
-                <form id="team-form">
-                    <label>Nome
-                        <input type="text" name="name" maxlength="100" required>
-                    </label>
-                    <label>E-mail
-                        <input type="email" name="email" autocomplete="off" required>
-                    </label>
-                    <label>Senha inicial (12 caracteres ou mais)
-                        <input type="text" name="password" autocomplete="off" minlength="12" maxlength="72" required>
-                    </label>
-                    <label>Papel
-                        <select name="role">
-                            <option value="OPERATOR">Operador</option>
-                            <option value="ADMIN">Administrador (também cadastra a equipe)</option>
+        <!-- Prefeitura: só depois do login -->
+        <section class="view" data-view="operator" hidden>
+            <div class="view-head">
+                <h1 class="view-title">Prefeitura</h1>
+                <button type="button" class="link-button" id="logout">Sair</button>
+            </div>
+            <p class="hint" id="operator-name"></p>
+            <nav class="subtabs" aria-label="Áreas da prefeitura">
+                <button type="button" data-subview="queue" aria-current="page">Fila</button>
+                <button type="button" data-subview="moderation">Moderação <span class="badge" id="moderation-count"></span></button>
+                <button type="button" data-subview="team" id="team-subtab" hidden>Equipe</button>
+                <button type="button" data-subview="account">Minha conta</button>
+            </nav>
+
+            <div class="subview" data-subview-panel="queue">
+                <p class="hint">Chamados em aberto, do mais urgente para o menos. A prioridade conta pessoas, não relatos.</p>
+                <div class="filters">
+                    <label>Tipo
+                        <select id="queue-category">
+                            <option value="">Todos</option>
                         </select>
                     </label>
-                    <div class="actions">
-                        <button type="submit" class="button primary">Cadastrar</button>
-                        <button type="button" class="button" id="team-generate">Gerar senha</button>
-                    </div>
-                    <p class="hint">Passe a senha inicial à pessoa por um canal seguro e peça que ela a troque no primeiro acesso.</p>
-                </form>
-            </details>
-            <p class="message" id="team-message" aria-live="polite"></p>
-        </section>
-
-        <section class="card" id="queue-card" hidden>
-            <h2>Fila de atendimento</h2>
-            <p class="hint">Chamados em aberto, do mais urgente para o menos.</p>
-            <div class="filters">
-                <label>Categoria
-                    <select id="queue-category">
-                        <option value="">Todas</option>
-                    </select>
-                </label>
-                <label>Status
-                    <select id="queue-status">
-                        <option value="">Em aberto (todos)</option>
-                        <option value="OPEN">Aberto</option>
-                        <option value="CONFIRMED">Confirmado</option>
-                        <option value="IN_PROGRESS">Em andamento</option>
-                    </select>
-                </label>
+                    <label>Situação
+                        <select id="queue-status">
+                            <option value="">Em aberto (todos)</option>
+                            <option value="OPEN">Aberto</option>
+                            <option value="CONFIRMED">Confirmado</option>
+                            <option value="IN_PROGRESS">Em andamento</option>
+                        </select>
+                    </label>
+                </div>
+                <ol class="queue" id="queue-list"></ol>
+                <p class="hint" id="queue-summary" aria-live="polite"></p>
+                <button type="button" class="button" id="queue-more" hidden>Mostrar mais</button>
             </div>
-            <ol class="queue" id="queue-list"></ol>
-            <p class="hint" id="queue-summary" aria-live="polite"></p>
-            <button type="button" class="button" id="queue-more" hidden>Mostrar mais</button>
+
+            <div class="subview" data-subview-panel="moderation" hidden>
+                <p class="hint">Relatos em que o classificador de imagens discordou do tipo ou ficou em dúvida.</p>
+                <ul class="moderation" id="moderation-list"></ul>
+                <button type="button" class="button" id="moderation-more" hidden>Mostrar mais</button>
+                <p class="message" id="moderation-message" aria-live="polite"></p>
+            </div>
+
+            <div class="subview" data-subview-panel="team" hidden>
+                <p class="hint">Quem pode alterar status e moderar. Desativar corta o acesso na hora.</p>
+                <ul class="queue" id="team-list"></ul>
+                <details class="subform">
+                    <summary>Cadastrar pessoa na equipe</summary>
+                    <form id="team-form">
+                        <label>Nome
+                            <input type="text" name="name" maxlength="100" required>
+                        </label>
+                        <label>E-mail
+                            <input type="email" name="email" autocomplete="off" required>
+                        </label>
+                        <label>Senha inicial (12 caracteres ou mais)
+                            <input type="text" name="password" autocomplete="off" minlength="12" maxlength="72" required>
+                        </label>
+                        <label>Papel
+                            <select name="role">
+                                <option value="OPERATOR">Operador</option>
+                                <option value="ADMIN">Administrador (também cadastra a equipe)</option>
+                            </select>
+                        </label>
+                        <div class="actions">
+                            <button type="submit" class="button primary">Cadastrar</button>
+                            <button type="button" class="button" id="team-generate">Gerar senha</button>
+                        </div>
+                        <p class="hint">Passe a senha inicial à pessoa por um canal seguro e peça que ela a troque no primeiro acesso.</p>
+                    </form>
+                </details>
+                <p class="message" id="team-message" aria-live="polite"></p>
+            </div>
+
+            <div class="subview" data-subview-panel="account" hidden>
+                <h2 class="section-title">Trocar minha senha</h2>
+                <form id="password-form">
+                    <label>Senha atual
+                        <input type="password" name="currentPassword" autocomplete="current-password" required>
+                    </label>
+                    <label>Senha nova (12 caracteres ou mais)
+                        <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                    </label>
+                    <label>Repita a senha nova
+                        <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                    </label>
+                    <button type="submit" class="button primary">Trocar senha</button>
+                    <p class="hint">As outras sessões abertas com a senha antiga são encerradas.</p>
+                </form>
+                <p class="message" id="account-message" aria-live="polite"></p>
+            </div>
         </section>
-
-        <section class="card" id="moderation-card" hidden>
-            <h2>Moderação <span class="badge" id="moderation-count"></span></h2>
-            <p class="hint">Relatos em que o classificador discordou da categoria ou teve pouca confiança.</p>
-            <ul class="moderation" id="moderation-list"></ul>
-            <button type="button" class="button" id="moderation-more" hidden>Mostrar mais</button>
-            <p class="message" id="moderation-message" aria-live="polite"></p>
-        </section>
-
-        <section class="card">
-            <h2>Distritos com mais chamados</h2>
-            <p class="hint">Chamados abertos a cada 10 mil habitantes</p>
-            <table class="ranking">
-                <thead>
-                <tr><th scope="col">Distrito</th><th scope="col">Abertos</th><th scope="col">Por 10 mil</th></tr>
-                </thead>
-                <tbody id="ranking-body"></tbody>
-            </table>
-        </section>
-
-        <footer class="sources">
-            Distritos: <a href="https://geosampa.prefeitura.sp.gov.br" target="_blank" rel="noopener">GeoSampa</a> ·
-            População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a> ·
-            <a href="privacidade.html">Privacidade</a>
-        </footer>
-    </aside>
-</main>
-
-<!-- Antes do pedido do navegador: explica para que serve a localização e oferece escolher no mapa -->
-<dialog id="location-dialog" class="location-dialog" aria-labelledby="location-dialog-title">
-    <h2 id="location-dialog-title">Permitir acesso à localização?</h2>
-    <p id="location-dialog-text"></p>
-    <p class="privacy-note">A localização fica no aparelho; só o ponto do relato enviado vai para o servidor.
-        <a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
-    <div class="actions wrap">
-        <button type="button" id="location-allow" class="button primary">Permitir localização</button>
-        <button type="button" id="location-manual" class="button">Escolher no mapa</button>
     </div>
-</dialog>
+</aside>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
         integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="

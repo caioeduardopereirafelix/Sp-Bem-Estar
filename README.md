@@ -41,6 +41,8 @@ Este projeto ataca três pontos:
 
 ## Funcionalidades
 
+O mapa foi pensado primeiro para o celular: em tela cheia, com uma gaveta que sobe de baixo (no computador, um painel à esquerda). O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). A área da prefeitura fica em **Mais › Sou da prefeitura** e, depois do login, numa aba própria.
+
 **Cidadão**
 - Reportar um problema com foto, localização e categoria. Antes do relato, um pop-up explica para que serve a localização e leva ao pedido de permissão do aparelho; com a permissão, o ponto vem do GPS, e sem ela o ponto é escolhido no mapa. O marcador pode ser arrastado para corrigir
 - Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
@@ -168,7 +170,7 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para 
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
-- **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pelo card **Equipe** do mapa. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
+- **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pela aba **Prefeitura › Equipe** do mapa. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
 - **Revogação apesar do JWT.** Um JWT vale até vencer, mas a cada requisição a API confere se o usuário continua ativo e se o token foi emitido depois da última troca de senha ou desativação (`tokens_valid_after`). Quem é desativado perde o acesso na hora; quem troca a senha (`PUT /api/v1/auth/password`) encerra as outras sessões e recebe um token novo. A conferência é uma consulta por chave primária, só nas rotas do operador.
 - **Senhas de 12 a 72 bytes.** Abaixo de 12 caracteres a senha é recusada; acima de 72 bytes também, porque o bcrypt ignoraria o resto sem avisar.
 
@@ -243,7 +245,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 
 ### Outras proteções
 - **Foto com teto de 40 megapixels.** O limite é conferido no cabeçalho da imagem, antes de decodificá-la. Sem ele, um PNG de 1 MB que declara 30 000 × 30 000 pixels exigiria gigabytes de memória ao ser aberto (*decompression bomb*) e derrubaria a API.
-- **Content Security Policy no mapa.** A página só carrega scripts, estilos e imagens da própria API, do Leaflet no cdnjs e dos tiles do OpenStreetMap, e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
+- **Content Security Policy no mapa.** A página só carrega scripts, estilos, fontes e imagens da própria API, do Leaflet no cdnjs e dos tiles do OpenStreetMap (mais `blob:` para a prévia da foto, que ainda está no aparelho), e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
 - **Permissions-Policy.** Só a própria página pode pedir a localização do usuário, e câmera, microfone, pagamento e USB ficam bloqueados para qualquer script. A localização fica no navegador: a API recebe apenas o ponto de um relato enviado, como ao clicar no mapa.
 - **Leaflet com Subresource Integrity.** O navegador confere o hash do arquivo e o recusa se o CDN entregar algo diferente da versão 1.9.4.
 - **Métricas com senha.** O `/actuator/prometheus` revela rotas, volumes e erros, por isso exige `METRICS_USER` e `METRICS_PASSWORD` (HTTP Basic, como o Prometheus espera). Sem essas variáveis, ninguém lê as métricas.
@@ -255,7 +257,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 - Metadados EXIF são descartados antes do armazenamento.
 - O autor do relato é guardado apenas como HMAC do id anônimo dele, com uma chave fora do banco.
 - Nenhum endpoint público expõe dados pessoais.
-- A página [`/privacidade.html`](src/main/resources/static/privacidade.html) explica ao cidadão o que é guardado, quem vê, por quanto tempo, quais serviços de terceiros o mapa usa e como pedir a exclusão. O formulário de relato e o pop-up de localização levam a ela e lembram que a foto fica pública. O nome do responsável e o contato do encarregado (DPO) vêm de `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT`.
+- A página [`/privacidade.html`](src/main/resources/static/privacidade.html) explica ao cidadão o que é guardado, quem vê, por quanto tempo, quais serviços de terceiros o mapa usa e como pedir a exclusão. As etapas de local e de foto do relato levam a ela e lembram que a foto fica pública. O nome do responsável e o contato do encarregado (DPO) vêm de `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT`.
 
 > Antes de abrir o serviço ao público, o texto da página precisa ser revisado pelo jurídico e pelo encarregado do órgão: ele descreve o que o sistema faz, mas a base legal e os prazos de guarda são decisões do controlador.
 
@@ -385,7 +387,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` | opcionais; ligam os [avisos por push](#meus-relatos-e-avisos-por-push). Gere o par com `node scripts/generate-vapid-keys.mjs`; o subject é um `mailto:` ou `https://` de contato, exigido pelos serviços de push |
 | `GRAFANA_ADMIN_PASSWORD` | opcional; senha do `admin` do Grafana (padrão `admin`, que ele pede para trocar no primeiro login) |
 
-Com o operador criado, entre pela **Área do operador** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
+Com o operador criado, entre em **Mais › Sou da prefeitura** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
 
 | Serviço | Endereço |
 |---|---|

@@ -75,7 +75,8 @@ public class SecurityConfig {
             "default-src 'self'",
             "script-src 'self' https://cdnjs.cloudflare.com",
             "style-src 'self' https://cdnjs.cloudflare.com",
-            "img-src 'self' data: https://cdnjs.cloudflare.com https://tile.openstreetmap.org",
+            // blob: é a prévia da foto escolhida no relato, que ainda está só no aparelho
+            "img-src 'self' data: blob: https://cdnjs.cloudflare.com https://tile.openstreetmap.org",
             "connect-src 'self'",
             "object-src 'none'",
             "base-uri 'self'",
@@ -187,7 +188,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/*.js", "/*.css",
-                                "/favicon.ico").permitAll()
+                                "/favicon.ico", "/fonts/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
