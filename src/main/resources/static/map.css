@@ -286,6 +286,27 @@ select, input[type="file"] {
     border-color: var(--accent);
 }
 
+.queue-item.single {
+    grid-template-columns: 1fr;
+}
+
+.queue-item:disabled {
+    cursor: default;
+}
+
+.queue-item:disabled:hover {
+    border-color: var(--border);
+}
+
+.push-box {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--hairline);
+    display: grid;
+    gap: 6px;
+    justify-items: start;
+}
+
 .queue-rank {
     color: var(--text-muted);
     font-variant-numeric: tabular-nums;

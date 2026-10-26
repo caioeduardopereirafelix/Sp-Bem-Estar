@@ -50,5 +50,6 @@ public class CounterWarmup {
         }
         REPORTER_EVENTS.forEach(event -> meters.counter("spbemestar.reporters.events", "event", event));
         List.of("success", "failure").forEach(result -> meters.counter("spbemestar.auth.logins", "result", result));
+        List.of("delivered", "expired", "failed").forEach(result -> meters.counter("spbemestar.push.sent", "result", result));
     }
 }

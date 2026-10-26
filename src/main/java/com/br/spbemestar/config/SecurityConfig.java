@@ -49,12 +49,14 @@ import java.util.List;
  * nascem protegidas: o que é público está listado aqui.
  */
 @Configuration
-@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class, ReporterProperties.class})
+@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class, ReporterProperties.class,
+        PushProperties.class})
 public class SecurityConfig {
 
     public static final String ROLES_CLAIM = "roles";
     static final String METRICS_PATH = "/actuator/prometheus";
-    // Rotas do cidadão: enviar relato com o token dele, e emitir ou renovar esse token
+    // Rotas do cidadão: enviar relato com o token dele, emitir ou renovar esse token, ver os próprios relatos
+    // e inscrever o navegador nas notificações
     private static final RequestMatcher REPORTER_ROUTES = new OrRequestMatcher(
             PathPatternRequestMatcher.pathPattern(HttpMethod.POST, "/api/v1/reports"),
             PathPatternRequestMatcher.pathPattern("/api/v1/reporters"),
@@ -135,6 +137,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports").hasRole("REPORTER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/reporters", "/api/v1/reporters/refresh").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reporters/push/config").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/reporters/me/reports").hasRole("REPORTER")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/reporters/me/push-subscription").hasRole("REPORTER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/reporters/me/push-subscription").hasRole("REPORTER")
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.decoder(reporterJwt.decoder()).jwtAuthenticationConverter(reporterConverter))

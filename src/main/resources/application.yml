@@ -91,6 +91,12 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:true}
 
 app:
+  # Avisos por push quando um chamado relatado pelo cidadão muda de status. Sem as chaves, fica desligado.
+  # Gere o par com: node scripts/generate-vapid-keys.mjs
+  push:
+    vapid-public-key: ${PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${PUSH_VAPID_PRIVATE_KEY:}
+    subject: ${PUSH_VAPID_SUBJECT:} # mailto: ou https:// do responsável, exigido pelos serviços de push
   # Identidade anônima do cidadão: JWT curto para enviar relatos e refresh token com rotação
   reporter:
     hash-secret: ${REPORTER_HASH} # no mínimo 32 bytes; gere com: openssl rand -base64 48
