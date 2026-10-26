@@ -3,11 +3,12 @@ const CITY = 'São Paulo';
 
 // Status é um estado: paleta de status + formato do marcador, para não depender só da cor
 const STATUS = {
-    OPEN: {label: 'Aberto', color: '#d03b3b', shape: 'circle'},
-    CONFIRMED: {label: 'Confirmado', color: '#ec835a', shape: 'square'},
-    IN_PROGRESS: {label: 'Em andamento', color: '#fab219', shape: 'diamond'},
-    RESOLVED: {label: 'Resolvido', color: '#0ca30c', shape: 'triangle'},
+    OPEN: {label: 'Aberto', track: 'Recebido', color: '#d03b3b', shape: 'circle'},
+    CONFIRMED: {label: 'Confirmado', track: 'Confirmado', color: '#ec835a', shape: 'square'},
+    IN_PROGRESS: {label: 'Em andamento', track: 'Em andamento', color: '#fab219', shape: 'diamond'},
+    RESOLVED: {label: 'Resolvido', track: 'Resolvido', color: '#0ca30c', shape: 'triangle'},
 };
+const TRACK = ['OPEN', 'CONFIRMED', 'IN_PROGRESS', 'RESOLVED'];
 
 const TRANSITIONS = {
     OPEN: ['CONFIRMED', 'IN_PROGRESS', 'RESOLVED'],
@@ -16,16 +17,60 @@ const TRANSITIONS = {
     RESOLVED: [],
 };
 
-// Escala sequencial de um tom (azul), do claro ao escuro
-const RATE_COLORS = ['#cde2fb', '#86b6ef', '#3987e5', '#1c5cab', '#0d366b'];
+// Nome curto e ícone de cada tipo de problema; o nome completo vem da API
+const ICON_PATHS = {
+    POTHOLE: '<path d="M3 18h18M6 6l-3 12M18 6l3 12"/><ellipse cx="12" cy="13.5" rx="4.5" ry="2"/><path d="M12 6v2"/>',
+    TRASH: '<path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V5h6v3M3.5 8h17"/><path d="M10 12v5M14 12v5"/>',
+    STREETLIGHT: '<path d="M8 21h6M11 21V7a3 3 0 0 1 3-3h1"/><path d="M15 4h4l-1 3h-2z"/><path d="M17 9.5v1.5M20 9l1 1M14 9l-1 1"/>',
+    TREE: '<path d="M12 21v-6"/><path d="M12 15c-4 0-6-2.4-6-5.2C6 6.6 8.7 3 12 3s6 3.6 6 6.8C18 12.6 16 15 12 15z"/><path d="M9 21h6"/>',
+    FLOODING: '<path d="M3 15c1.5 0 1.5-1.5 3-1.5S7.5 15 9 15s1.5-1.5 3-1.5 1.5 1.5 3 1.5 1.5-1.5 3-1.5 1.5 1.5 3 1.5"/><path d="M3 19c1.5 0 1.5-1.5 3-1.5S7.5 19 9 19s1.5-1.5 3-1.5 1.5 1.5 3 1.5 1.5-1.5 3-1.5 1.5 1.5 3 1.5"/><path d="M12 3c2 2.6 3 4.4 3 6a3 3 0 0 1-6 0c0-1.6 1-3.4 3-6z"/>',
+    SIDEWALK: '<path d="M3 20l3-14h12l3 14z"/><path d="M5 13h14M12 6v14M8.5 6l-1.5 14M15.5 6l1.5 14"/>',
+    CLOGGED_DRAIN: '<rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 9v6M12 9v6M16 9v6"/>',
+    SEWAGE: '<path d="M3 8h8a3 3 0 0 1 3 3v1"/><path d="M3 5v6"/><path d="M14 15c1.5 2 2.2 3.2 2.2 4a2.2 2.2 0 0 1-4.4 0c0-.8.7-2 2.2-4z"/>',
+    BUS_STOP: '<path d="M7 21V3"/><rect x="7" y="3" width="10" height="7" rx="1.5"/><path d="M10 6.5h4M4 21h6"/>',
+    OVERGROWN: '<path d="M3 21h18"/><path d="M6 21c0-5-1-8-3-10M10 21c0-6 0-10-2-14M14 21c0-6 1-10 3-13M18 21c0-4 1-7 3-9"/>',
+};
+const DEFAULT_ICON = '<circle cx="12" cy="12" r="8"/><path d="M12 8v5M12 16h.01"/>';
+const SHORT_NAMES = {
+    POTHOLE: 'Buraco na rua', TRASH: 'Lixo ou entulho', STREETLIGHT: 'Poste apagado', TREE: 'Árvore',
+    FLOODING: 'Alagamento', SIDEWALK: 'Calçada', CLOGGED_DRAIN: 'Bueiro entupido', SEWAGE: 'Esgoto',
+    BUS_STOP: 'Ponto de ônibus', OVERGROWN: 'Mato alto',
+};
 
-const dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+function categoryIcon(code) {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON_PATHS[code] ?? DEFAULT_ICON}</svg>`;
+}
+
+function shortName(code, fallback) {
+    return SHORT_NAMES[code] ?? fallback ?? code;
+}
+
+// Escala sequencial de um tom (azul), do claro ao escuro
+const RATE_COLORS = ['#dfe3ff', '#aab3f5', '#6f7ee6', '#3445d1', '#1f2a8a'];
+
 const numberFormat = new Intl.NumberFormat('pt-BR');
 const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
+const relativeFormat = new Intl.RelativeTimeFormat('pt-BR', {numeric: 'auto'});
+const isDesktop = () => window.matchMedia('(min-width: 900px)').matches;
+
+// "há 3 horas", "ontem": mais fácil de ler que uma data
+function timeAgo(value) {
+    const seconds = (new Date(value).getTime() - Date.now()) / 1000;
+    const steps = [[60, 'second'], [60, 'minute'], [24, 'hour'], [30, 'day'], [12, 'month'], [Infinity, 'year']];
+    let amount = seconds;
+    for (const [size, unit] of steps) {
+        if (Math.abs(amount) < size) {
+            return unit === 'second' ? 'agora há pouco' : relativeFormat.format(Math.round(amount), unit);
+        }
+        amount /= size;
+    }
+    return dateFormat.format(new Date(value));
+}
 
 const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker: null, loadTimer: null,
-    session: loadSession(), reporter: null, markers: new Map(), userLocation: null};
+    session: loadSession(), reporter: null, markers: new Map(), userLocation: null,
+    filters: {category: '', status: ''}, report: {step: 'where', category: null}};
 
 // Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
 function loadSession() {
@@ -51,19 +96,19 @@ function saveSession(session) {
     renderSession();
 }
 
-const map = L.map('map', {zoomControl: true}).setView([-23.55, -46.63], 11);
+const map = L.map('map', {zoomControl: false}).setView([-23.55, -46.63], 12);
+L.control.zoom({position: 'topright'}).addTo(map);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 }).addTo(map);
 
 map.createPane('districts').style.zIndex = 350;
-const districtLayer = L.geoJSON(null, {pane: 'districts', style: districtStyle, onEachFeature: bindDistrict}).addTo(map);
+// os distritos coloridos ficam desligados por padrão: o mapa limpo deixa os problemas à vista
+const districtLayer = L.geoJSON(null, {pane: 'districts', style: districtStyle, onEachFeature: bindDistrict});
 const issueLayer = L.layerGroup().addTo(map);
-L.control.layers(null, {'Distritos': districtLayer, 'Chamados': issueLayer}, {collapsed: false}).addTo(map);
-const legend = L.control({position: 'bottomleft'});
+const legend = L.control({position: 'topright'});
 legend.onAdd = () => L.DomUtil.create('div', 'legend');
-legend.addTo(map);
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g,
     (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -77,13 +122,59 @@ async function api(path, options = {}) {
     const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
     if (response.status === 401 && state.session) {
         saveSession(null);
-        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Entre de novo na área do operador.');
+        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Entre de novo em "Sou da prefeitura".');
     }
     if (!response.ok) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
     }
     return body;
 }
+
+// --- Painel: abas, tamanho da gaveta no celular ---
+
+const panel = document.getElementById('panel');
+const VIEW_SIZES = {explore: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
+
+function setSheet(size) {
+    panel.dataset.size = size;
+}
+
+function showView(name) {
+    document.querySelectorAll('[data-view]').forEach((view) => {
+        view.hidden = view.dataset.view !== name;
+    });
+    document.querySelectorAll('.tab').forEach((tab) => {
+        const current = tab.dataset.goto === name || (name === 'report' && tab.dataset.goto === 'explore')
+            || (name === 'sent' && tab.dataset.goto === 'mine');
+        tab.toggleAttribute('aria-current', current);
+        if (current) tab.setAttribute('aria-current', 'page');
+    });
+    panel.dataset.current = name;
+    setSheet(VIEW_SIZES[name] ?? 'half');
+    document.querySelector('.views').scrollTop = 0;
+    if (name === 'mine') {
+        loadMyReports().catch((error) => setMyReportsMessage(error.message, 'error'));
+    }
+}
+
+document.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-goto]');
+    if (!target) {
+        return;
+    }
+    if (target.dataset.goto === 'report-start') {
+        document.getElementById('report-begin').click(); // mesmo fluxo do botão principal, com o texto da permissão
+    } else {
+        if (state.report.active && target.dataset.goto !== 'report') {
+            resetReport();
+        }
+        showView(target.dataset.goto);
+    }
+});
+
+document.getElementById('sheet-handle').addEventListener('click', () => {
+    setSheet(panel.dataset.size === 'full' ? 'peek' : 'full');
+});
 
 // Identidade anônima do cidadão: um JWT de 15 min para enviar relatos, renovado com o refresh token.
 // O par fica neste navegador para o mesmo cidadão ser reconhecido nas próximas visitas.
@@ -181,15 +272,15 @@ function sendReport(data) {
 // enviado, como já acontecia ao clicar no mapa.
 const LOW_ACCURACY_METERS = 50;
 const GEOLOCATION_ERRORS = {
-    1: 'Sem permissão para usar sua localização. Libere nas configurações do navegador ou escolha o local no mapa.',
-    2: 'Sua localização não está disponível agora. Escolha o local no mapa.',
-    3: 'A localização demorou demais. Tente de novo ou escolha o local no mapa.',
+    1: 'Sem permissão para usar sua localização. Libere nas configurações do navegador ou marque o ponto no mapa.',
+    2: 'Sua localização não está disponível agora. Marque o ponto no mapa.',
+    3: 'A localização demorou demais. Tente de novo ou marque o ponto no mapa.',
 };
 
 function currentPosition() {
     return new Promise((resolve, reject) => {
         if (!window.isSecureContext || !('geolocation' in navigator)) {
-            reject(new Error('Este navegador não informa a localização aqui (é preciso HTTPS). Escolha o local no mapa.'));
+            reject(new Error('Este navegador não informa a localização aqui (é preciso HTTPS). Marque o ponto no mapa.'));
             return;
         }
         navigator.geolocation.getCurrentPosition(resolve,
@@ -210,14 +301,19 @@ function showUserLocation(position) {
             .bindTooltip('Você está aqui'),
     ]).addTo(map);
     // com GPS preciso, aproxima até a rua; com precisão baixa, mostra o círculo inteiro
-    map.fitBounds(accuracy.getBounds(), {maxZoom: 17, animate: false});
+    map.fitBounds(accuracy.getBounds(), {maxZoom: 17, animate: false, paddingTopLeft: mapPadding()});
     return latlng;
 }
 
-const locateControl = L.control({position: 'topleft'});
+// No computador o painel cobre a esquerda do mapa: o que é centralizado deve ficar à direita dele
+function mapPadding() {
+    return isDesktop() ? [440, 0] : [0, 0];
+}
+
+const locateControl = L.control({position: 'topright'});
 locateControl.onAdd = () => {
     const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control locate-control');
-    container.innerHTML = `<button type="button" title="Mostrar minha localização" aria-label="Mostrar minha localização">
+    container.innerHTML = `<button type="button" title="Mostrar onde estou" aria-label="Mostrar onde estou">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>
         </svg></button>`;
@@ -254,7 +350,11 @@ function shapeSvg(status, size = 18) {
         <g fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round">${mark}</g></svg>`;
 }
 
-// "5 relatos de 2 pessoas": a prioridade conta pessoas, e quem reporta de novo não soma
+// "3 pessoas relataram": a prioridade conta pessoas, e quem reporta de novo não soma
+function peopleLabel(reporters) {
+    return reporters === 1 ? '1 pessoa relatou' : `${numberFormat.format(reporters)} pessoas relataram`;
+}
+
 function reportsLabel(reports, reporters) {
     const text = `${numberFormat.format(reports)} relato${reports === 1 ? '' : 's'}`;
     return reporters === reports ? text
@@ -264,6 +364,18 @@ function reportsLabel(reports, reporters) {
 function statusLabel(status) {
     return `<span class="status-label">${shapeSvg(status, 14)}${STATUS[status].label}</span>`;
 }
+
+// A trilha Recebido → Confirmado → Em andamento → Resolvido, como o rastreio de uma encomenda
+function trackLine(status) {
+    const position = TRACK.indexOf(status);
+    return `<ol class="track-line" aria-label="Andamento: ${STATUS[status]?.label ?? status}">${TRACK.map((step, i) => {
+        const cls = i < position ? 'reached' : i === position ? 'reached current' : '';
+        return `<li class="${cls}" data-status="${step}" ${i === position ? 'aria-current="step"' : ''}>${STATUS[step].track}</li>`;
+    }).join('')}</ol>`;
+}
+
+document.getElementById('status-key').innerHTML = TRACK
+    .map((s) => `<li>${shapeSvg(s, 16)}${STATUS[s].label}</li>`).join('');
 
 function rateColor(rate) {
     if (rate == null) {
@@ -285,11 +397,11 @@ function districtStyle(feature) {
 function bindDistrict(feature, layer) {
     const p = feature.properties;
     layer.bindTooltip(`<strong>${escapeHtml(p.name)}</strong><br>
-        ${numberFormat.format(p.population ?? 0)} habitantes<br>
-        ${numberFormat.format(p.openIssues)} chamados abertos<br>
-        ${rateFormat.format(p.openIssuesPer10k ?? 0)} por 10 mil hab.`, {sticky: true});
+        ${numberFormat.format(p.population ?? 0)} moradores<br>
+        ${numberFormat.format(p.openIssues)} problemas em aberto<br>
+        ${rateFormat.format(p.openIssuesPer10k ?? 0)} a cada 10 mil moradores`, {sticky: true});
     layer.on({
-        mouseover: () => layer.setStyle({weight: 3, color: '#0b0b0b'}),
+        mouseover: () => layer.setStyle({weight: 3, color: '#1b2130'}),
         mouseout: () => districtLayer.resetStyle(layer),
     });
 }
@@ -306,19 +418,14 @@ function computeRateBreaks(features) {
 
 function renderLegend() {
     const breaks = state.rateBreaks;
-    const rateRows = breaks.length === 1
-        ? `<div class="legend-row"><span class="swatch" data-color="0"></span>Nenhum chamado aberto</div>`
+    const rows = breaks.length === 1
+        ? `<div class="legend-row"><span class="swatch" data-color="0"></span>Nenhum problema em aberto</div>`
         : breaks.map((limit, i) => {
             const text = i === 0 ? 'Nenhum' : `até ${rateFormat.format(limit)}`;
             return `<div class="legend-row"><span class="swatch" data-color="${i}"></span>${text}</div>`;
         }).join('');
-    const statusRows = Object.keys(STATUS)
-        .map((s) => `<div class="legend-row">${shapeSvg(s, 14)}${STATUS[s].label}</div>`).join('');
     const container = legend.getContainer();
-    const wasOpen = container.querySelector('details')?.open ?? !window.matchMedia('(max-width: 767px)').matches;
-    container.innerHTML = `<details ${wasOpen ? 'open' : ''}><summary>Legenda</summary>
-        <div class="legend-section"><h3>Chamados abertos por 10 mil hab.</h3>${rateRows}</div>
-        <div class="legend-section"><h3>Status do chamado</h3>${statusRows}</div></details>`;
+    container.innerHTML = `<h3>Em aberto a cada 10 mil moradores</h3>${rows}`;
     // a cor vai pelo DOM, não por atributo style: a CSP da página bloqueia estilos inline
     container.querySelectorAll('.swatch[data-color]').forEach((swatch) => {
         swatch.style.background = RATE_COLORS[swatch.dataset.color];
@@ -329,17 +436,32 @@ async function loadDistricts() {
     const collection = await api(`/neighborhoods?city=${encodeURIComponent(CITY)}`);
     state.rateBreaks = computeRateBreaks(collection.features);
     districtLayer.clearLayers().addData(collection);
-    renderLegend();
+    if (map.hasLayer(districtLayer)) {
+        renderLegend();
+    }
     renderRanking(collection.features.map((f) => f.properties));
 }
 
 function renderRanking(stats) {
     const rows = stats.filter((s) => s.openIssues > 0).slice(0, 10);
     document.getElementById('ranking-body').innerHTML = rows.length === 0
-        ? '<tr><td colspan="3">Nenhum chamado aberto ainda.</td></tr>'
+        ? '<tr><td colspan="3">Nenhum problema em aberto ainda.</td></tr>'
         : rows.map((s) => `<tr><td>${escapeHtml(s.name)}</td><td>${numberFormat.format(s.openIssues)}</td>
             <td>${rateFormat.format(s.openIssuesPer10k ?? 0)}</td></tr>`).join('');
 }
+
+document.getElementById('districts-toggle').addEventListener('change', (event) => {
+    if (event.target.checked) {
+        districtLayer.addTo(map);
+        legend.addTo(map);
+        renderLegend();
+    } else {
+        districtLayer.remove();
+        legend.remove();
+    }
+});
+
+// --- Problemas no mapa ---
 
 function scheduleIssueLoad() {
     // o Leaflet desloca o mapa para o popup caber na tela; recarregar aqui recriaria o marcador e fecharia o popup
@@ -359,10 +481,8 @@ async function loadIssues() {
     const params = new URLSearchParams({
         bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].map((v) => v.toFixed(6)).join(','),
     });
-    const category = document.getElementById('filter-category').value;
-    const status = document.getElementById('filter-status').value;
-    if (category) params.set('category', category);
-    if (status) params.set('status', status);
+    if (state.filters.category) params.set('category', state.filters.category);
+    if (state.filters.status) params.set('status', state.filters.status);
 
     const collection = await api(`/issues?${params}`);
     issueLayer.clearLayers();
@@ -371,51 +491,57 @@ async function loadIssues() {
         const [lon, lat] = feature.geometry.coordinates;
         const p = feature.properties;
         const marker = L.marker([lat, lon], {
-            icon: L.divIcon({className: '', html: shapeSvg(p.status, 22), iconSize: [22, 22]}),
+            icon: L.divIcon({className: '', html: shapeSvg(p.status, 28), iconSize: [28, 28]}),
             title: `${p.categoryName} · ${STATUS[p.status].label}`,
             keyboard: true,
         });
-        marker.bindTooltip(`${escapeHtml(p.categoryName)} · ${STATUS[p.status].label}<br>${p.reportCount} relato(s)`);
-        marker.bindPopup('Carregando…', {maxWidth: 320});
-        marker.on('popupopen', () => showIssue(feature.id, marker));
+        marker.bindTooltip(`${escapeHtml(shortName(p.category, p.categoryName))}: ${STATUS[p.status].label}`);
+        marker.bindPopup('Carregando…', {maxWidth: 320, minWidth: 260, autoPanPaddingTopLeft: mapPadding()});
+        marker.on('popupopen', () => {
+            if (!isDesktop()) setSheet('peek'); // no celular a gaveta desce para o popup caber
+            showIssue(feature.id, marker);
+        });
         issueLayer.addLayer(marker);
         state.markers.set(feature.id, marker);
     }
     const count = collection.features.length;
-    document.getElementById('issue-count').textContent =
-        `${numberFormat.format(count)} chamado(s) na área visível${count >= 500 ? ' (limite de 500)' : ''}.`;
+    const resolved = state.filters.status === 'RESOLVED';
+    document.getElementById('issue-count').textContent = count === 0
+        ? (resolved ? 'Nenhum problema resolvido nesta área' : 'Nenhum problema em aberto nesta área')
+        : `${numberFormat.format(count)} ${count === 1 ? 'problema' : 'problemas'} ${resolved
+            ? (count === 1 ? 'resolvido' : 'resolvidos') : 'em aberto'} nesta área${count >= 500 ? ' (mostrando 500)' : ''}`;
 }
 
 async function showIssue(id, marker) {
     try {
         const issue = await api(`/issues/${id}`);
-        const photos = issue.reports.slice(0, 4).map((r) =>
-            `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img src="${r.photoUrl}" alt="Foto do relato ${r.id}" loading="lazy"></a>`).join('');
+        const [hero, ...more] = issue.reports;
+        const photos = more.slice(0, 4).map((r) =>
+            `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img src="${r.photoUrl}" alt="Outra foto do problema" loading="lazy"></a>`).join('');
         const history = issue.history.map((h) =>
-            `<li>${STATUS[h.from]?.label ?? '—'} → ${STATUS[h.to].label} · ${dateFormat.format(new Date(h.changedAt))}${
-                h.changedBy ? ` · ${escapeHtml(h.changedBy)}` : ''}</li>`).join('');
+            `<li>${STATUS[h.from]?.label ?? 'Recebido'} → ${STATUS[h.to].label}, ${dateFormat.format(new Date(h.changedAt))}${
+                h.changedBy ? ` por ${escapeHtml(h.changedBy)}` : ''}</li>`).join('');
         const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
             `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
-        const canChange = TRANSITIONS[issue.status].length > 0;
         const moderation = state.session ? issue.reports.slice(0, 4).map((r) =>
             `<button type="button" class="button" data-block-report="${r.id}">Bloquear autor do relato #${r.id}</button>`).join('') : '';
 
         marker.setPopupContent(`<div class="issue-popup">
-            <h3>${escapeHtml(issue.categoryName)} · #${issue.id}</h3>
-            ${statusLabel(issue.status)}
-            <dl>
-                <dt>Relatos</dt><dd>${reportsLabel(issue.reportCount, issue.reporterCount)}</dd>
-                <dt>Prioridade</dt><dd>${Number(issue.priorityScore).toFixed(2)}</dd>
-                <dt>Distrito</dt><dd>${escapeHtml(issue.neighborhood ?? 'Fora dos distritos importados')}</dd>
-                <dt>1º relato</dt><dd>${dateFormat.format(new Date(issue.firstReportedAt))}</dd>
-                <dt>Último</dt><dd>${dateFormat.format(new Date(issue.lastReportedAt))}</dd>
-            </dl>
+            ${hero ? `<a class="popup-hero" href="${hero.photoUrl}" target="_blank" rel="noopener">
+                <img src="${hero.photoUrl}" alt="Foto do problema"></a>` : ''}
+            <h3>${escapeHtml(issue.categoryName)}</h3>
+            ${trackLine(issue.status)}
+            <ul class="popup-facts">
+                <li>${peopleLabel(issue.reporterCount)}${issue.reportCount !== issue.reporterCount
+                    ? ` (${reportsLabel(issue.reportCount, issue.reporterCount)})` : ''}</li>
+                <li>Primeiro relato ${timeAgo(issue.firstReportedAt)}</li>
+                <li>${escapeHtml(issue.neighborhood ?? 'Fora dos distritos importados')} · chamado #${issue.id}</li>
+            </ul>
             ${photos ? `<div class="photos">${photos}</div>` : ''}
-            ${history ? `<strong>Histórico</strong><ul class="history">${history}</ul>` : ''}
-            ${actions ? `<strong>Alterar status</strong>
+            ${history ? `<details><summary>Histórico</summary><ul class="history">${history}</ul></details>` : ''}
+            ${actions ? `<p class="popup-section-title">Alterar status</p>
                 <div class="popup-actions">${actions}</div>` : ''}
-            ${canChange && !state.session ? '<p class="hint">Operadores alteram o status pela área do operador.</p>' : ''}
-            ${moderation ? `<strong>Moderação</strong>
+            ${moderation ? `<p class="popup-section-title">Moderação</p>
                 <div class="popup-actions">${moderation}</div>` : ''}
         </div>`);
 
@@ -431,7 +557,7 @@ async function showIssue(id, marker) {
 }
 
 async function blockReporter(reportId, button) {
-    if (!confirm(`Bloquear quem enviou o relato #${reportId}? Ele não poderá enviar novos relatos.`)) {
+    if (!confirm(`Bloquear quem enviou o relato #${reportId}? A pessoa não poderá enviar novos relatos.`)) {
         return;
     }
     button.disabled = true;
@@ -458,7 +584,34 @@ async function changeStatus(id, status, marker) {
     }
 }
 
-// Fluxo de novo relato: escolher o ponto no mapa, depois categoria e foto
+// Filtros: chips de tipo e a situação (em aberto ou resolvidos)
+function renderCategoryChips() {
+    const chips = [{code: '', name: 'Todos'}, ...state.categories];
+    const container = document.getElementById('category-chips');
+    container.innerHTML = chips.map((c) => `<button type="button" class="chip" data-category="${c.code}"
+        aria-pressed="${state.filters.category === c.code}">${c.code ? categoryIcon(c.code) : ''}${
+        escapeHtml(c.code ? shortName(c.code, c.name) : c.name)}</button>`).join('');
+    container.querySelectorAll('[data-category]').forEach((chip) => {
+        chip.addEventListener('click', () => {
+            state.filters.category = chip.dataset.category;
+            renderCategoryChips();
+            loadIssues();
+        });
+    });
+}
+
+document.querySelectorAll('.segmented [data-status]').forEach((button) => {
+    button.addEventListener('click', () => {
+        state.filters.status = button.dataset.status;
+        document.querySelectorAll('.segmented [data-status]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b === button));
+        });
+        loadIssues();
+    });
+});
+
+// --- Novo relato: local, tipo e foto ---
+
 const reportForm = document.getElementById('report-form');
 const reportMessage = document.getElementById('report-message');
 
@@ -467,38 +620,73 @@ function setReportMessage(text, kind) {
     reportMessage.className = `message ${kind ?? ''}`;
 }
 
+function goToStep(step) {
+    state.report.step = step;
+    const order = ['where', 'what', 'photo'];
+    document.querySelectorAll('[data-step-panel]').forEach((panelStep) => {
+        panelStep.hidden = panelStep.dataset.stepPanel !== step;
+    });
+    document.querySelectorAll('.steps [data-step]').forEach((item) => {
+        const index = order.indexOf(item.dataset.step);
+        item.classList.toggle('done', index < order.indexOf(step));
+        if (item.dataset.step === step) {
+            item.setAttribute('aria-current', 'step');
+        } else {
+            item.removeAttribute('aria-current');
+        }
+    });
+    // escolher o ponto precisa do mapa à vista; tipo e foto, de espaço no painel
+    setSheet(step === 'where' ? 'half' : 'full');
+    document.body.classList.toggle('picking', step === 'where');
+    document.querySelector('.views').scrollTop = 0;
+}
+
+function startReport() {
+    resetReport();
+    state.report.active = true;
+    map.closePopup();
+    showView('report');
+    goToStep('where');
+}
+
 function resetReport() {
+    state.report = {step: 'where', category: null, active: false};
     state.pickedLocation = null;
     state.pickMarker?.remove();
     state.pickMarker = null;
     reportForm.reset();
-    reportForm.hidden = true;
+    document.getElementById('photo-preview').hidden = true;
+    document.getElementById('photo-drop-text').hidden = false;
+    document.getElementById('report-category').value = '';
+    document.getElementById('where-choice').hidden = false;
+    document.getElementById('where-confirm').hidden = true;
     document.getElementById('report-hint').hidden = true;
-    document.getElementById('report-adjust').hidden = true;
-    document.getElementById('report-choice').hidden = false;
+    document.getElementById('where-text').hidden = false;
+    document.getElementById('where-text').textContent =
+        'Use a localização do seu aparelho para marcar o ponto, ou toque no mapa.';
+    document.querySelectorAll('#category-grid .tile').forEach((tile) => tile.setAttribute('aria-pressed', 'false'));
     document.body.classList.remove('picking');
+    setReportMessage('');
 }
 
-// Ponto do relato: o marcador pode ser arrastado, e um clique no mapa o move
+// Ponto do relato: o pino pode ser arrastado, e um toque no mapa o move
 function pickLocation(latlng) {
     state.pickedLocation = latlng;
     state.pickMarker?.remove();
-    state.pickMarker = L.marker(latlng, {draggable: true, title: 'Local do relato'}).addTo(map);
+    state.pickMarker = L.marker(latlng, {draggable: true, title: 'Local do relato', autoPan: true}).addTo(map);
     state.pickMarker.on('dragend', () => {
         state.pickedLocation = state.pickMarker.getLatLng();
     });
-    document.body.classList.add('picking');
-    document.getElementById('report-choice').hidden = true;
+    document.getElementById('where-choice').hidden = true;
     document.getElementById('report-hint').hidden = true;
-    document.getElementById('report-adjust').hidden = false;
-    reportForm.hidden = false;
+    document.getElementById('where-text').hidden = true;
+    document.getElementById('where-confirm').hidden = false;
 }
 
 function startManualPick(message = '', kind) {
     setReportMessage(message, kind);
-    document.getElementById('report-choice').hidden = true;
+    document.getElementById('where-choice').hidden = true;
     document.getElementById('report-hint').hidden = false;
-    document.body.classList.add('picking');
 }
 
 async function locateForReport() {
@@ -508,7 +696,7 @@ async function locateForReport() {
         pickLocation(showUserLocation(position));
         const accuracy = Math.round(position.coords.accuracy);
         setReportMessage(accuracy > LOW_ACCURACY_METERS
-            ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o marcador antes de enviar.`
+            ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o pino antes de continuar.`
             : '');
     } catch (error) {
         // sem localização, o relato continua: o ponto é escolhido no mapa
@@ -528,58 +716,74 @@ async function geolocationPermission() {
     }
 }
 
-const locationDialog = document.getElementById('location-dialog');
-const LOCATION_DIALOG = {
-    prompt: {
-        title: 'Permitir acesso à localização?',
-        text: 'Para registrar o problema no lugar certo, o mapa usa a localização do seu aparelho. '
-            + 'Ela só marca o ponto do relato e não é guardada. Na próxima tela, o navegador vai pedir sua permissão.',
-        allow: true,
-    },
-    denied: {
-        title: 'Localização bloqueada',
-        text: 'O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado do '
-            + 'endereço e permita a localização. Você também pode escolher o ponto no mapa.',
-        allow: false,
-    },
-    unsupported: {
-        title: 'Localização indisponível',
-        text: 'Este navegador não informa a localização nesta página (é preciso HTTPS). Escolha o ponto no mapa.',
-        allow: false,
-    },
+// Antes do pedido do navegador, o próprio passo explica para que serve a localização
+const WHERE_TEXT = {
+    prompt: 'Para marcar o lugar certo, usamos a localização do seu aparelho. Ela só marca o ponto do relato e '
+        + 'não é guardada. O navegador vai pedir sua permissão.',
+    denied: 'O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado do endereço. '
+        + 'Ou marque o ponto no mapa.',
+    unsupported: 'Este navegador não informa a localização nesta página. Marque o ponto no mapa.',
 };
 
 document.getElementById('report-begin').addEventListener('click', async () => {
-    setReportMessage('');
+    startReport();
     const permission = await geolocationPermission();
     if (permission === 'granted') {
         await locateForReport(); // já permitido: vai direto para o ponto do GPS
         return;
     }
-    const content = LOCATION_DIALOG[permission] ?? LOCATION_DIALOG.prompt;
-    document.getElementById('location-dialog-title').textContent = content.title;
-    document.getElementById('location-dialog-text').textContent = content.text;
-    document.getElementById('location-allow').hidden = !content.allow;
-    locationDialog.showModal();
-    (content.allow ? document.getElementById('location-allow') : document.getElementById('location-manual')).focus();
+    document.getElementById('where-text').textContent = WHERE_TEXT[permission] ?? WHERE_TEXT.prompt;
+    document.getElementById('location-allow').hidden = permission !== 'prompt';
 });
 
-document.getElementById('location-allow').addEventListener('click', () => {
-    locationDialog.close();
-    locateForReport(); // aqui o navegador mostra o pedido de permissão do aparelho
+document.getElementById('location-allow').addEventListener('click', () => locateForReport());
+document.getElementById('location-manual').addEventListener('click', () => startManualPick());
+document.getElementById('where-next').addEventListener('click', () => goToStep('what'));
+document.getElementById('report-cancel').addEventListener('click', () => {
+    resetReport();
+    showView('explore');
 });
-
-document.getElementById('location-manual').addEventListener('click', () => {
-    locationDialog.close();
-    startManualPick();
+document.querySelectorAll('[data-step-back]').forEach((button) => {
+    button.addEventListener('click', () => goToStep(button.dataset.stepBack));
 });
-
-document.getElementById('report-cancel').addEventListener('click', resetReport);
 
 map.on('click', (event) => {
-    if (document.body.classList.contains('picking')) {
+    if (state.report.active && state.report.step === 'where'
+        && (document.getElementById('report-hint').hidden === false || state.pickMarker)) {
         pickLocation(event.latlng);
     }
+});
+
+function renderCategoryTiles() {
+    const grid = document.getElementById('category-grid');
+    grid.innerHTML = state.categories.map((c) => `<button type="button" class="tile" data-category="${c.code}"
+        aria-pressed="false" title="${escapeHtml(c.name)}">${categoryIcon(c.code)}<span>${
+        escapeHtml(shortName(c.code, c.name))}</span></button>`).join('');
+    grid.querySelectorAll('[data-category]').forEach((tile) => {
+        tile.addEventListener('click', () => {
+            grid.querySelectorAll('.tile').forEach((t) => t.setAttribute('aria-pressed', String(t === tile)));
+            state.report.category = tile.dataset.category;
+            document.getElementById('report-category').value = tile.dataset.category;
+            goToStep('photo');
+        });
+    });
+}
+
+reportForm.elements.photo.addEventListener('change', () => {
+    const file = reportForm.elements.photo.files[0];
+    const preview = document.getElementById('photo-preview');
+    if (state.photoUrl) {
+        URL.revokeObjectURL(state.photoUrl);
+    }
+    if (!file) {
+        preview.hidden = true;
+        document.getElementById('photo-drop-text').hidden = false;
+        return;
+    }
+    state.photoUrl = URL.createObjectURL(file);
+    preview.src = state.photoUrl;
+    preview.hidden = false;
+    document.getElementById('photo-drop-text').hidden = true;
 });
 
 reportForm.addEventListener('submit', async (event) => {
@@ -590,12 +794,17 @@ reportForm.addEventListener('submit', async (event) => {
     data.set('longitude', state.pickedLocation.lng.toFixed(6));
 
     submit.disabled = true;
+    setReportMessage('Enviando…');
     try {
         const result = await sendReport(data);
+        const others = result.issueReportCount - 1;
         resetReport();
-        setReportMessage(result.newIssue
-            ? `Relato registrado: novo chamado #${result.issueId}.`
-            : `Relato agrupado ao chamado #${result.issueId}, que agora tem ${result.issueReportCount} relatos.`, 'success');
+        document.getElementById('sent-title').textContent = 'Relato enviado. Obrigado!';
+        document.getElementById('sent-text').textContent = result.newIssue
+            ? `Você abriu o chamado #${result.issueId}. A prefeitura vê o seu relato na fila de atendimento.`
+            : `Este problema já estava no mapa (chamado #${result.issueId}): o seu relato soma a ${others === 1
+                ? 'outro relato' : `outros ${numberFormat.format(others)} relatos`} e aumenta a prioridade.`;
+        showView('sent');
         await Promise.all([loadIssues(), loadDistricts(), loadMyReports()]);
     } catch (error) {
         setReportMessage(error.message, 'error');
@@ -604,7 +813,8 @@ reportForm.addEventListener('submit', async (event) => {
     }
 });
 
-// Meus relatos: o que o cidadão enviou deste navegador e como cada chamado andou
+// --- Meus relatos ---
+
 const myReports = {page: 0, items: [], total: 0};
 const myReportsMessage = document.getElementById('my-reports-message');
 
@@ -613,18 +823,12 @@ function setMyReportsMessage(text, kind) {
     myReportsMessage.className = `message ${kind ?? ''}`;
 }
 
-function myReportStatus(item) {
-    if (item.rejected) {
-        return '<span class="queue-meta">Não aprovado pela moderação</span>';
-    }
-    return STATUS[item.issueStatus] ? statusLabel(item.issueStatus) : '<span class="queue-meta">Descartado</span>';
-}
-
 async function loadMyReports(append = false) {
     const list = document.getElementById('my-reports-list');
     if (!loadReporter()) {
         // sem identidade guardada: nada a buscar, e nem vale criar uma só para ver a lista vazia
         list.innerHTML = '';
+        renderMineEmpty(0);
         return;
     }
     myReports.page = append ? myReports.page + 1 : 0;
@@ -633,13 +837,17 @@ async function loadMyReports(append = false) {
     myReports.total = result.total;
     list.innerHTML = myReports.items.map((item, index) => {
         const open = !item.rejected && STATUS[item.issueStatus];
-        return `<li><button type="button" class="queue-item single" data-index="${index}" ${open ? '' : 'disabled'}>
-            <span class="queue-body">
-                <strong>${escapeHtml(item.categoryName)} · chamado #${item.issueId}</strong>
-                <span>${myReportStatus(item)}</span>
-                <span class="queue-meta">Enviado em ${dateFormat.format(new Date(item.sentAt))}${
-                    item.history.length ? ` · atualizado em ${dateFormat.format(new Date(item.updatedAt))}` : ''}</span>
+        const note = item.rejected
+            ? '<p class="track-note">A moderação não aprovou este relato, e ele não conta mais no chamado.</p>'
+            : STATUS[item.issueStatus] ? trackLine(item.issueStatus) : '<p class="track-note">Chamado encerrado pela moderação.</p>';
+        return `<li><button type="button" class="track" data-index="${index}" ${open ? '' : 'disabled'}>
+            <span class="track-head">
+                <span class="track-icon">${categoryIcon(item.category)}</span>
+                <span class="track-title">${escapeHtml(shortName(item.category, item.categoryName))}</span>
+                <span class="track-meta">Enviado ${timeAgo(item.sentAt)}${item.history.length
+                    ? `, atualizado ${timeAgo(item.updatedAt)}` : ''}</span>
             </span>
+            ${note}
         </button></li>`;
     }).join('');
     list.querySelectorAll('[data-index]:not([disabled])').forEach((button) => {
@@ -647,11 +855,17 @@ async function loadMyReports(append = false) {
         button.addEventListener('click', () => focusIssue({id: item.issueId, latitude: item.latitude,
             longitude: item.longitude, status: item.issueStatus, category: item.category}));
     });
-    document.getElementById('my-reports-hint').textContent = result.total === 0
-        ? 'Os relatos enviados deste navegador aparecem aqui, com o andamento de cada chamado.'
-        : 'Toque num relato para ver o chamado no mapa.';
     document.getElementById('my-reports-more').hidden = myReports.items.length >= result.total;
+    renderMineEmpty(result.total);
     renderPush();
+}
+
+function renderMineEmpty(total) {
+    document.getElementById('mine-count').textContent = total ? numberFormat.format(total) : '';
+    document.getElementById('my-reports-hint').textContent = total === 0
+        ? 'Você ainda não relatou nada deste aparelho. Quando relatar, acompanhe aqui cada etapa até o problema ser resolvido.'
+        : 'Toque num relato para ver o chamado no mapa.';
+    document.getElementById('mine-empty-cta').hidden = total > 0;
 }
 
 document.getElementById('my-reports-more').addEventListener('click', () =>
@@ -695,29 +909,32 @@ async function setupPush() {
     renderPush();
 }
 
+// A oferta de avisos aparece depois do envio e em Meus relatos, sempre com o mesmo estado
 function renderPush() {
-    const box = document.getElementById('push-box');
-    const status = document.getElementById('push-status');
-    const toggle = document.getElementById('push-toggle');
-    // só depois do primeiro relato: antes disso não há o que acompanhar
-    box.hidden = !push.config?.enabled || myReports.total === 0;
-    if (box.hidden) {
+    let text = '';
+    let action = '';
+    if (!push.config?.enabled || myReports.total === 0) {
+        document.querySelectorAll('.push-box').forEach((box) => { box.hidden = true; });
         return;
     }
-    toggle.hidden = true;
     if (!pushSupported) {
-        status.textContent = 'Este navegador não recebe notificações deste site. No iPhone, adicione o site à tela de início para recebê-las.';
+        text = 'Este navegador não recebe notificações deste site. No iPhone, adicione o site à tela de início para recebê-las.';
     } else if (Notification.permission === 'denied') {
-        status.textContent = 'As notificações deste site estão bloqueadas. Libere nas configurações do navegador para ser avisado.';
+        text = 'As notificações deste site estão bloqueadas. Libere nas configurações do navegador para ser avisado.';
     } else if (push.subscription) {
-        status.textContent = 'Você será avisado neste aparelho quando um chamado seu mudar de status.';
-        toggle.textContent = 'Desligar avisos';
-        toggle.hidden = false;
+        text = 'Você será avisado neste aparelho quando o chamado for confirmado, entrar em andamento ou for resolvido.';
+        action = 'Desligar avisos';
     } else {
-        status.textContent = 'Quer saber quando a prefeitura confirmar, começar ou resolver o que você relatou?';
-        toggle.textContent = 'Avisar quando o status mudar';
-        toggle.hidden = false;
+        text = 'Quer saber quando a prefeitura confirmar, começar ou resolver o que você relatou?';
+        action = 'Avisar quando o status mudar';
     }
+    document.querySelectorAll('.push-box').forEach((box) => {
+        box.hidden = false;
+        box.querySelector('[data-push-status]').textContent = text;
+        const toggle = box.querySelector('[data-push-toggle]');
+        toggle.hidden = !action;
+        toggle.textContent = action;
+    });
 }
 
 function saveSubscription(subscription) {
@@ -728,8 +945,7 @@ function saveSubscription(subscription) {
     });
 }
 
-async function togglePush() {
-    const toggle = document.getElementById('push-toggle');
+async function togglePush(toggle) {
     toggle.disabled = true;
     setMyReportsMessage('');
     try {
@@ -749,7 +965,6 @@ async function togglePush() {
             });
             await saveSubscription(subscription);
             push.subscription = subscription;
-            setMyReportsMessage('Avisos ligados.', 'success');
         }
     } catch (error) {
         setMyReportsMessage(`Não foi possível alterar os avisos: ${error.message}`, 'error');
@@ -759,7 +974,9 @@ async function togglePush() {
     }
 }
 
-document.getElementById('push-toggle').addEventListener('click', togglePush);
+document.querySelectorAll('[data-push-toggle]').forEach((toggle) => {
+    toggle.addEventListener('click', () => togglePush(toggle));
+});
 
 // O service worker avisa a página aberta: a lista se atualiza e o clique na notificação abre o chamado
 navigator.serviceWorker?.addEventListener('message', (event) => {
@@ -793,28 +1010,192 @@ function openLinkedIssue() {
     }
 }
 
-// Área do operador
+// Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
+async function focusIssue(item) {
+    // um chamado resolvido, ou de outro tipo, não estaria no mapa com os filtros atuais
+    const resolved = item.status === 'RESOLVED';
+    if (item.status && (state.filters.status === 'RESOLVED') !== resolved) {
+        state.filters.status = resolved ? 'RESOLVED' : '';
+        document.querySelectorAll('.segmented [data-status]').forEach((b) => {
+            b.setAttribute('aria-pressed', String(b.dataset.status === state.filters.status));
+        });
+    }
+    if (item.category && state.filters.category && state.filters.category !== item.category) {
+        state.filters.category = '';
+        renderCategoryChips();
+    }
+    if (!isDesktop()) {
+        setSheet('peek');
+    }
+    map.setView([item.latitude, item.longitude], 18, {animate: false});
+    if (isDesktop()) {
+        map.panBy([-210, 0], {animate: false}); // tira o ponto de baixo do painel
+    }
+    clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
+    await loadIssues();
+    state.markers.get(item.id)?.openPopup();
+}
+
+// --- Prefeitura ---
+
 const loginForm = document.getElementById('login-form');
 const loginMessage = document.getElementById('login-message');
 
 function renderSession() {
     const session = state.session;
+    document.getElementById('operator-tab').hidden = !session;
     loginForm.hidden = Boolean(session);
-    document.getElementById('operator-hint').hidden = Boolean(session);
-    document.getElementById('operator-session').hidden = !session;
+    document.getElementById('operator-hint').textContent = session
+        ? `Você está conectado como ${session.name}. As filas ficam na aba Prefeitura.`
+        : 'Para a equipe que confirma, encaminha e resolve os chamados.';
     document.getElementById('operator-name').textContent = session
-        ? `Conectado como ${session.name}. Abra um chamado no mapa para alterar o status.` : '';
-    document.getElementById('queue-card').hidden = !session;
-    document.getElementById('moderation-card').hidden = !session;
-    document.getElementById('team-card').hidden = session?.role !== 'ADMIN';
+        ? `Conectado como ${session.name}. Toque num chamado da fila para abri-lo no mapa e alterar o status.` : '';
+    document.getElementById('team-subtab').hidden = session?.role !== 'ADMIN';
     map.closePopup();
     if (session) {
         loadOperatorQueues();
-    }
-    if (session?.role === 'ADMIN') {
-        loadTeam().catch((error) => setTeamMessage(error.message, 'error'));
+        if (session.role === 'ADMIN') {
+            loadTeam().catch((error) => setTeamMessage(error.message, 'error'));
+        }
+    } else if (!document.querySelector('[data-view="operator"]').hidden) {
+        showView('more');
     }
 }
+
+function showSubview(name) {
+    document.querySelectorAll('[data-subview-panel]').forEach((p) => {
+        p.hidden = p.dataset.subviewPanel !== name;
+    });
+    document.querySelectorAll('.subtabs [data-subview]').forEach((b) => {
+        if (b.dataset.subview === name) {
+            b.setAttribute('aria-current', 'page');
+        } else {
+            b.removeAttribute('aria-current');
+        }
+    });
+}
+
+document.querySelectorAll('.subtabs [data-subview]').forEach((button) => {
+    button.addEventListener('click', () => showSubview(button.dataset.subview));
+});
+
+// Filas do operador: atendimento (por prioridade) e moderação (relatos marcados pelo classificador)
+const PAGE_SIZE = 20;
+const queue = {page: 0, items: []};
+const moderation = {page: 0, items: []};
+const moderationMessage = document.getElementById('moderation-message');
+
+function loadOperatorQueues() {
+    Promise.all([loadQueue(), loadModeration()]).catch((error) => {
+        moderationMessage.textContent = error.message;
+        moderationMessage.className = 'message error';
+    });
+}
+
+async function loadQueue(append = false) {
+    if (!state.session) {
+        return;
+    }
+    queue.page = append ? queue.page + 1 : 0;
+    const params = new URLSearchParams({page: queue.page, size: PAGE_SIZE});
+    const category = document.getElementById('queue-category').value;
+    const status = document.getElementById('queue-status').value;
+    if (category) params.set('category', category);
+    if (status) params.set('status', status);
+
+    const result = await api(`/issues/queue?${params}`);
+    queue.items = append ? queue.items.concat(result.items) : result.items;
+    const list = document.getElementById('queue-list');
+    list.innerHTML = queue.items.map((item, index) => `<li>
+        <button type="button" class="queue-item" data-issue="${item.id}">
+            <span class="queue-rank">${index + 1}</span>
+            <span class="queue-body">
+                <strong>${escapeHtml(item.categoryName)} · #${item.id}</strong>
+                <span>${statusLabel(item.status)} · ${escapeHtml(item.neighborhood ?? 'Fora dos distritos importados')}</span>
+                <span class="queue-meta">Prioridade ${Number(item.priorityScore).toFixed(2)} · ${reportsLabel(item.reportCount, item.reporterCount)}${
+                    item.pendingModeration ? ` · ${item.pendingModeration} para moderar` : ''}</span>
+            </span>
+        </button></li>`).join('');
+    list.querySelectorAll('[data-issue]').forEach((button, index) => {
+        button.addEventListener('click', () => focusIssue(queue.items[index]));
+    });
+    document.getElementById('queue-summary').textContent = result.total === 0
+        ? 'Nenhum chamado em aberto.'
+        : `${numberFormat.format(queue.items.length)} de ${numberFormat.format(result.total)} chamado(s).`;
+    document.getElementById('queue-more').hidden = queue.items.length >= result.total;
+}
+
+async function loadModeration(append = false) {
+    if (!state.session) {
+        return;
+    }
+    moderation.page = append ? moderation.page + 1 : 0;
+    const result = await api(`/moderation/reports?page=${moderation.page}&size=${PAGE_SIZE}`);
+    moderation.items = append ? moderation.items.concat(result.items) : result.items;
+    document.getElementById('moderation-count').textContent = result.total ? numberFormat.format(result.total) : '';
+    const list = document.getElementById('moderation-list');
+    list.innerHTML = moderation.items.length === 0
+        ? '<li class="hint">Nenhum relato esperando moderação.</li>'
+        : moderation.items.map((item) => {
+            const confidence = item.confidence == null ? '' : ` (${Math.round(Number(item.confidence) * 100)}%)`;
+            const verdict = item.classificationStatus === 'LOW_CONFIDENCE'
+                ? `Modelo em dúvida: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`
+                : `Modelo viu: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`;
+            return `<li class="moderation-item">
+                <a href="${item.photoUrl}" target="_blank" rel="noopener"><img src="${item.photoUrl}" alt="Foto do relato ${item.reportId}" loading="lazy"></a>
+                <div class="moderation-body">
+                    <strong>Relato #${item.reportId} · chamado #${item.issueId}</strong>
+                    <span>Enviado como: ${escapeHtml(item.categoryName)}</span>
+                    <span class="queue-meta">${verdict}</span>
+                    ${item.reporterBlocked ? '<span class="queue-meta">Autor já bloqueado</span>' : ''}
+                    <div class="actions">
+                        <button type="button" class="button" data-report="${item.reportId}" data-decision="APPROVED">Aprovar</button>
+                        <button type="button" class="button" data-report="${item.reportId}" data-decision="REJECTED">Rejeitar</button>
+                        ${item.reporterBlocked ? '' : `<button type="button" class="button" data-report="${item.reportId}"
+                            data-decision="REJECTED" data-block="true">Rejeitar e bloquear autor</button>`}
+                    </div>
+                </div>
+            </li>`;
+        }).join('');
+    list.querySelectorAll('[data-decision]').forEach((button) => {
+        button.addEventListener('click', () => moderate(button.dataset.report, button.dataset.decision,
+            button.dataset.block === 'true', button));
+    });
+    document.getElementById('moderation-more').hidden = moderation.items.length >= result.total;
+}
+
+async function moderate(reportId, decision, blockReporter, button) {
+    if (decision === 'REJECTED' && !confirm(blockReporter
+        ? `Rejeitar o relato #${reportId} e bloquear quem o enviou? A foto será apagada.`
+        : `Rejeitar o relato #${reportId}? Ele deixa de contar no chamado e a foto será apagada.`)) {
+        return;
+    }
+    button.disabled = true;
+    moderationMessage.className = 'message';
+    try {
+        const result = await api(`/moderation/reports/${reportId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({decision, blockReporter}),
+        });
+        moderationMessage.textContent = decision === 'APPROVED'
+            ? `Relato #${reportId} aprovado.`
+            : result.issueStatus === 'DISCARDED'
+                ? `Relato #${reportId} rejeitado; o chamado #${result.issueId} ficou sem relatos e foi descartado.`
+                : `Relato #${reportId} rejeitado; o chamado #${result.issueId} agora tem ${result.issueReportCount} relato(s).`;
+        moderationMessage.className = 'message success';
+        await Promise.all([loadModeration(), loadQueue(), loadIssues(), loadDistricts()]);
+    } catch (error) {
+        button.disabled = false;
+        moderationMessage.textContent = error.message;
+        moderationMessage.className = 'message error';
+    }
+}
+
+document.getElementById('queue-category').addEventListener('change', () => loadQueue());
+document.getElementById('queue-status').addEventListener('change', () => loadQueue());
+document.getElementById('queue-more').addEventListener('click', () => loadQueue(true));
+document.getElementById('moderation-more').addEventListener('click', () => loadModeration(true));
 
 // Equipe (só o administrador) e troca da própria senha
 const teamMessage = document.getElementById('team-message');
@@ -910,12 +1291,13 @@ teamForm.addEventListener('submit', async (event) => {
 });
 
 const passwordForm = document.getElementById('password-form');
+const accountMessage = document.getElementById('account-message');
 passwordForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = new FormData(passwordForm);
     if (data.get('newPassword') !== data.get('confirmPassword')) {
-        loginMessage.textContent = 'A senha nova e a repetição não são iguais.';
-        loginMessage.className = 'message error';
+        accountMessage.textContent = 'A senha nova e a repetição não são iguais.';
+        accountMessage.className = 'message error';
         return;
     }
     const submit = passwordForm.querySelector('[type="submit"]');
@@ -927,153 +1309,16 @@ passwordForm.addEventListener('submit', async (event) => {
             body: JSON.stringify({currentPassword: data.get('currentPassword'), newPassword: data.get('newPassword')}),
         });
         passwordForm.reset();
-        passwordForm.closest('details').open = false;
         saveSession(session); // o token antigo deixou de valer: segue com o novo
-        loginMessage.textContent = 'Senha trocada. As outras sessões foram encerradas.';
-        loginMessage.className = 'message success';
+        accountMessage.textContent = 'Senha trocada. As outras sessões foram encerradas.';
+        accountMessage.className = 'message success';
     } catch (error) {
-        loginMessage.textContent = error.message;
-        loginMessage.className = 'message error';
+        accountMessage.textContent = error.message;
+        accountMessage.className = 'message error';
     } finally {
         submit.disabled = false;
     }
 });
-
-// Filas do operador: atendimento (por prioridade) e moderação (relatos marcados pelo classificador)
-const PAGE_SIZE = 20;
-const queue = {page: 0, items: []};
-const moderation = {page: 0, items: []};
-const moderationMessage = document.getElementById('moderation-message');
-
-function loadOperatorQueues() {
-    Promise.all([loadQueue(), loadModeration()]).catch((error) => {
-        moderationMessage.textContent = error.message;
-        moderationMessage.className = 'message error';
-    });
-}
-
-async function loadQueue(append = false) {
-    if (!state.session) {
-        return;
-    }
-    queue.page = append ? queue.page + 1 : 0;
-    const params = new URLSearchParams({page: queue.page, size: PAGE_SIZE});
-    const category = document.getElementById('queue-category').value;
-    const status = document.getElementById('queue-status').value;
-    if (category) params.set('category', category);
-    if (status) params.set('status', status);
-
-    const result = await api(`/issues/queue?${params}`);
-    queue.items = append ? queue.items.concat(result.items) : result.items;
-    const list = document.getElementById('queue-list');
-    list.innerHTML = queue.items.map((item, index) => `<li>
-        <button type="button" class="queue-item" data-issue="${item.id}">
-            <span class="queue-rank">${index + 1}</span>
-            <span class="queue-body">
-                <strong>${escapeHtml(item.categoryName)} · #${item.id}</strong>
-                <span>${statusLabel(item.status)} · ${escapeHtml(item.neighborhood ?? 'Fora dos distritos importados')}</span>
-                <span class="queue-meta">Prioridade ${Number(item.priorityScore).toFixed(2)} · ${reportsLabel(item.reportCount, item.reporterCount)}${
-                    item.pendingModeration ? ` · ${item.pendingModeration} para moderar` : ''}</span>
-            </span>
-        </button></li>`).join('');
-    list.querySelectorAll('[data-issue]').forEach((button, index) => {
-        button.addEventListener('click', () => focusIssue(queue.items[index]));
-    });
-    document.getElementById('queue-summary').textContent = result.total === 0
-        ? 'Nenhum chamado em aberto.'
-        : `${numberFormat.format(queue.items.length)} de ${numberFormat.format(result.total)} chamado(s).`;
-    document.getElementById('queue-more').hidden = queue.items.length >= result.total;
-}
-
-// Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
-async function focusIssue(item) {
-    // um chamado resolvido, ou de outro status/categoria, não estaria no mapa com os filtros atuais
-    const statusFilter = document.getElementById('filter-status');
-    const visible = statusFilter.value ? statusFilter.value === item.status : item.status !== 'RESOLVED';
-    if (item.status && !visible) {
-        statusFilter.value = item.status;
-    }
-    const categoryFilter = document.getElementById('filter-category');
-    if (item.category && categoryFilter.value && categoryFilter.value !== item.category) {
-        categoryFilter.value = '';
-    }
-    map.setView([item.latitude, item.longitude], 18, {animate: false});
-    clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
-    await loadIssues();
-    state.markers.get(item.id)?.openPopup();
-}
-
-async function loadModeration(append = false) {
-    if (!state.session) {
-        return;
-    }
-    moderation.page = append ? moderation.page + 1 : 0;
-    const result = await api(`/moderation/reports?page=${moderation.page}&size=${PAGE_SIZE}`);
-    moderation.items = append ? moderation.items.concat(result.items) : result.items;
-    document.getElementById('moderation-count').textContent = result.total ? numberFormat.format(result.total) : '';
-    const list = document.getElementById('moderation-list');
-    list.innerHTML = moderation.items.length === 0
-        ? '<li class="hint">Nenhum relato esperando moderação.</li>'
-        : moderation.items.map((item) => {
-            const confidence = item.confidence == null ? '' : ` (${Math.round(Number(item.confidence) * 100)}%)`;
-            const verdict = item.classificationStatus === 'LOW_CONFIDENCE'
-                ? `Modelo em dúvida: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`
-                : `Modelo viu: ${escapeHtml(item.predictedCategoryName ?? item.predictedCategory)}${confidence}`;
-            return `<li class="moderation-item">
-                <a href="${item.photoUrl}" target="_blank" rel="noopener"><img src="${item.photoUrl}" alt="Foto do relato ${item.reportId}" loading="lazy"></a>
-                <div class="moderation-body">
-                    <strong>Relato #${item.reportId} · chamado #${item.issueId}</strong>
-                    <span>Enviado como: ${escapeHtml(item.categoryName)}</span>
-                    <span class="queue-meta">${verdict}</span>
-                    ${item.reporterBlocked ? '<span class="queue-meta">Autor já bloqueado</span>' : ''}
-                    <div class="actions">
-                        <button type="button" class="button" data-report="${item.reportId}" data-decision="APPROVED">Aprovar</button>
-                        <button type="button" class="button" data-report="${item.reportId}" data-decision="REJECTED">Rejeitar</button>
-                        ${item.reporterBlocked ? '' : `<button type="button" class="button" data-report="${item.reportId}"
-                            data-decision="REJECTED" data-block="true">Rejeitar e bloquear autor</button>`}
-                    </div>
-                </div>
-            </li>`;
-        }).join('');
-    list.querySelectorAll('[data-decision]').forEach((button) => {
-        button.addEventListener('click', () => moderate(button.dataset.report, button.dataset.decision,
-            button.dataset.block === 'true', button));
-    });
-    document.getElementById('moderation-more').hidden = moderation.items.length >= result.total;
-}
-
-async function moderate(reportId, decision, blockReporter, button) {
-    if (decision === 'REJECTED' && !confirm(blockReporter
-        ? `Rejeitar o relato #${reportId} e bloquear quem o enviou? A foto será apagada.`
-        : `Rejeitar o relato #${reportId}? Ele deixa de contar no chamado e a foto será apagada.`)) {
-        return;
-    }
-    button.disabled = true;
-    moderationMessage.className = 'message';
-    try {
-        const result = await api(`/moderation/reports/${reportId}`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({decision, blockReporter}),
-        });
-        moderationMessage.textContent = decision === 'APPROVED'
-            ? `Relato #${reportId} aprovado.`
-            : result.issueStatus === 'DISCARDED'
-                ? `Relato #${reportId} rejeitado; o chamado #${result.issueId} ficou sem relatos e foi descartado.`
-                : `Relato #${reportId} rejeitado; o chamado #${result.issueId} agora tem ${result.issueReportCount} relato(s).`;
-        moderationMessage.className = 'message success';
-        await Promise.all([loadModeration(), loadQueue(), loadIssues(), loadDistricts()]);
-    } catch (error) {
-        button.disabled = false;
-        moderationMessage.textContent = error.message;
-        moderationMessage.className = 'message error';
-    }
-}
-
-document.getElementById('queue-category').addEventListener('change', () => loadQueue());
-document.getElementById('queue-status').addEventListener('change', () => loadQueue());
-document.getElementById('queue-more').addEventListener('click', () => loadQueue(true));
-document.getElementById('moderation-more').addEventListener('click', () => loadModeration(true));
 
 loginForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -1090,6 +1335,8 @@ loginForm.addEventListener('submit', async (event) => {
         });
         loginForm.reset();
         saveSession(session);
+        showView('operator');
+        showSubview('queue');
     } catch (error) {
         loginMessage.textContent = error.message;
         loginMessage.className = 'message error';
@@ -1103,13 +1350,11 @@ document.getElementById('logout').addEventListener('click', () => saveSession(nu
 async function loadCategories() {
     state.categories = await api('/categories');
     const options = state.categories.map((c) => `<option value="${c.code}">${escapeHtml(c.name)}</option>`).join('');
-    document.getElementById('filter-category').insertAdjacentHTML('beforeend', options);
     document.getElementById('queue-category').insertAdjacentHTML('beforeend', options);
-    document.getElementById('report-category').innerHTML = options;
+    renderCategoryChips();
+    renderCategoryTiles();
 }
 
-document.getElementById('filter-category').addEventListener('change', loadIssues);
-document.getElementById('filter-status').addEventListener('change', loadIssues);
 map.on('autopanstart', () => {
     state.autoPanning = true;
 });
@@ -1117,6 +1362,7 @@ map.on('moveend', scheduleIssueLoad);
 
 map.whenReady(() => map.invalidateSize());
 renderSession();
+showView('explore');
 Promise.all([loadCategories(), loadDistricts(), loadIssues()])
     .then(openLinkedIssue)
     .catch((error) => setReportMessage(`Não foi possível carregar o mapa: ${error.message}`, 'error'));
