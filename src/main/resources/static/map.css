@@ -129,7 +129,7 @@ label {
     font-size: 13px;
 }
 
-select, input[type="file"] {
+select, input[type="file"], input[type="text"], input[type="email"], input[type="password"] {
     font: inherit;
     color: var(--text-primary);
     background: var(--page);
@@ -296,6 +296,77 @@ select, input[type="file"] {
 
 .queue-item:disabled:hover {
     border-color: var(--border);
+}
+
+/* Página de texto (privacidade): rola a página inteira, sem o layout do mapa */
+body.doc-page {
+    display: block;
+    height: auto;
+}
+
+.topbar a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.doc {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.doc h2 {
+    font-size: 17px;
+    margin: 24px 0 8px;
+}
+
+.doc a, .privacy-note a {
+    color: var(--accent);
+}
+
+.doc li + li {
+    margin-top: 6px;
+}
+
+.privacy-note {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.subform {
+    margin-top: 10px;
+}
+
+.subform summary {
+    cursor: pointer;
+    color: var(--accent);
+    font-size: 14px;
+}
+
+.subform form {
+    margin-top: 8px;
+}
+
+.team-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--page);
+}
+
+.team-item .queue-meta {
+    overflow-wrap: anywhere;
+}
+
+.team-item.inactive .queue-body {
+    opacity: 0.6;
 }
 
 .push-box {

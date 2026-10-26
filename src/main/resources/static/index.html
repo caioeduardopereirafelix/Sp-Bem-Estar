@@ -55,6 +55,8 @@
                 <label>Foto (JPEG ou PNG, até 10 MB)
                     <input type="file" name="photo" accept="image/jpeg,image/png" required>
                 </label>
+                <p class="privacy-note">A foto e o ponto ficam públicos no mapa: enquadre só o problema, sem rostos
+                    nem placas. <a href="privacidade.html" target="_blank" rel="noopener">Como usamos os dados</a></p>
                 <div class="actions">
                     <button type="submit" class="button primary">Enviar relato</button>
                     <button type="button" id="report-cancel" class="button">Cancelar</button>
@@ -92,8 +94,58 @@
             <div id="operator-session" hidden>
                 <p id="operator-name"></p>
                 <button type="button" id="logout" class="button">Sair</button>
+                <details class="subform">
+                    <summary>Trocar minha senha</summary>
+                    <form id="password-form">
+                        <label>Senha atual
+                            <input type="password" name="currentPassword" autocomplete="current-password" required>
+                        </label>
+                        <label>Senha nova (12 caracteres ou mais)
+                            <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                        </label>
+                        <label>Repita a senha nova
+                            <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                        </label>
+                        <div class="actions">
+                            <button type="submit" class="button primary">Trocar senha</button>
+                        </div>
+                        <p class="hint">As outras sessões abertas com a senha antiga são encerradas.</p>
+                    </form>
+                </details>
             </div>
             <p class="message" id="login-message" aria-live="polite"></p>
+        </section>
+
+        <section class="card" id="team-card" hidden>
+            <h2>Equipe</h2>
+            <p class="hint">Quem pode alterar status e moderar. Desativar corta o acesso na hora.</p>
+            <ul class="queue" id="team-list"></ul>
+            <details class="subform">
+                <summary>Cadastrar operador</summary>
+                <form id="team-form">
+                    <label>Nome
+                        <input type="text" name="name" maxlength="100" required>
+                    </label>
+                    <label>E-mail
+                        <input type="email" name="email" autocomplete="off" required>
+                    </label>
+                    <label>Senha inicial (12 caracteres ou mais)
+                        <input type="text" name="password" autocomplete="off" minlength="12" maxlength="72" required>
+                    </label>
+                    <label>Papel
+                        <select name="role">
+                            <option value="OPERATOR">Operador</option>
+                            <option value="ADMIN">Administrador (também cadastra a equipe)</option>
+                        </select>
+                    </label>
+                    <div class="actions">
+                        <button type="submit" class="button primary">Cadastrar</button>
+                        <button type="button" class="button" id="team-generate">Gerar senha</button>
+                    </div>
+                    <p class="hint">Passe a senha inicial à pessoa por um canal seguro e peça que ela a troque no primeiro acesso.</p>
+                </form>
+            </details>
+            <p class="message" id="team-message" aria-live="polite"></p>
         </section>
 
         <section class="card" id="queue-card" hidden>
@@ -140,7 +192,8 @@
 
         <footer class="sources">
             Distritos: <a href="https://geosampa.prefeitura.sp.gov.br" target="_blank" rel="noopener">GeoSampa</a> ·
-            População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a>
+            População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a> ·
+            <a href="privacidade.html">Privacidade</a>
         </footer>
     </aside>
 </main>
@@ -149,6 +202,8 @@
 <dialog id="location-dialog" class="location-dialog" aria-labelledby="location-dialog-title">
     <h2 id="location-dialog-title">Permitir acesso à localização?</h2>
     <p id="location-dialog-text"></p>
+    <p class="privacy-note">A localização fica no aparelho; só o ponto do relato enviado vai para o servidor.
+        <a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
     <div class="actions wrap">
         <button type="button" id="location-allow" class="button primary">Permitir localização</button>
         <button type="button" id="location-manual" class="button">Escolher no mapa</button>

@@ -75,7 +75,7 @@ class AuthControllerTests {
         TestOperators.bearer(auth, users);
         AppUser disabled = users.findByEmail("inativo@teste.sp.gov.br").orElseGet(() ->
                 auth.createUser("inativo@teste.sp.gov.br", "Inativo", "senha-de-teste-123", UserRole.OPERATOR));
-        transaction.executeWithoutResult(status -> users.findById(disabled.getId()).orElseThrow().deactivate());
+        transaction.executeWithoutResult(status -> users.findById(disabled.getId()).orElseThrow().deactivate(Instant.now()));
 
         for (MvcTestResult result : List.of(
                 login(TestOperators.EMAIL, "senha-errada-123"),
@@ -139,6 +139,9 @@ class AuthControllerTests {
         assertThat(mvc.get().uri("/api/v1/issues/{id}", id).exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/api/v1/categories").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/").exchange()).hasStatusOk();
+        assertThat(mvc.get().uri("/privacidade.html").exchange()).hasStatusOk();
+        assertThat(mvc.get().uri("/api/v1/privacy").exchange()).hasStatusOk()
+                .bodyJson().extractingPath("$.contact").isNull();
         assertThat(mvc.get().uri("/actuator/health").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/v3/api-docs").exchange()).hasStatusOk()
                 .bodyJson().extractingPath("$.components.securitySchemes.bearer.scheme").isEqualTo("bearer");
@@ -195,10 +198,12 @@ class AuthControllerTests {
         return reportService.create(TestReporters.ID, "POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
     }
 
-    private static String token(JwtEncoder encoder, String issuer, List<String> roles, Instant issuedAt,
-                                Instant expiresAt) {
+    // assinado como o operador de teste: só o que o teste muda (chave, emissor, papel, datas) pode recusá-lo
+    private String token(JwtEncoder encoder, String issuer, List<String> roles, Instant issuedAt, Instant expiresAt) {
+        TestOperators.bearer(auth, users);
+        String subject = String.valueOf(users.findByEmail(TestOperators.EMAIL).orElseThrow().getId());
         JwtClaimsSet claims = JwtClaimsSet.builder()
-                .issuer(issuer).subject("1").issuedAt(issuedAt).expiresAt(expiresAt)
+                .issuer(issuer).subject(subject).issuedAt(issuedAt).expiresAt(expiresAt)
                 .claim(SecurityConfig.ROLES_CLAIM, roles)
                 .build();
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))

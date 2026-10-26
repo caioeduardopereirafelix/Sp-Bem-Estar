@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Privacidade · SP Bem-Estar</title>
+    <link rel="stylesheet" href="map.css">
+</head>
+<body class="doc-page">
+<header class="topbar">
+    <h1><a href="/">SP Bem-Estar</a></h1>
+    <p>Política de privacidade</p>
+</header>
+
+<main class="doc">
+    <p class="hint">Atualizada em 26 de outubro de 2026.</p>
+
+    <p>O SP Bem-Estar recebe relatos de problemas urbanos (buracos, lixo, iluminação) para que o órgão público
+        os encontre e resolva. Você relata <strong>sem criar conta</strong>: não pedimos nome, e-mail, telefone
+        nem CPF. Esta página explica o que é guardado, quem vê e como pedir a exclusão.</p>
+
+    <section>
+        <h2>Quem cuida dos dados</h2>
+        <p>Responsável pelo tratamento: <strong data-controller>o órgão público que opera este serviço</strong>.</p>
+        <p>Encarregado (DPO), para qualquer pedido sobre os seus dados: <span data-contact>o contato ainda não
+            foi configurado nesta instalação</span>.</p>
+    </section>
+
+    <section>
+        <h2>O que guardamos</h2>
+        <ul>
+            <li><strong>A foto do problema.</strong> Antes de guardar, apagamos os metadados do arquivo (EXIF), como
+                a localização gravada pela câmera, a data e o modelo do aparelho.</li>
+            <li><strong>O ponto no mapa e a categoria</strong> que você escolheu, e a data do envio.</li>
+            <li><strong>Um identificador anônimo.</strong> Na primeira vez, o seu navegador recebe um código
+                aleatório; é ele que liga os seus relatos para você ver a lista "Meus relatos". No servidor
+                guardamos só uma versão cifrada desse código (HMAC), que não revela quem você é.</li>
+            <li><strong>A inscrição de notificações</strong>, só se você ligar os avisos: o endereço que o serviço
+                de push do seu navegador criou e as chaves para cifrar a mensagem.</li>
+        </ul>
+        <p>Não guardamos:</p>
+        <ul>
+            <li><strong>A sua localização em tempo real.</strong> Se você permitir, o navegador usa o GPS só para
+                posicionar o ponto do relato; o servidor recebe apenas o ponto do relato que você enviar.</li>
+            <li><strong>O seu endereço IP.</strong> Ele fica só na memória do servidor, por até uma hora, para
+                limitar envios em excesso (proteção contra spam e robôs).</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Quem vê o quê</h2>
+        <ul>
+            <li><strong>Qualquer pessoa</strong> vê no mapa o local, a categoria, o status e as fotos dos
+                problemas. Por isso, <strong>não fotografe rostos, placas de carro ou o interior de casas</strong>:
+                enquadre só o problema.</li>
+            <li><strong>Os servidores do órgão público</strong> veem os relatos para confirmar, encaminhar,
+                resolver e moderar. Eles também não sabem quem enviou cada relato.</li>
+            <li>Ninguém vê a sua lista "Meus relatos", que só abre com o código guardado no seu navegador.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Para que usamos</h2>
+        <ul>
+            <li>Encontrar e resolver os problemas relatados e priorizar o atendimento por bairro.</li>
+            <li>Juntar relatos do mesmo problema e contar quantas pessoas o relataram.</li>
+            <li>Classificar a foto automaticamente (um modelo próprio, sem envio a outras empresas) e moderar
+                relatos falsos ou ofensivos.</li>
+            <li>Avisar você, se pedir, quando o chamado mudar de status.</li>
+        </ul>
+        <p>O tratamento serve à prestação de um serviço público (LGPD, art. 7º, III, e art. 23). Não vendemos
+            dados nem os usamos para publicidade.</p>
+    </section>
+
+    <section>
+        <h2>Serviços de terceiros</h2>
+        <ul>
+            <li><strong>OpenStreetMap:</strong> as imagens do mapa vêm dos servidores dele, que recebem o IP do seu
+                navegador e a região que você está vendo.</li>
+            <li><strong>cdnjs (Cloudflare):</strong> entrega a biblioteca do mapa (Leaflet).</li>
+            <li><strong>Serviço de push do navegador</strong> (Google, Mozilla, Apple ou Microsoft), só se você
+                ligar os avisos: ele entrega a notificação, mas recebe a mensagem cifrada e não consegue lê-la.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Por quanto tempo</h2>
+        <ul>
+            <li><strong>Relatos e fotos</strong> ficam guardados enquanto forem úteis ao atendimento e ao histórico
+                do serviço. A foto de um relato rejeitado pela moderação é apagada na hora.</li>
+            <li><strong>O identificador anônimo</strong> vale por até 90 dias sem uso e é renovado a cada visita.</li>
+            <li><strong>A inscrição de notificações</strong> fica até você desligar os avisos ou o navegador
+                cancelá-la.</li>
+            <li><strong>Registros técnicos</strong> (logs), sem e-mail, IP ou conteúdo dos relatos, ficam por até
+                14 dias para investigar erros.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Seus direitos</h2>
+        <p>A LGPD (art. 18) garante, entre outros, saber quais dados existem, corrigi-los e pedir a exclusão.
+            Como o serviço não sabe quem você é, para pedir a exclusão de relatos escreva ao encarregado
+            informando os números dos chamados, que aparecem em "Meus relatos".</p>
+        <p>Pelo próprio navegador, você pode:</p>
+        <ul>
+            <li>desligar os avisos em "Meus relatos" (a inscrição é apagada do servidor);</li>
+            <li>apagar os dados deste site nas configurações do navegador, o que descarta o seu identificador
+                anônimo. Os relatos já enviados continuam no mapa, mas deixam de aparecer na sua lista.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Segurança</h2>
+        <p>A comunicação usa HTTPS; a foto perde os metadados antes de ser guardada; o identificador do autor
+            fica cifrado com uma chave que não está no banco de dados; o acesso dos servidores exige login, e
+            um servidor desativado perde o acesso na hora.</p>
+    </section>
+
+    <p><a href="/">Voltar ao mapa</a></p>
+</main>
+
+<script src="privacidade.js"></script>
+</body>
+</html>
