@@ -3,6 +3,7 @@ package com.br.spbemestar.classifier.config;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.User;
@@ -13,22 +14,29 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * O worker só fala HTTP para ser monitorado: o health check é público (para o orquestrador saber se ele
- * está de pé) e as métricas exigem o usuário do Prometheus. Qualquer outra rota é recusada.
+ * O worker fala HTTP para ser monitorado e para a API conferir uma foto na hora do envio: o health check é público
+ * (para o orquestrador saber se ele está de pé), as métricas exigem o usuário do Prometheus e a conferência, o
+ * usuário da API. Qualquer outra rota é recusada.
  */
 @Configuration
-@EnableConfigurationProperties(MetricsProperties.class)
+@EnableConfigurationProperties({MetricsProperties.class, ClassifyApiProperties.class})
 public class ActuatorSecurityConfig {
 
     /** Sendo um bean, também impede o Spring Boot de criar um usuário padrão e imprimir a senha dele no log. */
     @Bean
-    UserDetailsService metricsUsers(MetricsProperties metrics) {
+    UserDetailsService workerUsers(MetricsProperties metrics, ClassifyApiProperties classifyApi) {
         PasswordEncoder passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
         InMemoryUserDetailsManager users = new InMemoryUserDetailsManager();
         if (metrics.enabled()) {
             users.createUser(User.withUsername(metrics.username())
                     .password(passwordEncoder.encode(metrics.password()))
                     .roles("METRICS")
+                    .build());
+        }
+        if (classifyApi.enabled()) {
+            users.createUser(User.withUsername(classifyApi.username())
+                    .password(passwordEncoder.encode(classifyApi.password()))
+                    .roles("CLASSIFY")
                     .build());
         }
         return users;
@@ -45,6 +53,7 @@ public class ActuatorSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/actuator/prometheus").hasRole("METRICS")
+                        .requestMatchers(HttpMethod.POST, "/api/classify").hasRole("CLASSIFY")
                         .anyRequest().denyAll());
         return http.build();
     }

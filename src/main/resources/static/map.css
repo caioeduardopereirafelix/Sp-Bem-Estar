@@ -1440,6 +1440,27 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     resize: vertical;
 }
 
+/* a foto recusada: o tipo que o classificador viu, com as saídas (tipo certo, outra foto, enviar assim mesmo) */
+.suggestion {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--status-progress);
+    background: var(--page);
+}
+
+.suggestion p {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.suggestion .link-button {
+    justify-self: center;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
 /* o resultado da conferência da foto, logo depois do envio */
 .photo-check {
     margin: 0;

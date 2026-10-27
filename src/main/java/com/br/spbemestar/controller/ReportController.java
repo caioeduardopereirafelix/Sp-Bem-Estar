@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,12 +39,13 @@ public class ReportController {
     @ResponseStatus(HttpStatus.CREATED)
     public ReportResponse create(@RequestPart("photo") MultipartFile photo,
                                  @Valid @ModelAttribute CreateReportRequest request,
+                                 @RequestParam(defaultValue = "false") boolean confirmCategory,
                                  @AuthenticationPrincipal Jwt reporter) throws IOException {
         if (photo.isEmpty()) {
             throw new InvalidPhotoException("A foto é obrigatória");
         }
         return ReportResponse.from(reportService.create(UUID.fromString(reporter.getSubject()),
-                request.category(), request.latitude(), request.longitude(), photo.getBytes()));
+                request.category(), request.latitude(), request.longitude(), photo.getBytes(), confirmCategory));
     }
 
     @SecurityRequirement(name = OpenApiConfig.BEARER)

@@ -1,6 +1,8 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.PhotoPrecheckProperties;
 import com.br.spbemestar.config.TraceContext;
+import com.br.spbemestar.exception.PhotoCategoryMismatchException;
 import com.br.spbemestar.exception.ReporterBlockedException;
 import com.br.spbemestar.exception.UnknownCategoryException;
 import com.br.spbemestar.model.Category;
@@ -23,6 +25,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -38,6 +41,8 @@ public class ReportService {
     private final PriorityService priority;
     private final ExifStripper exifStripper;
     private final PhotoStorage photoStorage;
+    private final PhotoPrecheck photoPrecheck;
+    private final PhotoPrecheckProperties precheckProperties;
     private final ReporterHasher reporterHasher;
     private final BlockedReporterRepository blockedReporters;
     private final TransactionTemplate transaction;
@@ -46,11 +51,18 @@ public class ReportService {
     private final MeterRegistry meters;
     private final Clock clock;
 
-    /**
-     * @param reporterId {@code sub} do token do cidadão; só o HMAC dele é gravado no relato
-     */
     public ReportResult create(UUID reporterId, String categoryCode, double latitude, double longitude,
                                byte[] photo) {
+        return create(reporterId, categoryCode, latitude, longitude, photo, false);
+    }
+
+    /**
+     * @param reporterId      {@code sub} do token do cidadão; só o HMAC dele é gravado no relato
+     * @param confirmCategory a pessoa viu que o classificador discordou do tipo e quer enviar assim mesmo; o relato
+     *                        é aceito e a classificação pela fila o leva para a moderação
+     */
+    public ReportResult create(UUID reporterId, String categoryCode, double latitude, double longitude,
+                               byte[] photo, boolean confirmCategory) {
         GeoPoints.of(latitude, longitude); // valida as coordenadas antes de qualquer gravação
         String reporterHash = reporterHasher.reporterHash(reporterId);
         if (blockedReporters.existsById(reporterHash)) {
@@ -61,6 +73,11 @@ public class ReportService {
         }
 
         ExifStripper.SanitizedPhoto sanitized = exifStripper.strip(photo);
+        if (confirmCategory) {
+            meters.counter("spbemestar.reports.precheck", "outcome", "insisted").increment();
+        } else {
+            precheck(categoryCode, sanitized);
+        }
         String photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
 
         try {
@@ -72,6 +89,30 @@ public class ReportService {
             photoStorage.delete(photoId);
             throw e;
         }
+    }
+
+    /**
+     * Recusa antes de gravar qualquer coisa quando o modelo vê, com confiança alta, outro tipo de problema ou
+     * nenhum problema de rua. Um tipo que o modelo conhece mas a prefeitura não usa (inativo) não recusa nada.
+     */
+    private void precheck(String categoryCode, ExifStripper.SanitizedPhoto sanitized) {
+        Optional<PhotoPrecheck.Prediction> prediction = photoPrecheck.classify(sanitized.content(), sanitized.contentType());
+        if (prediction.isEmpty()) {
+            return;
+        }
+        PhotoPrecheck.Prediction seen = prediction.get();
+        if (seen.category().equals(categoryCode) || seen.confidence() < precheckProperties.rejectConfidence()) {
+            meters.counter("spbemestar.reports.precheck", "outcome", "passed").increment();
+            return;
+        }
+        String predictedName = PhotoPrecheck.NOT_A_PROBLEM.equals(seen.category()) ? null
+                : categories.findByCodeAndActiveTrue(seen.category()).map(Category::getName).orElse(null);
+        if (predictedName == null && !PhotoPrecheck.NOT_A_PROBLEM.equals(seen.category())) {
+            meters.counter("spbemestar.reports.precheck", "outcome", "passed").increment();
+            return;
+        }
+        meters.counter("spbemestar.reports.precheck", "outcome", "rejected").increment();
+        throw new PhotoCategoryMismatchException(categoryCode, seen.category(), predictedName, seen.confidence());
     }
 
     private ReportResult persist(String reporterHash, String categoryCode, double latitude, double longitude,

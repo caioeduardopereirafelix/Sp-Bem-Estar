@@ -50,6 +50,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 - **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta
+- **Foto recusada com o tipo certo sugerido:** antes de aceitar o relato, a API pergunta ao classificador o que ele vê na foto. Se ele vir, com confiança de 80% ou mais, outro tipo de problema, o envio volta com a sugestão ("A foto parece ser de lixo ou entulho, e não de buraco na rua"), e a pessoa envia com o tipo sugerido, troca a foto ou envia assim mesmo (aí o relato vai para a moderação). Se ele não vir problema de rua nenhum, pede outra foto. Com o worker fora do ar, ou sem `CLASSIFIER_URL`, o relato é aceito como antes
 - **Conferência da foto na hora:** logo depois do envio, o app espera alguns segundos pelo classificador e diz se a foto confere com o tipo escolhido, se parece ser de outro tipo ou se não mostra um problema de rua (nos dois últimos casos, a prefeitura confere na moderação). Sem resposta do classificador, avisa que a conferência continua e mostra o andamento em "Meus relatos"
 - Receber uma notificação push quando um chamado relatado for confirmado, entrar em andamento ou for resolvido, mesmo com o mapa fechado
 - Ver o **antes e depois**: quando a equipe resolve com uma foto do conserto, o pop-up mostra a foto do relato ao lado da do conserto, com a nota do que foi feito, e "Meus relatos" também
@@ -436,7 +437,7 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 ### Worker de classificação
 
-O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele usa o mesmo `.env` da raiz e só abre HTTP para ser monitorado, na porta `8081` (`WORKER_PORT`): `/actuator/health` é público e mostra o estado do modelo, do RabbitMQ e do MongoDB; `/actuator/prometheus` exige o mesmo `METRICS_USER` e `METRICS_PASSWORD` da API; qualquer outra rota é recusada.
+O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele também atende `POST /api/classify`, que a API chama na hora do envio para recusar uma foto de outro tipo: a rota exige o usuário `CLASSIFIER_API_USER` e a senha `CLASSIFIER_API_PASSWORD` (HTTP Basic), os mesmos no `.env` dos dois, e a API precisa de `CLASSIFIER_URL` (em desenvolvimento, `http://localhost:8081`; no compose de produção já vem configurado). Sem esses valores, a conferência na hora fica desligada e só vale a classificação pela fila. Ele usa o mesmo `.env` da raiz e abre HTTP na porta `8081` (`WORKER_PORT`) só para isso e para ser monitorado: `/actuator/health` é público e mostra o estado do modelo, do RabbitMQ e do MongoDB; `/actuator/prometheus` exige o mesmo `METRICS_USER` e `METRICS_PASSWORD` da API; qualquer outra rota é recusada.
 
 ```bash
 ./mvnw -f classifier-worker/pom.xml package

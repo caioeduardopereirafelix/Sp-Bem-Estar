@@ -44,6 +44,7 @@ sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
     -e "s|^PRIVACY_CONTROLLER=.*|PRIVACY_CONTROLLER=$controller|" \
     -e "s|^PRIVACY_CONTACT=.*|PRIVACY_CONTACT=$contact|" \
     -e "s|^METRICS_PASSWORD=.*|METRICS_PASSWORD=$(password)|" \
+    -e "s|^CLASSIFIER_API_PASSWORD=.*|CLASSIFIER_API_PASSWORD=$(password)|" \
     .env.example > .env
 
 echo "deploy/.env criado."

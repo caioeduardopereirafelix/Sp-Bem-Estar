@@ -348,7 +348,9 @@ async function reporterFetch(path, options = {}) {
             continue;
         }
         if (!response.ok) {
-            throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
+            // o corpo do erro vai junto: a recusa da foto traz o tipo que o classificador sugere
+            throw Object.assign(new Error(body?.detail || body?.title || `Erro ${response.status}`),
+                {status: response.status, problem: body});
         }
         return body;
     }
@@ -1149,7 +1151,8 @@ function startReport() {
 }
 
 function resetReport() {
-    state.report = {step: 'where', category: null, active: false};
+    state.report = {step: 'where', category: null, active: false, confirmCategory: false};
+    hideSuggestion();
     state.pickedLocation = null;
     state.pickMarker?.remove();
     state.pickMarker = null;
@@ -1269,15 +1272,74 @@ function renderCategoryTiles() {
         escapeHtml(shortName(c.code, c.name))}</span></button>`).join('');
     grid.querySelectorAll('[data-category]').forEach((tile) => {
         tile.addEventListener('click', () => {
-            grid.querySelectorAll('.tile').forEach((t) => t.setAttribute('aria-pressed', String(t === tile)));
-            state.report.category = tile.dataset.category;
-            document.getElementById('report-category').value = tile.dataset.category;
+            chooseCategory(tile.dataset.category);
+            hideSuggestion();
+            state.report.confirmCategory = false; // outro tipo: o classificador confere de novo
             goToStep('photo');
         });
     });
 }
 
+// --- O classificador recusou a foto: sugere o tipo certo, outra foto, ou enviar assim mesmo ---
+
+const suggestion = document.getElementById('category-suggestion');
+
+function hideSuggestion() {
+    suggestion.hidden = true;
+    reportForm.querySelector('[type="submit"]').hidden = false;
+}
+
+function showSuggestion(problem) {
+    const chosen = problem.chosenCategory;
+    const predicted = problem.predictedCategory;
+    const accept = document.getElementById('suggestion-accept');
+    // sem tipo para sugerir, a saída principal é outra foto
+    document.getElementById('suggestion-photo').className = predicted === 'OTHER' ? 'cta' : 'button';
+    if (predicted === 'OTHER') {
+        document.getElementById('suggestion-text').textContent =
+            'A foto não parece mostrar um problema de rua. Tire outra foto, enquadrando o problema.';
+        accept.hidden = true;
+    } else {
+        document.getElementById('suggestion-text').textContent =
+            `A foto parece ser de ${categoryLabel(predicted)}, e não de ${categoryLabel(chosen)}. `
+            + 'Quer enviar com o tipo certo?';
+        accept.textContent = `Enviar como ${shortName(predicted, problem.predictedCategoryName)}`;
+        accept.dataset.category = predicted;
+        accept.hidden = false;
+    }
+    document.getElementById('suggestion-insist').textContent =
+        `Enviar como ${categoryLabel(chosen)} mesmo assim (a prefeitura confere)`;
+    suggestion.hidden = false;
+    reportForm.querySelector('[type="submit"]').hidden = true;
+    suggestion.scrollIntoView({block: 'nearest'});
+}
+
+function chooseCategory(code) {
+    state.report.category = code;
+    document.getElementById('report-category').value = code;
+    document.querySelectorAll('#category-grid .tile').forEach((tile) => {
+        tile.setAttribute('aria-pressed', String(tile.dataset.category === code));
+    });
+}
+
+document.getElementById('suggestion-accept').addEventListener('click', (event) => {
+    chooseCategory(event.currentTarget.dataset.category);
+    hideSuggestion();
+    reportForm.requestSubmit();
+});
+document.getElementById('suggestion-photo').addEventListener('click', () => {
+    hideSuggestion();
+    reportForm.elements.photo.click();
+});
+document.getElementById('suggestion-insist').addEventListener('click', () => {
+    state.report.confirmCategory = true; // vai como está, e a classificação pela fila leva para a moderação
+    hideSuggestion();
+    reportForm.requestSubmit();
+});
+
 reportForm.elements.photo.addEventListener('change', () => {
+    hideSuggestion();
+    state.report.confirmCategory = false; // foto nova: o classificador confere de novo
     const file = reportForm.elements.photo.files[0];
     const preview = document.getElementById('photo-preview');
     if (state.photoUrl) {
@@ -1300,6 +1362,9 @@ reportForm.addEventListener('submit', async (event) => {
     const data = new FormData(reportForm);
     data.set('latitude', state.pickedLocation.lat.toFixed(6));
     data.set('longitude', state.pickedLocation.lng.toFixed(6));
+    if (state.report.confirmCategory) {
+        data.set('confirmCategory', 'true');
+    }
 
     submit.disabled = true;
     setReportMessage('Enviando…');
@@ -1317,6 +1382,11 @@ reportForm.addEventListener('submit', async (event) => {
         checkPhoto(result.reportId, chosen);
         await Promise.all([loadIssues(), loadDistricts(), loadMyReports()]);
     } catch (error) {
+        if (error.status === 422 && error.problem?.predictedCategory) {
+            setReportMessage('');
+            showSuggestion(error.problem);
+            return;
+        }
         setReportMessage(error.message, 'error');
     } finally {
         submit.disabled = false;

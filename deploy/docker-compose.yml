@@ -51,6 +51,9 @@ services:
       # importa (ou atualiza) os distritos de São Paulo a cada subida; a importação é idempotente
       APP_NEIGHBORHOODS_IMPORTFILE: /app/data/sp-distritos.geojson
       APP_NEIGHBORHOODS_CITY: São Paulo
+      # confere a foto no worker antes de aceitar o relato; sem o perfil classifier, o worker não responde e o
+      # relato segue sem a conferência (CLASSIFIER_API_USER e CLASSIFIER_API_PASSWORD vêm do .env)
+      CLASSIFIER_URL: http://worker:8081
     healthcheck: *health-api
     depends_on:
       postgres:
