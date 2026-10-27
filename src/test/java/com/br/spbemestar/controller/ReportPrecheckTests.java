@@ -4,6 +4,7 @@ import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.service.PhotoPrecheck;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,7 @@ class ReportPrecheckTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired GridFsTemplate gridFs;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
     @MockitoBean PhotoPrecheck precheck;
 
     @Test
@@ -113,7 +115,7 @@ class ReportPrecheckTests {
 
     private MvcTestResult send(String category, double latitude, boolean confirmCategory) {
         var request = mvc.post().uri("/api/v1/reports").multipart()
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                 .file(new MockMultipartFile("photo", "foto.jpg", "image/jpeg", TestPhotos.jpeg()))
                 .param("latitude", String.valueOf(latitude))
                 .param("longitude", "-48.00")

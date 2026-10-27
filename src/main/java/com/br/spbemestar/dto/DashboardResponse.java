@@ -18,12 +18,14 @@ public record DashboardResponse(Instant generatedAt, Product product, SystemHeal
      * @param openByStatus            chamados em aberto por status ({@code OPEN}, {@code CONFIRMED}, {@code IN_PROGRESS})
      * @param medianResolutionHours30d mediana do primeiro relato até a resolução, nos chamados resolvidos em 30 dias
      * @param photoChecks30d          o que o classificador achou das fotos dos relatos de 30 dias, por resultado
+     * @param citizenAccounts         cidadãos que já entraram com o e-mail
      */
     public record Product(long reportsToday, long reports7d, long reports30d, long reportsTotal,
                           List<DailyCount> reportsByDay, long reporters30d, Map<String, Long> openByStatus,
                           long resolved30d, long resolvedTotal, Double medianResolutionHours30d,
                           List<Ranked> topCategories, List<Ranked> topNeighborhoods, long moderationPending,
-                          long rejected30d, Map<String, Long> photoChecks30d, long pushSubscriptions) {
+                          long rejected30d, Map<String, Long> photoChecks30d, long pushSubscriptions,
+                          long citizenAccounts) {
     }
 
     public record DailyCount(LocalDate day, long count) {

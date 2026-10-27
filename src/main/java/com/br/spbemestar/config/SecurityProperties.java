@@ -9,7 +9,7 @@ import java.time.Duration;
  * @param jwtSecret         chave HMAC dos tokens; no mínimo 32 bytes
  * @param tokenTtl          validade de um token
  * @param issuer            emissor gravado e conferido em cada token
- * @param bootstrapOperator operador criado na subida se ainda não existir (e-mail e senha vazios = desligado)
+ * @param bootstrapOperator operador criado na subida se ainda não existir (e-mail vazio = desligado)
  * @param bootstrapCeo      conta do CEO, criada do mesmo jeito; é ela que abre o painel em {@code /ceo}
  */
 @ConfigurationProperties("app.security")
@@ -21,10 +21,11 @@ public record SecurityProperties(
         @DefaultValue BootstrapOperator bootstrapCeo
 ) {
 
-    public record BootstrapOperator(String email, String password, @DefaultValue("Operador") String name) {
+    /** Sem senha: a pessoa entra com o código que chega no e-mail. */
+    public record BootstrapOperator(String email, @DefaultValue("Operador") String name) {
 
         public boolean enabled() {
-            return email != null && !email.isBlank() && password != null && !password.isBlank();
+            return email != null && !email.isBlank();
         }
     }
 }

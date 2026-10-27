@@ -5,3 +5,7 @@ app:
   metrics:
     username: prometheus-teste
     password: senha-do-prometheus-teste
+  # Os testes entram várias vezes com o mesmo e-mail; os limites de verdade ficam no LoginCodeTests
+  login:
+    resend-interval: 0s
+    max-codes-per-hour: 1000

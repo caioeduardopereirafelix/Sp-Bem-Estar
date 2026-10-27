@@ -5,6 +5,7 @@ import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.dto.ReportResponse;
 import com.br.spbemestar.service.PhotoStorage;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ class ReportControllerTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired PhotoStorage photoStorage;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
 
     @Test
     void firstReportOpensNewIssue() {
@@ -141,7 +143,7 @@ class ReportControllerTests {
     void rejectsRequestWithoutPhoto() {
         MvcTestResult result = mvc.post().uri("/api/v1/reports")
                 .multipart()
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                 .param("latitude", "-23.5")
                 .param("longitude", "-46.6")
                 .param("category", "POTHOLE")
@@ -160,7 +162,7 @@ class ReportControllerTests {
     private MvcTestResult post(MockMultipartFile photo, String category, String latitude, String longitude) {
         return mvc.post().uri("/api/v1/reports")
                 .multipart()
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                 .file(photo)
                 .param("latitude", latitude)
                 .param("longitude", longitude)

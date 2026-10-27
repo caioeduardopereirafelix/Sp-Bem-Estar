@@ -48,7 +48,7 @@ public class OperatorService {
         if (users.existsByEmail(email)) {
             throw new OperatorAlreadyExistsException(email);
         }
-        AppUser user = auth.createUser(email, request.name().strip(), request.password(), request.role());
+        AppUser user = auth.createUser(email, request.name().strip(), request.role());
         // sem o e-mail no log, como no login: o id basta para a auditoria
         log.info("Administrador {} cadastrou o usuário {} ({})", adminId, user.getId(), user.getRole());
         return OperatorItem.from(user);

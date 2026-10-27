@@ -8,6 +8,7 @@ import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.IssueStatusService;
 import com.br.spbemestar.service.ReportService;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,7 @@ class IssueExportTests {
     @Autowired ReportService reportService;
     @Autowired IssueStatusService statusService;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
 
@@ -98,7 +100,7 @@ class IssueExportTests {
     void onlyOperatorsExport() {
         assertThat(mvc.get().uri("/api/v1/issues/export").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(mvc.get().uri("/api/v1/issues/export")
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens)).exchange())
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens)).exchange())
                 .hasStatus(HttpStatus.UNAUTHORIZED);
     }
 

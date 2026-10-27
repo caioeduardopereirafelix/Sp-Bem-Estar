@@ -8,6 +8,7 @@ import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.ClassificationService;
 import com.br.spbemestar.service.ReportService;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,7 @@ class OperatorQueueTests {
     @Autowired ReportService reportService;
     @Autowired ClassificationService classification;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
 
@@ -48,7 +50,7 @@ class OperatorQueueTests {
         for (String path : List.of("/api/v1/issues/queue", "/api/v1/moderation/reports")) {
             assertThat(mvc.get().uri(path).exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
             // o token do cidadão não vale aqui, mesmo com GET /api/v1/** sendo público para o mapa
-            assertThat(mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
+            assertThat(mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                     .exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
             assertThat(mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
                     .exchange()).hasStatusOk();

@@ -32,9 +32,6 @@ public class AppUser {
     @Column(nullable = false)
     private String name;
 
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private UserRole role;
@@ -45,21 +42,20 @@ public class AppUser {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    /** Tokens emitidos antes disso não valem mais: senha trocada ou usuário desativado. */
+    /** Tokens emitidos antes disso não valem mais: o usuário foi desativado. */
     @Column(name = "tokens_valid_after")
     private Instant tokensValidAfter;
 
-    private AppUser(String email, String name, String passwordHash, UserRole role, Instant createdAt) {
+    private AppUser(String email, String name, UserRole role, Instant createdAt) {
         this.email = normalizeEmail(email);
         this.name = Objects.requireNonNull(name);
-        this.passwordHash = Objects.requireNonNull(passwordHash);
         this.role = Objects.requireNonNull(role);
         this.active = true;
         this.createdAt = Objects.requireNonNull(createdAt);
     }
 
-    public static AppUser of(String email, String name, String passwordHash, UserRole role, Instant createdAt) {
-        return new AppUser(email, name, passwordHash, role, createdAt);
+    public static AppUser of(String email, String name, UserRole role, Instant createdAt) {
+        return new AppUser(email, name, role, createdAt);
     }
 
     /** Desativar corta o acesso na hora: o token que a pessoa já tem deixa de valer. */
@@ -70,12 +66,6 @@ public class AppUser {
 
     public void activate() {
         this.active = true;
-    }
-
-    /** Trocar a senha encerra as outras sessões: quem tinha o token antigo (talvez roubado) perde o acesso. */
-    public void changePassword(String passwordHash, Instant now) {
-        this.passwordHash = Objects.requireNonNull(passwordHash);
-        this.tokensValidAfter = Objects.requireNonNull(now);
     }
 
     public boolean acceptsTokenIssuedAt(Instant issuedAt) {

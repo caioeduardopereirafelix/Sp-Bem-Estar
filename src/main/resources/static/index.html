@@ -88,7 +88,7 @@
                 <button type="button" data-status="RESOLVED" aria-pressed="false">Resolvidos</button>
             </div>
             <ul class="status-key" aria-label="Como ler os marcadores" id="status-key"></ul>
-            <p class="lede">Buraco, lixo, poste apagado: relate com uma foto, sem cadastro, e acompanhe até ser resolvido.</p>
+            <p class="lede">Buraco, lixo, poste apagado: relate com uma foto e acompanhe até ser resolvido. Para entrar, só o e-mail.</p>
         </section>
 
         <!-- Novo relato em três etapas: local, tipo e foto -->
@@ -183,7 +183,7 @@
         <!-- Meus relatos: a trilha de cada chamado, como o rastreio de uma encomenda -->
         <section class="view" data-view="mine" hidden>
             <h1 class="view-title">Meus relatos</h1>
-            <p class="lede" id="my-reports-hint">Os relatos que você enviar deste aparelho aparecem aqui, com o andamento de cada um.</p>
+            <p class="lede" id="my-reports-hint">Os relatos que você enviar aparecem aqui, em qualquer aparelho em que entrar, com o andamento de cada um.</p>
             <ul class="tracks" id="my-reports-list"></ul>
             <button type="button" class="button" id="my-reports-more" hidden>Mostrar mais</button>
             <div class="push-box" hidden>
@@ -191,12 +191,49 @@
                 <button type="button" class="button" data-push-toggle hidden></button>
             </div>
             <button type="button" class="cta" id="mine-empty-cta" data-goto="report-start" hidden>Relatar um problema</button>
+            <button type="button" class="cta" id="mine-login" hidden>Entrar com o e-mail</button>
             <p class="message" id="my-reports-message" aria-live="polite"></p>
         </section>
 
-        <!-- Mais: privacidade, indicadores e a entrada da prefeitura -->
+        <!-- Entrar: o mesmo login para quem relata e para a equipe da prefeitura, com um código por e-mail -->
+        <section class="view" data-view="login" hidden>
+            <div class="view-head">
+                <h1 class="view-title">Entrar</h1>
+                <button type="button" class="link-button" id="login-cancel">Cancelar</button>
+            </div>
+            <p class="lede" id="login-reason">Sem senha: mandamos um código de 6 números para o seu e-mail.</p>
+            <form id="login-email-form" class="stack">
+                <label>E-mail
+                    <input type="email" name="email" autocomplete="email" inputmode="email" maxlength="254" required>
+                </label>
+                <button type="submit" class="cta">Receber o código</button>
+            </form>
+            <form id="login-code-form" class="stack" hidden>
+                <p class="hint" id="login-code-hint" aria-live="polite"></p>
+                <label>Código
+                    <input type="text" name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code"
+                           pattern="[0-9]{6}" maxlength="6" required>
+                </label>
+                <button type="submit" class="cta">Entrar</button>
+                <button type="button" class="button" id="login-resend">Mandar outro código</button>
+                <button type="button" class="link-button" id="login-change-email">Usar outro e-mail</button>
+            </form>
+            <p class="message" id="login-message" aria-live="polite"></p>
+            <p class="privacy-note">Quem é da equipe da prefeitura entra aqui também, com o e-mail cadastrado pelo
+                administrador. A prefeitura não vê o seu e-mail nos relatos.
+                <a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
+        </section>
+
+        <!-- Mais: a conta, privacidade, indicadores e o app -->
         <section class="view" data-view="more" hidden>
             <h1 class="view-title">Mais</h1>
+
+            <h2 class="section-title">Sua conta</h2>
+            <p class="hint" id="account-status"></p>
+            <div class="stack">
+                <button type="button" class="cta" id="account-login">Entrar</button>
+                <button type="button" class="button" id="account-logout" hidden>Sair</button>
+            </div>
 
             <h2 class="section-title">Bairros com mais problemas</h2>
             <p class="hint">Problemas em aberto a cada 10 mil moradores, para comparar distritos de tamanhos diferentes.</p>
@@ -220,24 +257,11 @@
             </div>
 
             <h2 class="section-title">Seus dados e as regras de uso</h2>
-            <p class="hint">Sem nome, e-mail ou CPF. Veja o que é guardado, quem vê e o que pode ser enviado.</p>
+            <p class="hint">Só o e-mail, para entrar; sem nome, telefone ou CPF. Veja o que é guardado, quem vê e o que pode ser enviado.</p>
             <div class="stack">
                 <a class="button" href="privacidade.html">Política de privacidade</a>
                 <a class="button" href="termos.html">Termos de uso</a>
             </div>
-
-            <h2 class="section-title" id="operator-login-title">Sou da prefeitura</h2>
-            <p class="hint" id="operator-hint">Para a equipe que confirma, encaminha e resolve os chamados.</p>
-            <form id="login-form">
-                <label>E-mail
-                    <input type="email" name="email" autocomplete="username" required>
-                </label>
-                <label>Senha
-                    <input type="password" name="password" autocomplete="current-password" required>
-                </label>
-                <button type="submit" class="button">Entrar</button>
-            </form>
-            <p class="message" id="login-message" aria-live="polite"></p>
 
             <p class="sources">
                 Mapa: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>,
@@ -259,7 +283,6 @@
                 <button type="button" data-subview="queue" aria-current="page">Fila</button>
                 <button type="button" data-subview="moderation">Moderação <span class="badge" id="moderation-count"></span></button>
                 <button type="button" data-subview="team" id="team-subtab" hidden>Equipe</button>
-                <button type="button" data-subview="account">Minha conta</button>
             </nav>
 
             <div class="subview" data-subview-panel="queue">
@@ -337,42 +360,19 @@
                         <label>E-mail
                             <input type="email" name="email" autocomplete="off" required>
                         </label>
-                        <label>Senha inicial (12 caracteres ou mais)
-                            <input type="text" name="password" autocomplete="off" minlength="12" maxlength="72" required>
-                        </label>
                         <label>Papel
                             <select name="role">
                                 <option value="OPERATOR">Operador</option>
                                 <option value="ADMIN">Administrador (também cadastra a equipe)</option>
                             </select>
                         </label>
-                        <div class="actions">
-                            <button type="submit" class="button primary">Cadastrar</button>
-                            <button type="button" class="button" id="team-generate">Gerar senha</button>
-                        </div>
-                        <p class="hint">Passe a senha inicial à pessoa por um canal seguro e peça que ela a troque no primeiro acesso.</p>
+                        <button type="submit" class="button primary">Cadastrar</button>
+                        <p class="hint">Sem senha: a pessoa entra em Mais › Entrar com esse e-mail e recebe um código na hora.</p>
                     </form>
                 </details>
                 <p class="message" id="team-message" aria-live="polite"></p>
             </div>
 
-            <div class="subview" data-subview-panel="account" hidden>
-                <h2 class="section-title">Trocar minha senha</h2>
-                <form id="password-form">
-                    <label>Senha atual
-                        <input type="password" name="currentPassword" autocomplete="current-password" required>
-                    </label>
-                    <label>Senha nova (12 caracteres ou mais)
-                        <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                    </label>
-                    <label>Repita a senha nova
-                        <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                    </label>
-                    <button type="submit" class="button primary">Trocar senha</button>
-                    <p class="hint">As outras sessões abertas com a senha antiga são encerradas.</p>
-                </form>
-                <p class="message" id="account-message" aria-live="polite"></p>
-            </div>
         </section>
     </div>
 </aside>

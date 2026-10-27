@@ -1,6 +1,9 @@
 package com.br.spbemestar.controller;
 
+import com.br.spbemestar.TestLogin;
+import com.br.spbemestar.TestMailbox;
 import com.br.spbemestar.TestOperators;
+import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.ReporterJwt;
@@ -54,6 +57,7 @@ class ReporterTokenTests {
     @Autowired ReporterRefreshTokenRepository refreshTokens;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
+    @Autowired TestMailbox mailbox;
 
     @Test
     void reportStoresOnlyTheHmacOfTheReporter() {
@@ -182,9 +186,10 @@ class ReporterTokenTests {
         assertThat(reporterJwt.decoder().decode(tokens.accessToken()).getClaims()).doesNotContainKey("roles");
     }
 
+    /** Um cidadão novo, entrando com um e-mail que nenhum outro teste usa. */
     private ReporterTokenResponse register() {
-        MvcTestResult result = mvc.post().uri("/api/v1/reporters").exchange();
-        assertThat(result).hasStatus(HttpStatus.CREATED);
+        MvcTestResult result = TestLogin.login(mvc, mailbox, TestReporters.email());
+        assertThat(result).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("CITIZEN");
         return json.readValue(result.getResponse().getContentAsByteArray(), ReporterTokenResponse.class);
     }
 

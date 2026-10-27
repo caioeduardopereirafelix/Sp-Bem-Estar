@@ -51,7 +51,7 @@ import java.util.List;
  * nascem protegidas: o que é público está listado aqui.
  */
 @Configuration
-@EnableConfigurationProperties({SecurityProperties.class, MetricsProperties.class, ReporterProperties.class,
+@EnableConfigurationProperties({SecurityProperties.class, LoginProperties.class, MetricsProperties.class, ReporterProperties.class,
         PushProperties.class})
 public class SecurityConfig {
 
@@ -126,7 +126,7 @@ public class SecurityConfig {
     }
 
     /**
-     * O cidadão envia relatos com o JWT emitido em {@code POST /api/v1/reporters}. Esta cadeia só aceita esse
+     * O cidadão envia relatos com o JWT emitido no login por código ({@code POST /api/v1/auth/verify}). Esta cadeia só aceita esse
      * token, com chave e {@code aud} próprios; o do operador não serve aqui, nem o do cidadão nas outras rotas.
      */
     @Bean
@@ -144,7 +144,7 @@ public class SecurityConfig {
                 .formLogin(form -> form.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports").hasRole("REPORTER")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/reporters", "/api/v1/reporters/refresh").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/reporters/refresh").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reporters/push/config").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/reporters/me/reports").hasRole("REPORTER")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/reporters/me/push-subscription").hasRole("REPORTER")
@@ -154,7 +154,7 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.decoder(reporterJwt.decoder()).jwtAuthenticationConverter(reporterConverter))
                         .authenticationEntryPoint((request, response, e) -> writeProblem(response, json,
                                 HttpStatus.UNAUTHORIZED, "Não autenticado",
-                                "Envie o token de cidadão, obtido em POST /api/v1/reporters, no header Authorization."))
+                                "Entre com o seu e-mail (POST /api/v1/auth/code e /api/v1/auth/verify) e envie o token no header Authorization."))
                         .accessDeniedHandler((request, response, e) -> writeProblem(response, json,
                                 HttpStatus.FORBIDDEN, "Acesso negado", "Operação não permitida.")));
         return http.build();
@@ -191,8 +191,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/moderation/**").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/operators", "/api/v1/operators/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/ceo/**").hasRole("CEO")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/auth/password").hasAnyRole("OPERATOR", "CEO")
-                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/code", "/api/v1/auth/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/termos.html", "/*.js", "/*.css",
@@ -209,7 +208,7 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))
                         .authenticationEntryPoint((request, response, e) -> writeProblem(response, json,
                                 HttpStatus.UNAUTHORIZED, "Não autenticado",
-                                "Faça login como operador e envie o token no header Authorization."))
+                                "Entre com o seu e-mail e envie o token no header Authorization."))
                         .accessDeniedHandler((request, response, e) -> writeProblem(response, json,
                                 HttpStatus.FORBIDDEN, "Acesso negado",
                                 "Seu usuário não tem permissão para esta operação.")));
@@ -237,7 +236,7 @@ public class SecurityConfig {
         return decoder;
     }
 
-    static SecretKey secretKey(SecurityProperties properties) {
+    public static SecretKey secretKey(SecurityProperties properties) {
         String secret = properties.jwtSecret();
         // HS256 exige ao menos 256 bits; um segredo curto seria quebrado por força bruta
         if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {

@@ -12,11 +12,13 @@ O que muda a cada instalação vem do `.env`: `PRIVACY_CONTROLLER` (o órgão re
 4. **Transferência internacional (art. 33).** Recebem o IP do visitante:
    - OpenFreeMap (mapa);
    - cdnjs/Cloudflare (bibliotecas);
+   - o Brevo (empresa francesa), que envia o código de acesso e recebe o e-mail de quem entra;
    - os serviços de push do Google, da Mozilla, da Apple e da Microsoft, para quem liga os avisos.
 
    Avaliar se o texto atual basta ou se é preciso mais (cláusulas, consentimento, alternativa nacional).
 5. **Prazos de guarda.** O texto diz "enquanto forem úteis" para relatos e fotos. Verificar se a tabela de temporalidade do órgão pede um prazo definido.
-6. **Direitos do titular (art. 18).** O cidadão é anônimo. O pedido de exclusão é feito pelo número do chamado. Confirmar se o procedimento é aceitável e quem responde e em quanto tempo.
+6. **Direitos do titular (art. 18).** Para relatar, o cidadão entra com o e-mail, que fica só na conta dele (os relatos guardam o HMAC do identificador, e a equipe da prefeitura não vê o e-mail). O pedido de exclusão é feito ao encarregado a partir do e-mail da conta. Confirmar se o procedimento é aceitável, quem responde e em quanto tempo, e se é preciso um botão de excluir a conta no próprio app.
+6a. **Login obrigatório para relatar.** Exigir o e-mail reduz relatos falsos, mas o serviço deixa de ser anônimo. Confirmar com o jurídico se a coleta do e-mail é necessária e proporcional para a finalidade (art. 6º, III).
 7. **Planilha exportada.** Ela sai do sistema, embora sem dados de quem relatou. Definir quem pode exportar, para onde ela vai e por quanto tempo fica guardada fora do sistema. Cada exportação fica no log com o operador que a fez.
 
 ## Fotos e direito de imagem

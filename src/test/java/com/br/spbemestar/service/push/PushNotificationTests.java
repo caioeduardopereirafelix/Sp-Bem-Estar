@@ -127,12 +127,12 @@ class PushNotificationTests {
     @Test
     void statusChangeReachesTheReporterBrowserEncrypted() throws Exception {
         Browser browser = new Browser("/push/" + UUID.randomUUID());
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         assertThat(browser.subscribe(token)).hasStatus(HttpStatus.NO_CONTENT);
         Long issueId = reportService.create(subject(token), "POTHOLE", -26.10, -48.10, TestPhotos.jpeg()).issueId();
         // outro cidadão inscrito, sem relato neste chamado
         Browser stranger = new Browser("/push/" + UUID.randomUUID());
-        stranger.subscribe(reporterTokens.register().accessToken());
+        stranger.subscribe(reporterTokens.issueFor(UUID.randomUUID()).accessToken());
 
         statusService.change(issueId, IssueStatus.IN_PROGRESS, operatorId());
 
@@ -163,7 +163,7 @@ class PushNotificationTests {
     @Test
     void cancelledSubscriptionIsRemoved() throws Exception {
         Browser browser = new Browser("/gone/" + UUID.randomUUID());
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         browser.subscribe(token);
         Long issueId = reportService.create(subject(token), "POTHOLE", -26.20, -48.20, TestPhotos.jpeg()).issueId();
 
@@ -180,8 +180,8 @@ class PushNotificationTests {
     @Test
     void sameBrowserSubscribingAgainMovesToTheCurrentIdentity() throws Exception {
         Browser browser = new Browser("/push/" + UUID.randomUUID());
-        browser.subscribe(reporterTokens.register().accessToken());
-        String newIdentity = reporterTokens.register().accessToken();
+        browser.subscribe(reporterTokens.issueFor(UUID.randomUUID()).accessToken());
+        String newIdentity = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         browser.subscribe(newIdentity);
 
         assertThat(count(browser.endpoint())).isEqualTo(1);
@@ -195,7 +195,7 @@ class PushNotificationTests {
 
     @Test
     void rejectsEndpointsOutsideThePushServices() throws Exception {
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         Browser browser = new Browser("/push/x");
 
         // o endpoint vem do navegador: sem a lista, a API faria requisições para a rede interna
@@ -213,10 +213,10 @@ class PushNotificationTests {
     @Test
     void unsubscribeRemovesOnlyOwnSubscription() throws Exception {
         Browser browser = new Browser("/push/" + UUID.randomUUID());
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         browser.subscribe(token);
 
-        assertThat(unsubscribe(reporterTokens.register().accessToken(), browser)).hasStatus(HttpStatus.NO_CONTENT);
+        assertThat(unsubscribe(reporterTokens.issueFor(UUID.randomUUID()).accessToken(), browser)).hasStatus(HttpStatus.NO_CONTENT);
         assertThat(count(browser.endpoint())).isEqualTo(1);
         assertThat(unsubscribe(token, browser)).hasStatus(HttpStatus.NO_CONTENT);
         assertThat(count(browser.endpoint())).isZero();

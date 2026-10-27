@@ -26,7 +26,6 @@ trap 'rm -f "$key"' EXIT
 openssl ecparam -name prime256v1 -genkey -noout -out "$key" 2>/dev/null
 vapid_private=$(openssl ec -in "$key" -outform DER 2>/dev/null | tail -c +8 | head -c 32 | b64url)
 vapid_public=$(openssl ec -in "$key" -pubout -outform DER 2>/dev/null | tail -c 65 | b64url)
-admin_password=$(password)
 
 umask 077 # só o dono lê o .env
 sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
@@ -37,7 +36,6 @@ sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
     -e "s|^JWT_SECRET=.*|JWT_SECRET=$(secret)|" \
     -e "s|^REPORTER_HASH=.*|REPORTER_HASH=$(secret)|" \
     -e "s|^OPERATOR_EMAIL=.*|OPERATOR_EMAIL=$admin|" \
-    -e "s|^OPERATOR_PASSWORD=.*|OPERATOR_PASSWORD=$admin_password|" \
     -e "s|^PUSH_VAPID_PUBLIC_KEY=.*|PUSH_VAPID_PUBLIC_KEY=$vapid_public|" \
     -e "s|^PUSH_VAPID_PRIVATE_KEY=.*|PUSH_VAPID_PRIVATE_KEY=$vapid_private|" \
     -e "s|^PUSH_VAPID_SUBJECT=.*|PUSH_VAPID_SUBJECT=mailto:$contact|" \
@@ -48,6 +46,5 @@ sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
     .env.example > .env
 
 echo "deploy/.env criado."
-echo "Administrador: $admin"
-echo "Senha inicial: $admin_password"
-echo "Anote a senha e troque-a no primeiro acesso (Prefeitura › Minha conta)."
+echo "Administrador: $admin (entra com o código que chega nesse e-mail)"
+echo "Antes de subir, preencha BREVO_API_KEY e MAIL_FROM no deploy/.env: é por eles que o código sai."

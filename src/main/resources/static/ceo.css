@@ -71,15 +71,6 @@
 .dash-status[data-status="CONFIRMED"] { --step-color: var(--status-confirmed); }
 .dash-status[data-status="IN_PROGRESS"] { --step-color: var(--status-progress); }
 
-.ceo-password {
-    margin-top: 28px;
-    max-width: 400px;
-}
-
-.ceo-password form {
-    margin-top: 12px;
-}
-
 .dash-head {
     display: flex;
     justify-content: space-between;

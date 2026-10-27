@@ -4,6 +4,7 @@ import com.br.spbemestar.config.OpenApiConfig;
 import com.br.spbemestar.dto.CreateReportRequest;
 import com.br.spbemestar.dto.ReportResponse;
 import com.br.spbemestar.exception.InvalidPhotoException;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReportService;
 import com.br.spbemestar.service.ReporterTokenService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -33,6 +34,7 @@ public class ReportController {
 
     private final ReportService reportService;
     private final ReporterTokenService reporterTokens;
+    private final CitizenAccountService citizens;
 
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -41,10 +43,12 @@ public class ReportController {
                                  @Valid @ModelAttribute CreateReportRequest request,
                                  @RequestParam(defaultValue = "false") boolean confirmCategory,
                                  @AuthenticationPrincipal Jwt reporter) throws IOException {
+        UUID reporterId = UUID.fromString(reporter.getSubject());
+        citizens.requireAccount(reporterId);
         if (photo.isEmpty()) {
             throw new InvalidPhotoException("A foto é obrigatória");
         }
-        return ReportResponse.from(reportService.create(UUID.fromString(reporter.getSubject()),
+        return ReportResponse.from(reportService.create(reporterId,
                 request.category(), request.latitude(), request.longitude(), photo.getBytes(), confirmCategory));
     }
 

@@ -3,6 +3,7 @@ package com.br.spbemestar;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.testcontainers.mongodb.MongoDBContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
@@ -10,6 +11,13 @@ import org.testcontainers.utility.DockerImageName;
 
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
+
+    /** Os códigos de acesso ficam aqui, para os testes lerem, em vez de irem para o Brevo. */
+    @Bean
+    @Primary
+    TestMailbox testMailbox() {
+        return new TestMailbox();
+    }
 
     @Bean
     @ServiceConnection

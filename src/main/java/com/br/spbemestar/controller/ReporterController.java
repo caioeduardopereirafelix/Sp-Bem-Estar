@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/** Identidade anônima do cidadão: sem nome, e-mail ou senha, só um par de tokens emitido pela API. */
+/** O cidadão depois do login por código: renovação do token, os relatos dele e os avisos por push. */
 @RestController
 @RequestMapping("/api/v1/reporters")
 @RequiredArgsConstructor
@@ -41,12 +41,6 @@ public class ReporterController {
     private final MyReportsService myReports;
     private final PushNotificationService notifications;
     private final WebPushSender pushSender;
-
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public ReporterTokenResponse register() {
-        return reporterTokens.register();
-    }
 
     @PostMapping("/refresh")
     public ReporterTokenResponse refresh(@Valid @RequestBody RefreshTokenRequest request) {

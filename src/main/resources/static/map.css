@@ -1829,3 +1829,12 @@ body.doc-page {
 .track-line li.current[data-status="CONFIRMED"] { --step-color: var(--status-confirmed); }
 .track-line li.current[data-status="IN_PROGRESS"] { --step-color: var(--status-progress); }
 .track-line li.current[data-status="RESOLVED"] { --step-color: var(--status-resolved); }
+
+/* --- Entrar: o código de 6 números, grande e espaçado, fácil de conferir com o e-mail --- */
+
+.code-input {
+    font-size: 26px !important;
+    letter-spacing: 0.4em;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}

@@ -1,5 +1,7 @@
 package com.br.spbemestar.controller;
 
+import com.br.spbemestar.TestLogin;
+import com.br.spbemestar.TestMailbox;
 import com.br.spbemestar.TestOperators;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.config.SecurityConfig;
@@ -36,41 +38,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 class OperatorManagementTests {
 
-    static final String PASSWORD = "senha-inicial-forte-1";
-
     @Autowired MockMvcTester mvc;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
     @Autowired JwtEncoder jwtEncoder;
     @Autowired SecurityProperties properties;
     @Autowired JsonMapper json;
+    @Autowired TestMailbox mailbox;
 
     @Test
     void adminRegistersAnOperatorWhoCanLogIn() {
         String email = unique("nova");
 
-        MvcTestResult created = create(admin(), email, "Nova Operadora", PASSWORD, "OPERATOR");
+        MvcTestResult created = create(admin(), email, "Nova Operadora", "OPERATOR");
 
         assertThat(created).hasStatus(HttpStatus.CREATED).bodyJson().extractingPath("$.active").isEqualTo(true);
         assertThat(created).bodyJson().extractingPath("$.role").isEqualTo("OPERATOR");
-        assertThat(created).bodyText().doesNotContain("password").doesNotContain("{bcrypt}");
-        assertThat(login(email, PASSWORD)).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("OPERATOR");
+        // sem senha: a pessoa entra com o código que chega no e-mail cadastrado
+        assertThat(login(email)).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("OPERATOR");
         assertThat(mvc.get().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, admin()).exchange())
                 .hasStatusOk().bodyJson().extractingPath("$[*].email").asArray().contains(email);
     }
 
     @Test
-    void rejectsDuplicateEmailAndWeakPassword() {
+    void rejectsDuplicateAndInvalidEmail() {
         String email = unique("dupla");
-        create(admin(), email, "Dupla", PASSWORD, "OPERATOR");
+        create(admin(), email, "Dupla", "OPERATOR");
 
-        assertThat(create(admin(), email.toUpperCase(), "Outra", PASSWORD, "OPERATOR")).hasStatus(HttpStatus.CONFLICT);
-        assertThat(create(admin(), unique("curta"), "Curta", "123", "OPERATOR")).hasStatus(HttpStatus.BAD_REQUEST)
-                .bodyJson().extractingPath("$.title").isEqualTo("Senha inválida");
-        // o bcrypt ignora o que passa de 72 bytes: a senha "longa" valeria só pelo começo
-        assertThat(create(admin(), unique("longa"), "Longa", "x".repeat(73), "OPERATOR"))
-                .hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(create(admin(), "não-é-email", "Errado", PASSWORD, "OPERATOR")).hasStatus(HttpStatus.BAD_REQUEST);
+        assertThat(create(admin(), email.toUpperCase(), "Outra", "OPERATOR")).hasStatus(HttpStatus.CONFLICT);
+        assertThat(create(admin(), "não-é-email", "Errado", "OPERATOR")).hasStatus(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -79,7 +75,7 @@ class OperatorManagementTests {
 
         assertThat(mvc.get().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, operator).exchange())
                 .hasStatus(HttpStatus.FORBIDDEN);
-        assertThat(create(operator, unique("x"), "X", PASSWORD, "ADMIN")).hasStatus(HttpStatus.FORBIDDEN);
+        assertThat(create(operator, unique("x"), "X", "ADMIN")).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.get().uri("/api/v1/operators").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
         // o administrador também é operador: muda status e modera
         assertThat(mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.AUTHORIZATION, admin()).exchange())
@@ -89,7 +85,7 @@ class OperatorManagementTests {
     @Test
     void deactivationCutsAccessImmediately() {
         String email = unique("sai");
-        Long id = createdId(create(admin(), email, "Sai da equipe", PASSWORD, "OPERATOR"));
+        Long id = createdId(create(admin(), email, "Sai da equipe", "OPERATOR"));
         String token = bearer(users.findById(id).orElseThrow(), Instant.now().minusSeconds(60));
         assertThat(queue(token)).hasStatusOk();
 
@@ -97,11 +93,13 @@ class OperatorManagementTests {
 
         // o token ainda está dentro da validade, mas não vale mais
         assertThat(queue(token)).hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(email, PASSWORD)).hasStatus(HttpStatus.UNAUTHORIZED);
+        // nem entrando de novo: o código confere, mas o acesso está desativado
+        assertThat(login(email)).hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson().extractingPath("$.title").isEqualTo("Acesso desativado");
 
         assertThat(setActive(id, true)).hasStatusOk();
         assertThat(queue(token)).as("o token de antes da desativação continua recusado").hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(email, PASSWORD)).hasStatusOk();
+        assertThat(login(email)).hasStatusOk();
     }
 
     @Test
@@ -114,32 +112,12 @@ class OperatorManagementTests {
         assertThat(setActive(999_999L, false)).hasStatus(HttpStatus.NOT_FOUND);
     }
 
-    @Test
-    void changingThePasswordEndsOtherSessions() {
-        String email = unique("senha");
-        Long id = createdId(create(admin(), email, "Troca senha", PASSWORD, "OPERATOR"));
-        String old = bearer(users.findById(id).orElseThrow(), Instant.now().minusSeconds(60));
-        String newPassword = "senha-nova-bem-forte-2";
-
-        assertThat(changePassword(old, "senha-errada-123", newPassword)).hasStatus(HttpStatus.BAD_REQUEST);
-        assertThat(changePassword(old, PASSWORD, PASSWORD)).hasStatus(HttpStatus.BAD_REQUEST);
-        MvcTestResult changed = changePassword(old, PASSWORD, newPassword);
-        assertThat(changed).hasStatusOk();
-
-        String fresh = "Bearer " + json.readTree(changed.getResponse().getContentAsByteArray()).path("accessToken").asString();
-        assertThat(queue(fresh)).hasStatusOk();
-        assertThat(queue(old)).hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(email, PASSWORD)).hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(email, newPassword)).hasStatusOk();
-        assertThat(changePassword(null, PASSWORD, newPassword)).hasStatus(HttpStatus.UNAUTHORIZED);
-    }
-
-    private MvcTestResult create(String authorization, String email, String name, String password, String role) {
+    private MvcTestResult create(String authorization, String email, String name, String role) {
         return mvc.post().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, authorization)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"email": "%s", "name": "%s", "password": "%s", "role": "%s"}
-                        """.formatted(email, name, password, role))
+                        {"email": "%s", "name": "%s", "role": "%s"}
+                        """.formatted(email, name, role))
                 .exchange();
     }
 
@@ -148,22 +126,12 @@ class OperatorManagementTests {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"active\": " + active + "}").exchange();
     }
 
-    private MvcTestResult changePassword(String authorization, String current, String newPassword) {
-        var request = mvc.put().uri("/api/v1/auth/password").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"currentPassword\": \"%s\", \"newPassword\": \"%s\"}".formatted(current, newPassword));
-        if (authorization != null) {
-            request.header(HttpHeaders.AUTHORIZATION, authorization);
-        }
-        return request.exchange();
-    }
-
     private MvcTestResult queue(String authorization) {
         return mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.AUTHORIZATION, authorization).exchange();
     }
 
-    private MvcTestResult login(String email, String password) {
-        return mvc.post().uri("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\": \"%s\", \"password\": \"%s\"}".formatted(email, password)).exchange();
+    private MvcTestResult login(String email) {
+        return TestLogin.login(mvc, mailbox, email);
     }
 
     private Long createdId(MvcTestResult result) {
@@ -176,7 +144,7 @@ class OperatorManagementTests {
     }
 
     private AppUser newAdmin() {
-        return auth.createUser("admin@teste.sp.gov.br", "Administradora", PASSWORD, UserRole.ADMIN);
+        return auth.createUser("admin@teste.sp.gov.br", "Administradora", UserRole.ADMIN);
     }
 
     /** Token emitido antes da mudança: com o mesmo segundo do iat, a revogação não teria como separá-los. */

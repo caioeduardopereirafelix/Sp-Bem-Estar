@@ -9,13 +9,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 /**
  * Um JWT não se revoga sozinho: este validador confere, a cada requisição, se o usuário continua ativo e se
- * o token foi emitido depois da última troca de senha ou desativação. É uma consulta por chave primária;
+ * o token foi emitido depois da última desativação. É uma consulta por chave primária;
  * a equipe é pequena e a rota do operador não é a do mapa público.
  */
 class OperatorTokenValidator implements OAuth2TokenValidator<Jwt> {
 
     private static final OAuth2Error REVOKED = new OAuth2Error("invalid_token",
-            "Token revogado: o usuário foi desativado ou trocou a senha.", null);
+            "Token revogado: o usuário foi desativado.", null);
 
     // provider: o repositório depende do JPA, que sobe depois da configuração de segurança
     private final ObjectProvider<AppUserRepository> users;

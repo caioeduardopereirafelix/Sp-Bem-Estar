@@ -1,5 +1,7 @@
 package com.br.spbemestar.controller;
 
+import com.br.spbemestar.TestLogin;
+import com.br.spbemestar.TestMailbox;
 import com.br.spbemestar.TestOperators;
 import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestReporters;
@@ -42,6 +44,7 @@ class CeoDashboardTests {
     @Autowired AppUserRepository users;
     @Autowired ReportService reportService;
     @Autowired SecurityProperties properties;
+    @Autowired TestMailbox mailbox;
 
     @Test
     void onlyTheCeoSeesTheDashboard() {
@@ -77,7 +80,7 @@ class CeoDashboardTests {
     @Test
     void theCeoAccountStaysOutOfTheCityTeam() throws Exception {
         Long ceoId = users.findByEmail(CEO).map(AppUser::getId)
-                .orElseGet(() -> auth.createUser(CEO, "CEO de teste", TestOperators.PASSWORD, UserRole.CEO).getId());
+                .orElseGet(() -> auth.createUser(CEO, "CEO de teste", UserRole.CEO).getId());
         String admin = bearer(ADMIN, UserRole.ADMIN);
 
         MvcTestResult team = mvc.get().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, admin).exchange();
@@ -93,26 +96,23 @@ class CeoDashboardTests {
         assertThat(mvc.post().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, admin)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"email": "outro-ceo@teste.com.br", "name": "Outro", "password": "senha-de-teste-123", "role": "CEO"}
+                        {"email": "outro-ceo@teste.com.br", "name": "Outro", "role": "CEO"}
                         """).exchange())
                 .hasStatus(HttpStatus.CONFLICT);
         assertThat(users.existsByEmail("outro-ceo@teste.com.br")).isFalse();
     }
 
     @Test
-    void theCeoLogsInAndChangesTheirPassword() {
-        String email = "ceo-senha@teste.com.br";
-        auth.createUser(email, "CEO", TestOperators.PASSWORD, UserRole.CEO);
+    void theCeoLogsInWithTheEmailCode() throws Exception {
+        String email = "ceo-codigo@teste.com.br";
+        auth.createUser(email, "CEO", UserRole.CEO);
 
-        MvcTestResult login = mvc.post().uri("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\": \"%s\", \"password\": \"%s\"}".formatted(email, TestOperators.PASSWORD)).exchange();
+        MvcTestResult login = TestLogin.login(mvc, mailbox, email);
+
         assertThat(login).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("CEO");
-
-        assertThat(mvc.put().uri("/api/v1/auth/password").header(HttpHeaders.AUTHORIZATION, bearer(email, UserRole.CEO))
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"currentPassword\": \"%s\", \"newPassword\": \"outra-senha-do-ceo-1\"}"
-                        .formatted(TestOperators.PASSWORD)).exchange())
-                .hasStatusOk();
+        assertThat(login).bodyJson().extractingPath("$.refreshToken").isNull();
+        String token = "Bearer " + JsonPath.read(login.getResponse().getContentAsString(), "$.accessToken");
+        assertThat(dashboard(token)).hasStatusOk();
     }
 
     @Test
@@ -120,15 +120,15 @@ class CeoDashboardTests {
         String email = "ceo-inicial@teste.com.br";
         SecurityProperties withCeo = new SecurityProperties(properties.jwtSecret(), properties.tokenTtl(),
                 properties.issuer(), properties.bootstrapOperator(),
-                new SecurityProperties.BootstrapOperator(email, "senha-do-ceo-123", "Dona do produto"));
+                new SecurityProperties.BootstrapOperator(email, "Dona do produto"));
 
         new OperatorBootstrapRunner(withCeo, users, auth).run(null);
-        String hash = users.findByEmail(email).orElseThrow().getPasswordHash();
+        Long id = users.findByEmail(email).orElseThrow().getId();
         new OperatorBootstrapRunner(withCeo, users, auth).run(null);
 
         AppUser ceo = users.findByEmail(email).orElseThrow();
         assertThat(ceo.getRole()).isEqualTo(UserRole.CEO);
-        assertThat(ceo.getPasswordHash()).isEqualTo(hash);
+        assertThat(ceo.getId()).isEqualTo(id);
     }
 
     @Test
@@ -181,7 +181,7 @@ class CeoDashboardTests {
 
     private String bearer(String email, UserRole role) {
         AppUser user = users.findByEmail(email).orElseGet(() ->
-                auth.createUser(email, "Usuário do painel", TestOperators.PASSWORD, role));
+                auth.createUser(email, "Usuário do painel", role));
         return "Bearer " + auth.issueToken(user).accessToken();
     }
 }

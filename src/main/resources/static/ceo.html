@@ -23,14 +23,20 @@
     <section class="ceo-login" id="login" hidden>
         <h2 class="view-title">Entrar no painel</h2>
         <p class="hint">Métricas do produto, saúde do sistema e erros. Só para a conta do CEO.</p>
-        <form id="login-form" class="stack">
+        <form id="login-email-form" class="stack">
             <label>E-mail
-                <input type="email" name="email" autocomplete="username" required>
+                <input type="email" name="email" autocomplete="email" maxlength="254" required>
             </label>
-            <label>Senha
-                <input type="password" name="password" autocomplete="current-password" required>
+            <button type="submit" class="button primary">Receber o código</button>
+        </form>
+        <form id="login-code-form" class="stack" hidden>
+            <p class="hint" id="login-code-hint" aria-live="polite"></p>
+            <label>Código
+                <input type="text" name="code" class="code-input" inputmode="numeric" autocomplete="one-time-code"
+                       pattern="[0-9]{6}" maxlength="6" required>
             </label>
             <button type="submit" class="button primary">Entrar</button>
+            <button type="button" class="link-button" id="login-change-email">Usar outro e-mail</button>
         </form>
         <p class="message" id="login-message" aria-live="polite"></p>
     </section>
@@ -84,22 +90,6 @@
         <p class="hint">Falhas inesperadas da API (erro 500). O código de rastreio leva ao log completo.</p>
         <ul class="dash-errors" id="dash-errors"></ul>
 
-        <details class="ceo-password">
-            <summary>Trocar minha senha</summary>
-            <form id="password-form" class="stack">
-                <label>Senha atual
-                    <input type="password" name="currentPassword" autocomplete="current-password" required>
-                </label>
-                <label>Senha nova (12 caracteres ou mais)
-                    <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                </label>
-                <label>Repita a senha nova
-                    <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
-                </label>
-                <button type="submit" class="button primary">Trocar senha</button>
-            </form>
-            <p class="message" id="password-message" aria-live="polite"></p>
-        </details>
     </div>
 </main>
 

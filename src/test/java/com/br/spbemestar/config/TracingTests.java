@@ -3,6 +3,7 @@ package com.br.spbemestar.config;
 import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestReporters;
 import com.br.spbemestar.TestcontainersConfiguration;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import com.br.testsupport.FailingController;
 import com.jayway.jsonpath.JsonPath;
@@ -30,6 +31,7 @@ class TracingTests {
     @Autowired MockMvcTester mvc;
     @Autowired JdbcTemplate jdbc;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
 
     @Test
     void everyResponseCarriesTheTraceId() {
@@ -52,7 +54,7 @@ class TracingTests {
     @Test
     void reportEventKeepsTheTraceUntilItIsPublished() {
         MvcTestResult created = mvc.post().uri("/api/v1/reports").multipart()
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens))
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                 .header("traceparent", TRACE_PARENT)
                 .file("photo", TestPhotos.jpeg())
                 .param("category", "TRASH").param("latitude", "-29.00").param("longitude", "-49.00")

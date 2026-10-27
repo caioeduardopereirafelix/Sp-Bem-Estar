@@ -42,9 +42,10 @@ Este projeto ataca três pontos:
 
 ## Funcionalidades
 
-O mapa foi pensado primeiro para o celular e funciona como um app de navegação: abre em tela cheia, com tema escuro, já centralizado em você (uma seta azul que acompanha a posição em tempo real e gira com o rumo ou com a bússola do aparelho), e com uma gaveta recolhida embaixo, onde ficam o botão de relatar e os filtros (no computador, um painel à esquerda). O mapa é vetorial (estilo Fiord do [OpenFreeMap](https://openfreemap.org), com dados do OpenStreetMap), desenhado pelo MapLibre dentro do Leaflet; sem WebGL, ficam os tiles do OpenStreetMap escurecidos. O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). A área da prefeitura fica em **Mais › Sou da prefeitura** e, depois do login, numa aba própria.
+O mapa foi pensado primeiro para o celular e funciona como um app de navegação: abre em tela cheia, com tema escuro, já centralizado em você (uma seta azul que acompanha a posição em tempo real e gira com o rumo ou com a bússola do aparelho), e com uma gaveta recolhida embaixo, onde ficam o botão de relatar e os filtros (no computador, um painel à esquerda). O mapa é vetorial (estilo Fiord do [OpenFreeMap](https://openfreemap.org), com dados do OpenStreetMap), desenhado pelo MapLibre dentro do Leaflet; sem WebGL, ficam os tiles do OpenStreetMap escurecidos. O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). Todo mundo entra pelo mesmo **Mais › Entrar**, com um código enviado por e-mail e sem senha: quem a prefeitura cadastrou na equipe ganha a aba **Prefeitura**, e qualquer outra pessoa entra como cidadão.
 
 **Cidadão**
+- Entrar com o e-mail, sem senha: chega um código de 6 números (pelo [Brevo](https://www.brevo.com)), e a sessão fica no aparelho por até 90 dias. Relatar exige entrar; ver o mapa, não. Os relatos aparecem em "Meus relatos" em qualquer aparelho em que a pessoa entrar
 - Reportar um problema com foto, localização e categoria. Antes do relato, um pop-up explica para que serve a localização e leva ao pedido de permissão do aparelho; com a permissão, o ponto vem do GPS, e sem ela o ponto é escolhido no mapa. O marcador pode ser arrastado para corrigir
 - Ver no mapa onde a pessoa está, em tempo real, como no Waze: o mapa segue a seta até ela arrastá-lo, e o botão de centralizar volta a seguir. Com o GPS impreciso, aparece o círculo de precisão. Se a posição vier aproximada (mais de 100 m, como num computador sem GPS), o app convida a pessoa a tocar no mapa onde ela está; o ponto marcado vale até o aparelho achar a posição com precisão
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
@@ -63,7 +64,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Fila de atendimento: chamados em aberto do mais urgente para o menos, com filtro por categoria, status e bairro
 - Resolver com foto e nota: ao marcar um chamado como resolvido, o operador pode anexar a foto do conserto (sem EXIF, como as dos relatos) e uma nota de até 500 caracteres, que vão para o mapa e para o aviso de quem relatou
 - Planilha dos chamados (CSV) para o sistema de atendimento do órgão e relatórios, filtrando por tipo, situação e período. Abre direto no Excel em português (UTF-8 com BOM, `;` e vírgula decimal), não leva nenhum dado de quem relatou, protege contra fórmulas injetadas pela nota e cada exportação fica no log com o operador que a fez
-- Equipe: o administrador cadastra, desativa e reativa operadores; cada um troca a própria senha
+- Equipe: o administrador cadastra, desativa e reativa operadores pelo e-mail; ninguém tem senha, todos entram com o código que chega no e-mail cadastrado
 - Fila de moderação: relatos em que o classificador discordou da categoria ou teve pouca confiança; o operador aprova, rejeita ou rejeita e bloqueia o autor
 - Atualização de status: `OPEN → CONFIRMED → IN_PROGRESS → RESOLVED`
 - Exportação no padrão Open311 GeoReport v2
@@ -172,17 +173,19 @@ O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das 
 ### Padrão Open311
 Em vez de um formato de exportação próprio, a API implementa o **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços.
 
-### Autenticação só para quem altera chamados
-O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para enviar, ele recebe uma [identidade anônima](#identidade-anônima-do-cidadão)). Só o órgão público se autentica, em `POST /api/v1/auth/login`, e recebe um **JWT** assinado pela própria API (HS256, validade de 8 h), enviado depois em `Authorization: Bearer <token>`.
+### Login por código enviado por e-mail
+Cidadão, equipe da prefeitura e CEO entram do mesmo jeito, sem senha: `POST /api/v1/auth/code` com o e-mail manda um código de 6 números, e `POST /api/v1/auth/verify` com o e-mail e o código devolve o acesso. **Quem entrou é decidido pelo e-mail**: o cadastrado na equipe pelo administrador entra como `OPERATOR` ou `ADMIN` (ou `CEO`), e recebe um **JWT** assinado pela própria API (HS256, 8 h); qualquer outro e-mail entra como `CITIZEN` e recebe o par de tokens do [cidadão](#identidade-do-cidadão). O `role` da resposta diz qual dos dois, e o mapa leva cada um ao lugar certo.
 
+- **O código vale pouco:** 10 minutos e 5 tentativas; um código novo invalida os anteriores; no máximo um por minuto e 5 por hora para o mesmo e-mail (`app.login.*`). Adivinhar um código de 6 números leva, em média, milhares de horas.
+- **No banco, só o hash:** o código fica como HMAC-SHA256 do e-mail e do código, com uma chave derivada do `JWT_SECRET`, e é comparado em tempo constante. Quem lê o banco não entra no lugar de ninguém. Os códigos vencidos são apagados depois de um dia.
+- **O pedido não revela quem é da equipe:** a resposta do `code` é a mesma para qualquer e-mail; só depois de confirmar o código se sabe quem entrou. Os logs não trazem o e-mail nem o código.
+- **E-mail que não saiu não conta:** se o Brevo recusar o envio, o código não fica valendo nem gasta o limite, e a pessoa pede de novo (resposta 503).
 - **Sem sessão no servidor:** cada requisição traz o token, então a API escala horizontalmente sem estado compartilhado, e sem cookies não há CSRF a proteger.
 - **Rotas novas nascem protegidas:** a configuração lista o que é público e exige login para todo o resto.
-- **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
-- **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pela aba **Prefeitura › Equipe** do mapa. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
-- **CEO.** A conta do dono do produto, criada na subida por `CEO_EMAIL` e `CEO_PASSWORD`, abre só o painel em `/ceo` e troca a própria senha. Ela não mexe em chamados, na moderação nem na equipe, e fica fora da equipe do órgão: o administrador da prefeitura não a vê na lista, não a desativa e não cria outra. O painel recusa a equipe da prefeitura, administrador incluído (403). Se o CEO entrar pelo login da prefeitura, vai direto para o painel.
-- **Revogação apesar do JWT.** Um JWT vale até vencer, mas a cada requisição a API confere se o usuário continua ativo e se o token foi emitido depois da última troca de senha ou desativação (`tokens_valid_after`). Quem é desativado perde o acesso na hora; quem troca a senha (`PUT /api/v1/auth/password`) encerra as outras sessões e recebe um token novo. A conferência é uma consulta por chave primária, só nas rotas do operador.
-- **Senhas de 12 a 72 bytes.** Abaixo de 12 caracteres a senha é recusada; acima de 72 bytes também, porque o bcrypt ignoraria o resto sem avisar.
+- **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pela aba **Prefeitura › Equipe** do mapa, só com nome, e-mail e papel. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
+- **CEO.** A conta do dono do produto, criada na subida por `CEO_EMAIL`, abre só o painel em `/ceo`. Ela não mexe em chamados, na moderação nem na equipe, e fica fora da equipe do órgão: o administrador da prefeitura não a vê na lista, não a desativa e não cria outra. O painel recusa a equipe da prefeitura, administrador incluído (403). Se o CEO entrar pelo mapa, vai direto para o painel.
+- **Revogação apesar do JWT.** Um JWT vale até vencer, mas a cada requisição a API confere se o usuário continua ativo e se o token foi emitido depois da desativação (`tokens_valid_after`). Quem é desativado perde o acesso na hora, e o código confirmado depois disso recebe 403. A conferência é uma consulta por chave primária, só nas rotas do operador.
 
 ### Filas do operador
 **Atendimento** (`GET /api/v1/issues/queue`): chamados abertos, confirmados e em andamento, ordenados pelo `priority_score` e, no empate, pelo mais antigo. Cada item diz quantos relatos do chamado esperam moderação. Na área do operador do mapa, clicar num item leva até o chamado e abre o popup com as ações.
@@ -199,23 +202,25 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para 
 - **A foto rejeitada é apagada.** Spam pode trazer uma imagem ofensiva, e a foto deixa de ser servida. Ela só é apagada depois que a decisão é gravada, porque o GridFS não participa da transação. Quem já abriu a foto pode tê-la em cache no navegador.
 - **Uma decisão por relato.** O relato fica travado durante a decisão, e decidir de novo recebe 409; dois operadores não descontam o mesmo chamado duas vezes.
 
-### Identidade anônima do cidadão
-Para enviar um relato, o cidadão precisa de um token, mas não de conta: sem nome, e-mail ou senha. O mapa pede o token sozinho na primeira vez e o guarda no navegador.
+### Identidade do cidadão
+Para enviar um relato, o cidadão entra com o e-mail (veja o [login por código](#login-por-código-enviado-por-e-mail)). O e-mail fica só na tabela `citizen_account`, ligado a um `reporter_id` aleatório; é esse id, e não o e-mail, que assina os relatos. O mapa guarda o par de tokens no navegador.
 
 | Token | Validade | Onde fica no servidor |
 |---|---|---|
 | Access token (JWT) | 15 minutos | em lugar nenhum: a assinatura basta |
 | Refresh token | 90 dias, renovados a cada uso | só o SHA-256 dele, na tabela `reporter_refresh_token` |
 
-- **Não dá para inventar uma identidade.** O token é assinado pela API, e emitir um novo (`POST /api/v1/reporters`) passa pelo rate limit por IP.
+- **Relatar exige o e-mail confirmado.** O relato confere se o `reporter_id` do token tem conta; um token da identidade anônima de antes do login recebe 403 com `loginRequired`, e o mapa abre a tela de entrar com o relato guardado.
+- **Os relatos de antes passam para a conta.** No primeiro login de um e-mail, o mapa envia o token da identidade anônima que o navegador já tinha, e ela vira a da conta: o que foi relatado antes aparece em "Meus relatos".
+- **O mesmo e-mail é a mesma pessoa em qualquer aparelho:** entrar de novo, em outro celular, devolve o mesmo `reporter_id`.
 - **JWT curto porque JWT não se revoga.** Quem é bloqueado perde o acesso na hora, porque cada relato confere a lista de bloqueio; e no máximo em 15 minutos o token vence.
 - **Rotação do refresh token.** Cada renovação (`POST /api/v1/reporters/refresh`) devolve um par novo e invalida o anterior. Se um refresh token já trocado aparecer de novo, alguém o copiou, e todos os tokens daquele cidadão são revogados.
 - **Chave e `aud` próprios.** O token do cidadão é assinado com uma chave derivada do `JWT_SECRET`, diferente da do operador, e não tem papéis. Ele não abre rotas de operador, e o token do operador não envia relatos, mesmo que uma regra de autorização seja configurada errado.
-- **Bloqueio pela moderação.** `POST /api/v1/reports/{id}/block-reporter` (operador) bloqueia quem enviou aquele relato: novos relatos e renovações dele são recusados. Ele pode pedir outra identidade, mas o rate limit por IP limita quantas.
-- **Relatos sem ligação direta com o token.** O relato guarda só o `reporter_hash`, um HMAC do id do cidadão com a chave `REPORTER_HASH`, que não fica no banco. Quem tem o banco vê que dois relatos são da mesma pessoa, mas não consegue ligá-los aos tokens.
+- **Bloqueio pela moderação.** `POST /api/v1/reports/{id}/block-reporter` (operador) bloqueia quem enviou aquele relato: novos relatos, renovações e novos logins com o mesmo e-mail são recusados. Para voltar, a pessoa precisaria de outro e-mail e de confirmá-lo.
+- **A equipe não vê o e-mail de quem relatou.** O relato guarda só o `reporter_hash`, um HMAC do `reporter_id` com a chave `REPORTER_HASH`, que não fica no banco. A fila, a moderação, a planilha e o mapa não têm o e-mail; quem tem o banco vê que dois relatos são da mesma pessoa, mas não consegue ligá-los ao e-mail sem a chave.
 
 ### Meus relatos e avisos por push
-O cidadão acompanha os próprios relatos em `GET /api/v1/reporters/me/reports`, com o mesmo token anônimo. A lista vem do `reporter_hash`, então mostra o que foi enviado com aquela identidade; quem limpa os dados do navegador começa uma lista nova. O histórico vem sem o nome do operador.
+O cidadão acompanha os próprios relatos em `GET /api/v1/reporters/me/reports`, com o token do login. A lista vem do `reporter_hash`, então mostra o que foi enviado com aquela conta, em qualquer aparelho. O histórico vem sem o nome do operador. Ao sair da conta (Mais › Sua conta › Sair), o mapa cancela os avisos daquele aparelho.
 
 Os avisos usam **Web Push com VAPID**, o padrão dos navegadores (Chrome, Firefox, Edge e Safari; no iPhone, com o site adicionado à tela de início):
 
@@ -229,23 +234,22 @@ Cuidados:
 - **O mesmo navegador é uma inscrição só.** Inscrever de novo o mesmo endpoint (por exemplo, depois que a identidade foi trocada) move a inscrição para a identidade atual. Cada cidadão tem no máximo 5 navegadores; o mais antigo sai.
 - **Sem as chaves, o recurso fica desligado:** `GET /api/v1/reporters/push/config` responde `enabled: false` e o mapa não oferece a opção. Gere o par com `node scripts/generate-vapid-keys.mjs`; a API não sobe com um par que não confere.
 
-O que essa identidade **não** faz: ela não prova quem é a pessoa. Quem troca de IP e de navegador consegue uma identidade nova. Para "uma pessoa, uma conta" seria preciso login de verdade (gov.br), o que acabaria com o anonimato.
+O que o login **não** faz: ele prova que a pessoa tem acesso ao e-mail, não quem ela é. Quem cria outro e-mail consegue outra conta; para "uma pessoa, uma conta" seria preciso um login como o gov.br.
 
 ### Rate limit por IP
 Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caffeine). A primeira regra que casar com a requisição é a que conta:
 
 | Regra | Rota | Limite por IP |
 |---|---|---|
-| `login` | `POST /api/v1/auth/login` | 5 por minuto |
-| `reporter-register` | `POST /api/v1/reporters` | 10 por hora (cada identidade nova escapa de um bloqueio) |
+| `login-code` | `POST /api/v1/auth/code` | 10 a cada 15 minutos (cada pedido é um e-mail enviado) |
+| `login-verify` | `POST /api/v1/auth/verify` | 20 a cada 15 minutos (cada código já aceita só 5 tentativas) |
 | `reporter-refresh` | `POST /api/v1/reporters/refresh` | 60 por hora |
-| `password` | `PUT /api/v1/auth/password` | 5 a cada 15 minutos (a troca confere a senha atual) |
 | `reports` | `POST /api/v1/reports` | 20 por hora |
 | `metrics` | `GET /actuator/prometheus` | 30 por minuto (um scrape a cada 15 s usa 4) |
 | `api` | demais rotas em `/api/**` | 300 por minuto |
 
-- **Antes do Spring Security:** uma força bruta no login é barrada sem nem conferir a senha, e um token inválido também consome o limite.
-- **Reposição gradual:** com 5 por minuto, uma ficha volta a cada 12 s, em vez de o limite zerar de uma vez no fim da janela.
+- **Antes do Spring Security:** quem tenta códigos em série é barrado sem nem chegar ao banco, e um token inválido também consome o limite.
+- **Reposição gradual:** com 10 a cada 15 minutos, uma ficha volta a cada 90 s, em vez de o limite zerar de uma vez no fim da janela.
 - **Resposta `429`** em `ProblemDetail`, com `Retry-After` em segundos. Toda resposta limitada traz `X-RateLimit-Limit` e `X-RateLimit-Remaining`.
 - **IPv6 conta pelo prefixo /64**, que é o que um provedor entrega a um único cliente; contar por endereço deixaria qualquer um trocar de IP a cada requisição.
 - **Livres:** mapa web, Swagger e health check.
@@ -338,7 +342,6 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/v1/reporters` | Identidade anônima do cidadão; devolve access token e refresh token |
 | `POST` | `/api/v1/reporters/refresh` | Troca o refresh token por um par novo |
 | `GET` | `/api/v1/reporters/me/reports?page=&size=` | Relatos do cidadão com o andamento de cada chamado (🔑 cidadão) |
 | `GET` | `/api/v1/reporters/push/config` | Se o push está ligado e a chave VAPID para a inscrição |
@@ -351,8 +354,8 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `POST` | `/api/v1/moderation/reports/{id}` | Aprova ou rejeita um relato (`decision`, `blockReporter`) (🔒 operador) |
 | `GET` | `/api/v1/issues?bbox=&category=&status=` | Chamados em GeoJSON para o mapa |
 | `GET` | `/api/v1/issues/{id}` | Detalhe, relatos e histórico |
-| `POST` | `/api/v1/auth/login` | Login do órgão público; devolve um token JWT |
-| `PUT` | `/api/v1/auth/password` | Troca a própria senha e encerra as outras sessões (🔒 operador) |
+| `POST` | `/api/v1/auth/code` | Manda um código de 6 números para o e-mail (cidadão, equipe ou CEO) |
+| `POST` | `/api/v1/auth/verify` | Confirma o código; o `role` diz quem entrou: `CITIZEN` (par de tokens do cidadão), `OPERATOR`, `ADMIN` ou `CEO` (JWT da equipe) |
 | `GET` | `/api/v1/operators` | Equipe do órgão público (🔒 administrador) |
 | `POST` | `/api/v1/operators` | Cadastra operador ou administrador (🔒 administrador) |
 | `PATCH` | `/api/v1/operators/{id}` | Desativa ou reativa (`active`); desativar corta o acesso na hora (🔒 administrador) |
@@ -388,8 +391,10 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 |---|---|
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
 | `REPORTER_HASH` | chave do HMAC que identifica o autor dos relatos, com no mínimo 32 bytes (`openssl rand -base64 48`); trocá-la faz os relatos antigos pararem de casar com os novos do mesmo cidadão |
-| `CEO_EMAIL`, `CEO_PASSWORD`, `CEO_NAME` | conta do CEO, criada na subida se ainda não existir (senha com 12+ caracteres); é a única que abre o painel em `/ceo` |
-| `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir (senha com 12+ caracteres); ele cadastra o resto da equipe |
+| `BREVO_API_KEY`, `MAIL_FROM` | chave da API do [Brevo](https://www.brevo.com) (Configurações › Chaves SMTP e API) e o remetente confirmado lá (Remetentes; sem domínio próprio, pode ser o seu e-mail). É por eles que sai o código de acesso; sem eles, ninguém entra. `MAIL_FROM_NAME` é opcional (padrão `SP Bem-Estar`) |
+| `MAIL_LOG_CODES` | só no desenvolvimento: `true`, sem `BREVO_API_KEY`, escreve o código no log da API em vez de enviar. Nunca em produção: quem lê o log entraria na conta de qualquer pessoa |
+| `CEO_EMAIL`, `CEO_NAME` | conta do CEO, criada na subida se ainda não existir; é a única que abre o painel em `/ceo` |
+| `OPERATOR_EMAIL`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir; ele cadastra o resto da equipe |
 | `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT` | órgão responsável pelos dados e e-mail (ou página `https://`) do encarregado, mostrados na [página de privacidade](#privacidade-lgpd) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
@@ -401,7 +406,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` | opcionais; ligam os [avisos por push](#meus-relatos-e-avisos-por-push). Gere o par com `node scripts/generate-vapid-keys.mjs`; o subject é um `mailto:` ou `https://` de contato, exigido pelos serviços de push |
 | `GRAFANA_ADMIN_PASSWORD` | opcional; senha do `admin` do Grafana (padrão `admin`, que ele pede para trocar no primeiro login) |
 
-Com o operador criado, entre em **Mais › Sou da prefeitura** no mapa para mudar o status dos chamados, ou use o Swagger UI: faça `POST /api/v1/auth/login` e cole o `accessToken` em **Authorize**.
+Com o operador criado, entre em **Mais › Entrar** no mapa com o `OPERATOR_EMAIL`: o código chega no e-mail (ou no log, com `MAIL_LOG_CODES=true`). No Swagger UI, faça `POST /api/v1/auth/code` e `POST /api/v1/auth/verify` e cole o `accessToken` em **Authorize**.
 
 | Serviço | Endereço |
 |---|---|
@@ -480,7 +485,7 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
    curl -fsSL https://get.docker.com | sh
    ufw allow OpenSSH && ufw allow 80,443/tcp && ufw allow 443/udp && ufw enable
    ```
-3. **Baixe o projeto e gere as variáveis.** O `init-env.sh` cria o `deploy/.env` com senhas, segredos e o par de chaves das notificações, tudo aleatório. Ele mostra a senha inicial do administrador: anote-a.
+3. **Baixe o projeto e gere as variáveis.** O `init-env.sh` cria o `deploy/.env` com senhas, segredos e o par de chaves das notificações, tudo aleatório. Depois, preencha `BREVO_API_KEY` e `MAIL_FROM` no `deploy/.env`: sem eles, ninguém recebe o código para entrar.
    ```bash
    git clone https://github.com/caioeduardopereirafelix/Sp-Bem-Estar.git
    cd Sp-Bem-Estar/deploy
@@ -492,7 +497,7 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
    docker compose ps              # todos "healthy"
    docker compose logs -f caddy   # "certificate obtained successfully"
    ```
-5. **Teste no celular.** Abra `https://seudominio.com.br`, entre em **Mais › Sou da prefeitura** com o administrador e troque a senha em **Minha conta**.
+5. **Teste no celular.** Abra `https://seudominio.com.br` e entre em **Mais › Entrar** com o e-mail do administrador: o código chega pelo Brevo.
 6. **Agende o backup diário** do PostgreSQL e das fotos (guarda 14 dias em `deploy/backups`; copie para fora do servidor de tempos em tempos):
    ```bash
    (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -
@@ -586,16 +591,17 @@ Cenários cobertos:
 - o worker classifica a foto e publica o resultado; reentregas geram o mesmo id de resultado;
 - fotos inexistentes ou ilegíveis vão para a DLQ;
 - a API marca para moderação divergências e baixa confiança, e aplica só o primeiro resultado de cada relato;
-- o relato exige o token do cidadão e grava só o HMAC do autor; o token do operador não envia relato, o do cidadão não abre rotas de operador, e tokens vencidos, de outra chave ou de outro `aud` são recusados;
+- o login por código separa a equipe (e o CEO) do cidadão pelo e-mail, sem revelar no pedido quem é da equipe; o código vale uma vez, 5 tentativas e é guardado só como hash; um novo invalida o anterior; o mesmo e-mail é a mesma identidade em qualquer aparelho, e o primeiro login leva os relatos da identidade anônima de antes; o envio pelo Brevo vai no formato da API, e um e-mail recusado não deixa código valendo;
+- o relato exige o e-mail confirmado e grava só o HMAC do autor; o token do operador não envia relato, o do cidadão não abre rotas de operador, e tokens vencidos, de outra chave ou de outro `aud` são recusados;
 - o refresh token é trocado a cada uso, e reutilizar um já trocado revoga a identidade inteira;
 - o autor bloqueado não envia relatos nem renova o token, mesmo com um JWT ainda válido;
 - a fila de atendimento ordena por prioridade e idade, filtra por categoria, status e bairro, pagina e conta os relatos à espera de moderação; ela e a moderação exigem o token do operador;
 - a moderação lista só os relatos marcados e sem decisão; aprovar mantém o relato; rejeitar desconta o chamado, recalcula a prioridade e apaga a foto; rejeitar o único relato descarta o chamado, que some do mapa e não recebe relatos novos; decidir duas vezes recebe 409;
-- o rate limit barra o login antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres;
-- o administrador cadastra operadores, recusa e-mail repetido e senha fraca; operador comum não gerencia a equipe; desativar recusa na hora o token que a pessoa já tinha, e trocar a senha invalida o token antigo e devolve um novo;
+- o rate limit barra os pedidos de código antes da autenticação, separa os contadores por IP, por regra e por prefixo IPv6 /64, repõe as fichas com o tempo e deixa o mapa e o actuator livres;
+- o administrador cadastra operadores, que entram com o código, e recusa e-mail repetido; operador comum não gerencia a equipe; desativar recusa na hora o token que a pessoa já tinha e o próximo login;
 - "meus relatos" mostra só os relatos da própria identidade, do mais novo para o mais antigo, com o histórico sem o nome do operador;
 - a mudança de status chega ao navegador do autor pelo push: a mensagem cifrada confere com o exemplo da RFC 8291 e é decifrada pelo teste no papel do navegador, o JWT VAPID é verificado, quem não relatou não recebe e a inscrição vencida é apagada; endpoints fora dos serviços de push são recusados;
-- o traceId do pedido HTTP chega à mensagem publicada pela outbox e ao resultado do worker; o erro 500 esconde a causa e mostra o código; o health fica `DEGRADED` com a outbox parada; as métricas de negócio saem com os nomes que o dashboard e os alertas usam, e o log de login recusado não traz o e-mail.
+- o traceId do pedido HTTP chega à mensagem publicada pela outbox e ao resultado do worker; o erro 500 esconde a causa e mostra o código; o health fica `DEGRADED` com a outbox parada; as métricas de negócio saem com os nomes que o dashboard e os alertas usam, e o log de código recusado não traz o e-mail nem o código.
 
 Nos demais testes o rate limit fica desligado (`src/test/resources/config/application.yml`), porque todas as requisições do MockMvc vêm de `127.0.0.1`.
 
