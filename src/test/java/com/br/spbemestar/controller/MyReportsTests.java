@@ -7,6 +7,7 @@ import com.br.spbemestar.config.ReporterJwt;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
+import com.br.spbemestar.service.ClassificationService;
 import com.br.spbemestar.service.IssueStatusService;
 import com.br.spbemestar.service.ReportService;
 import com.br.spbemestar.service.ReporterTokenService;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
@@ -38,6 +40,8 @@ class MyReportsTests {
     @Autowired IssueStatusService statusService;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
+    @Autowired ClassificationService classification;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void listsOwnReportsNewestFirstWithIssueProgress() {
@@ -61,6 +65,27 @@ class MyReportsTests {
         // o cidadão vê o que mudou, não quem mudou
         assertThat(result).bodyJson().extractingPath("$.items[1].history[0].changedBy").isNull();
         assertThat(result).bodyJson().extractingPath("$.items[1].rejected").isEqualTo(false);
+    }
+
+    @Test
+    void showsWhatTheClassifierSawInThePhotoUntilModerationDecides() {
+        String token = reporterTokens.register().accessToken();
+        Long reportId = reportService.create(subject(token), "POTHOLE", -25.40, -47.40, TestPhotos.jpeg()).reportId();
+
+        // logo depois do envio: o classificador ainda não respondeu
+        assertThat(myReports("Bearer " + token)).bodyJson().extractingPath("$.items[0].photoCheck.status")
+                .isEqualTo("PENDING");
+
+        // o modelo não viu um buraco na foto, e sim nenhum problema
+        classification.apply(reportId, "OTHER", 0.93);
+        MvcTestResult checked = myReports("Bearer " + token);
+        assertThat(checked).bodyJson().extractingPath("$.items[0].photoCheck.status").isEqualTo("MISMATCH");
+        assertThat(checked).bodyJson().extractingPath("$.items[0].photoCheck.predictedCategory").isEqualTo("OTHER");
+
+        // a moderação aprovou: o palpite do modelo deixa de valer para o cidadão
+        jdbc.update("UPDATE report SET moderation_status = 'APPROVED', moderated_at = now(), moderated_by = ? WHERE id = ?",
+                operatorId(), reportId);
+        assertThat(myReports("Bearer " + token)).bodyJson().extractingPath("$.items[0].photoCheck").isNull();
     }
 
     @Test

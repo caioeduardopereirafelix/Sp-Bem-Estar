@@ -50,6 +50,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 - **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta
+- **Conferência da foto na hora:** logo depois do envio, o app espera alguns segundos pelo classificador e diz se a foto confere com o tipo escolhido, se parece ser de outro tipo ou se não mostra um problema de rua (nos dois últimos casos, a prefeitura confere na moderação). Sem resposta do classificador, avisa que a conferência continua e mostra o andamento em "Meus relatos"
 - Receber uma notificação push quando um chamado relatado for confirmado, entrar em andamento ou for resolvido, mesmo com o mapa fechado
 - Ver o **antes e depois**: quando a equipe resolve com uma foto do conserto, o pop-up mostra a foto do relato ao lado da do conserto, com a nota do que foi feito, e "Meus relatos" também
 - Termos de uso (`/termos.html`) e política de privacidade (`/privacidade.html`), com o responsável e o contato do encarregado vindos da configuração

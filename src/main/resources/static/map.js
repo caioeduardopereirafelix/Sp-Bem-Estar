@@ -1243,6 +1243,7 @@ reportForm.addEventListener('submit', async (event) => {
     try {
         const result = await sendReport(data);
         const others = result.issueReportCount - 1;
+        const chosen = data.get('category');
         resetReport();
         document.getElementById('sent-title').textContent = 'Relato enviado. Obrigado!';
         document.getElementById('sent-text').textContent = result.newIssue
@@ -1250,6 +1251,7 @@ reportForm.addEventListener('submit', async (event) => {
             : `Este problema já estava no mapa (chamado #${result.issueId}): o seu relato soma a ${others === 1
                 ? 'outro relato' : `outros ${numberFormat.format(others)} relatos`} e aumenta a prioridade.`;
         showView('sent');
+        checkPhoto(result.reportId, chosen);
         await Promise.all([loadIssues(), loadDistricts(), loadMyReports()]);
     } catch (error) {
         setReportMessage(error.message, 'error');
@@ -1257,6 +1259,62 @@ reportForm.addEventListener('submit', async (event) => {
         submit.disabled = false;
     }
 });
+
+// O classificador olha a foto segundos depois do envio (outbox → RabbitMQ → worker). O app espera a resposta e
+// conta o resultado na hora: quem errou o tipo entende o que houve, e quem mandou outra coisa vê que foi notado
+const PHOTO_CHECK_TRIES = 12;
+const PHOTO_CHECK_INTERVAL = 1500;
+
+function categoryLabel(code) {
+    const category = state.categories.find((c) => c.code === code);
+    return shortName(code, category?.name).toLowerCase();
+}
+
+function photoCheckMessage(check, chosen) {
+    switch (check.status) {
+        case 'AGREED':
+            return {kind: 'success', text: `A foto confere: é ${categoryLabel(chosen)} mesmo.`};
+        case 'MISMATCH':
+            return check.predictedCategory === 'OTHER'
+                ? {kind: 'warning', text: 'A foto não parece mostrar um problema de rua. A prefeitura vai conferir '
+                        + 'este relato, e ele pode ser recusado.'}
+                : {kind: 'warning', text: `A foto parece ser de ${categoryLabel(check.predictedCategory)}, e não de `
+                        + `${categoryLabel(chosen)}. A prefeitura vai conferir o tipo do relato.`};
+        case 'LOW_CONFIDENCE':
+            return {kind: 'warning', text: `Não deu para confirmar pela foto que é ${categoryLabel(chosen)}. `
+                    + 'A prefeitura vai conferir o relato.'};
+        default:
+            return null;
+    }
+}
+
+async function checkPhoto(reportId, chosen) {
+    const box = document.getElementById('sent-check');
+    box.hidden = false;
+    box.className = 'photo-check pending';
+    box.textContent = 'Conferindo a foto…';
+    for (let attempt = 0; attempt < PHOTO_CHECK_TRIES; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, PHOTO_CHECK_INTERVAL));
+        if (panel.dataset.current !== 'sent') {
+            return; // a pessoa saiu da tela: o resultado aparece em "Meus relatos"
+        }
+        try {
+            const page = await reporterFetch('/reporters/me/reports?page=0&size=10');
+            const message = photoCheckMessage(page.items.find((item) => item.reportId === reportId)?.photoCheck
+                ?? {status: 'PENDING'}, chosen);
+            if (message) {
+                box.className = `photo-check ${message.kind}`;
+                box.textContent = message.text;
+                return;
+            }
+        } catch {
+            break; // sem a lista agora: não insiste, e o relato já foi enviado
+        }
+    }
+    // sem resposta do classificador (fora do ar ou atrasado): a moderação continua valendo
+    box.className = 'photo-check';
+    box.textContent = 'A conferência automática da foto ainda não terminou. Você vê o andamento em "Meus relatos".';
+}
 
 // --- Meus relatos ---
 
@@ -1293,6 +1351,8 @@ async function loadMyReports(append = false) {
                     ? `, atualizado ${timeAgo(item.updatedAt)}` : ''}</span>
             </span>
             ${note}
+            ${['MISMATCH', 'LOW_CONFIDENCE'].includes(item.photoCheck?.status) && !item.rejected
+                ? '<span class="track-check">A foto está em análise: a prefeitura vai conferir o tipo do relato.</span>' : ''}
             ${item.resolution ? `<span class="track-resolution">${item.resolution.photoUrl
                 ? `<img src="${item.resolution.photoUrl}" alt="Foto do conserto" loading="lazy">` : ''}<span>${
                 item.resolution.note ? escapeHtml(item.resolution.note) : 'A equipe deixou uma foto do conserto.'}</span></span>` : ''}

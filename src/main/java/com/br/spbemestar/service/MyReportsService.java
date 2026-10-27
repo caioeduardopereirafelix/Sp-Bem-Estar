@@ -54,7 +54,10 @@ public class MyReportsService {
                 issue.getLocation().getY(),
                 issue.getLocation().getX(),
                 changes,
-                IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()));
+                IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()),
+                // depois da decisão da moderação, o palpite do modelo não conta mais
+                report.getModerationStatus() != null ? null : new MyReportItem.PhotoCheck(
+                        report.getClassificationStatus().name(), report.getPredictedCategory()));
     }
 
     private static IssueDetailResponse.StatusChange change(IssueStatusHistory h) {
