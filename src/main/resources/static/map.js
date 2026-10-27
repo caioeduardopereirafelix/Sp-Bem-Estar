@@ -53,6 +53,8 @@ const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, max
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 const relativeFormat = new Intl.RelativeTimeFormat('pt-BR', {numeric: 'auto'});
 const isDesktop = () => window.matchMedia('(min-width: 900px)').matches;
+// tela de toque: as etiquetas de passar o mouse (tooltips) grudam no toque e cobrem o mapa
+const canHover = () => window.matchMedia('(hover: hover)').matches;
 
 // "há 3 horas", "ontem": mais fácil de ler que uma data
 function timeAgo(value) {
@@ -184,7 +186,7 @@ async function api(path, options = {}) {
 // --- Painel: abas, tamanho da gaveta no celular ---
 
 const panel = document.getElementById('panel');
-const VIEW_SIZES = {explore: 'peek', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
+const VIEW_SIZES = {explore: 'peek', issue: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
 
 function setSheet(size) {
     panel.dataset.size = size;
@@ -196,12 +198,16 @@ function showView(name) {
         view.hidden = view.dataset.view !== name;
     });
     document.querySelectorAll('.tab').forEach((tab) => {
-        const current = tab.dataset.goto === name || (name === 'report' && tab.dataset.goto === 'explore')
+        const current = tab.dataset.goto === name
+            || ((name === 'report' || name === 'issue') && tab.dataset.goto === 'explore')
             || (name === 'sent' && tab.dataset.goto === 'mine');
         tab.toggleAttribute('aria-current', current);
         if (current) tab.setAttribute('aria-current', 'page');
     });
     panel.dataset.current = name;
+    if (name !== 'issue') {
+        selectMarker(null);
+    }
     setSheet(VIEW_SIZES[name] ?? 'half');
     document.querySelector('.views').scrollTop = 0;
     if (name === 'mine') {
@@ -750,6 +756,12 @@ function districtStyle(feature) {
 
 function bindDistrict(feature, layer) {
     const p = feature.properties;
+    if (!canHover()) {
+        // no toque, o resumo do distrito vem num aviso, que some sozinho
+        layer.on('click', () => showToast(`${p.name}: ${numberFormat.format(p.openIssues)} problemas em aberto, `
+            + `${rateFormat.format(p.openIssuesPer10k ?? 0)} a cada 10 mil moradores.`));
+        return;
+    }
     layer.bindTooltip(`<strong>${escapeHtml(p.name)}</strong><br>
         ${numberFormat.format(p.population ?? 0)} moradores<br>
         ${numberFormat.format(p.openIssues)} problemas em aberto<br>
@@ -859,13 +871,10 @@ async function loadIssues() {
             title: `${p.categoryName} · ${STATUS[p.status].label}`,
             keyboard: true,
         });
-        marker.bindTooltip(`${escapeHtml(shortName(p.category, p.categoryName))}: ${STATUS[p.status].label}`);
-        marker.bindPopup('Carregando…', {maxWidth: 320, minWidth: 260, autoPanPaddingTopLeft: mapPadding()});
-        marker.on('popupopen', () => {
-            setFollow(false); // o mapa parado, para o popup não sair da tela
-            if (!isDesktop()) setSheet('peek'); // no celular a gaveta desce para o popup caber
-            showIssue(feature.id, marker);
-        });
+        if (canHover()) {
+            marker.bindTooltip(`${escapeHtml(shortName(p.category, p.categoryName))}: ${STATUS[p.status].label}`);
+        }
+        marker.on('click', () => openIssue(feature.id, marker));
         issueLayer.addLayer(marker);
         state.markers.set(feature.id, marker);
     }
@@ -887,7 +896,56 @@ function renderIssueCount() {
             ? ' (mostrando parte)' : ''}`;
 }
 
-async function showIssue(id, marker) {
+// --- O chamado aberto: pop-up no computador, gaveta no celular ---
+
+// No celular um pop-up sobre o mapa briga com a gaveta e com os botões e não cabe na tela; ali o chamado
+// abre na própria gaveta, como nos apps de mapa
+function openIssue(id, marker) {
+    setFollow(false); // o mapa parado, para o chamado não sair da tela
+    if (isDesktop()) {
+        if (!marker.getPopup()) {
+            marker.bindPopup('Carregando…', {maxWidth: 320, minWidth: 260, autoPanPaddingTopLeft: mapPadding()});
+            marker.on('popupopen', () => showIssue(id, popupHost(marker)));
+        }
+        marker.openPopup();
+        return;
+    }
+    map.closePopup();
+    selectMarker(marker);
+    issueDetail.innerHTML = '<p class="hint">Carregando…</p>';
+    showView('issue');
+    // a gaveta sobe até a metade: o ponto vai para o meio do mapa que sobra à vista
+    setTimeout(() => map.panTo(centerShowing(marker.getLatLng(), map.getZoom()), {animate: true}), 280);
+    showIssue(id, sheetHost);
+}
+
+const issueDetail = document.getElementById('issue-detail');
+
+function popupHost(marker) {
+    return {
+        setContent: (html) => marker.setPopupContent(html),
+        element: () => marker.getPopup()?.getElement(),
+        close: () => marker.closePopup(),
+    };
+}
+
+const sheetHost = {
+    setContent: (html) => {
+        issueDetail.innerHTML = html;
+    },
+    element: () => issueDetail,
+    close: () => showView('explore'),
+};
+
+function selectMarker(marker) {
+    state.selectedMarker?.getElement()?.classList.remove('selected');
+    state.selectedMarker = marker;
+    marker?.getElement()?.classList.add('selected');
+}
+
+document.getElementById('issue-back').addEventListener('click', () => showView('explore'));
+
+async function showIssue(id, host) {
     try {
         const issue = await api(`/issues/${id}`);
         const [hero, ...more] = issue.reports;
@@ -912,7 +970,7 @@ async function showIssue(id, marker) {
         const moderation = state.session ? issue.reports.slice(0, 4).map((r) =>
             `<button type="button" class="button" data-block-report="${r.id}">Bloquear autor do relato #${r.id}</button>`).join('') : '';
 
-        marker.setPopupContent(`<div class="issue-popup">
+        host.setContent(`<div class="issue-popup">
             ${heroHtml}
             <h3>${escapeHtml(issue.categoryName)}</h3>
             ${trackLine(issue.status)}
@@ -932,23 +990,23 @@ async function showIssue(id, marker) {
         </div>`);
 
         // só os botões: a linha de etapas (trackLine) também tem data-status, e um clique nela não muda nada
-        marker.getPopup().getElement()?.querySelectorAll('.popup-actions button[data-status]').forEach((button) => {
+        host.element()?.querySelectorAll('.popup-actions button[data-status]').forEach((button) => {
             button.addEventListener('click', (event) => {
                 if (button.dataset.status !== 'RESOLVED') {
-                    changeStatus(issue.id, button.dataset.status, marker);
+                    changeStatus(issue.id, button.dataset.status, host);
                     return;
                 }
                 // o botão sai da página com a troca pelo formulário, e o Leaflet tomaria o clique por um clique
                 // no mapa, que fecha o pop-up
                 event.stopPropagation();
-                showResolveForm(issue.id, marker, button.closest('.popup-actions'));
+                showResolveForm(issue.id, host, button.closest('.popup-actions'));
             });
         });
-        marker.getPopup().getElement()?.querySelectorAll('[data-block-report]').forEach((button) => {
+        host.element()?.querySelectorAll('[data-block-report]').forEach((button) => {
             button.addEventListener('click', () => blockReporter(button.dataset.blockReport, button));
         });
     } catch (error) {
-        marker.setPopupContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
+        host.setContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
     }
 }
 
@@ -966,22 +1024,22 @@ async function blockReporter(reportId, button) {
     }
 }
 
-async function changeStatus(id, status, marker) {
+async function changeStatus(id, status, host) {
     try {
         await api(`/issues/${id}/status`, {
             method: 'PATCH',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({status}),
         });
-        marker.closePopup();
+        host.close();
         await Promise.all([loadIssues(), loadDistricts(), loadQueue()]);
     } catch (error) {
-        marker.setPopupContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
+        host.setContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
     }
 }
 
 // Resolver mostrando o que foi feito: a foto do conserto e uma nota, para quem relatou ver o resultado
-function showResolveForm(id, marker, actions) {
+function showResolveForm(id, host, actions) {
     const form = document.createElement('form');
     form.className = 'resolve-form';
     form.innerHTML = `<label>Foto do conserto (opcional)
@@ -1012,7 +1070,7 @@ function showResolveForm(id, marker, actions) {
         submit.disabled = true;
         try {
             await api(`/issues/${id}/resolution`, {method: 'POST', body: data});
-            marker.closePopup();
+            host.close();
             await Promise.all([loadIssues(), loadDistricts(), loadQueue()]);
         } catch (error) {
             const message = form.querySelector('.message');
@@ -1196,6 +1254,11 @@ map.on('click', (event) => {
     if (state.report.active && state.report.step === 'where'
         && (document.getElementById('report-hint').hidden === false || state.pickMarker)) {
         pickLocation(event.latlng);
+        return;
+    }
+    // no celular, tocar fora do chamado aberto na gaveta é voltar ao mapa, como fecharia um pop-up
+    if (panel.dataset.current === 'issue') {
+        showView('explore');
     }
 });
 
@@ -1482,7 +1545,10 @@ async function focusIssue(item) {
     }
     clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
     await loadIssues();
-    state.markers.get(item.id)?.openPopup();
+    const marker = state.markers.get(item.id);
+    if (marker) {
+        openIssue(item.id, marker);
+    }
 }
 
 // --- Prefeitura ---

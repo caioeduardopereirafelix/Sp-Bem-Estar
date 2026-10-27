@@ -138,6 +138,15 @@
             <p class="message" id="report-message" aria-live="polite"></p>
         </section>
 
+        <!-- Chamado aberto no celular: na gaveta, como nos apps de mapa (no computador, um pop-up no mapa) -->
+        <section class="view" data-view="issue" hidden>
+            <div class="view-head">
+                <h1 class="visually-hidden">Chamado</h1>
+                <button type="button" class="link-button" id="issue-back">‹ Voltar ao mapa</button>
+            </div>
+            <div id="issue-detail" aria-live="polite"></div>
+        </section>
+
         <!-- Depois do envio -->
         <section class="view sent" data-view="sent" hidden>
             <svg class="sent-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="M14 24.5l7 7 13-14"/></svg>
