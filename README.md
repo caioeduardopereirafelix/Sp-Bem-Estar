@@ -42,11 +42,11 @@ Este projeto ataca três pontos:
 
 ## Funcionalidades
 
-O mapa foi pensado primeiro para o celular: em tela cheia, com uma gaveta que sobe de baixo (no computador, um painel à esquerda). O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). A área da prefeitura fica em **Mais › Sou da prefeitura** e, depois do login, numa aba própria.
+O mapa foi pensado primeiro para o celular e funciona como um app de navegação: abre em tela cheia, com tema escuro, já centralizado em você (uma seta azul que acompanha a posição em tempo real e gira com o rumo ou com a bússola do aparelho), e com uma gaveta recolhida embaixo, onde ficam o botão de relatar e os filtros (no computador, um painel à esquerda). O mapa é vetorial (estilo Fiord do [OpenFreeMap](https://openfreemap.org), com dados do OpenStreetMap), desenhado pelo MapLibre dentro do Leaflet; sem WebGL, ficam os tiles do OpenStreetMap escurecidos. O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). A área da prefeitura fica em **Mais › Sou da prefeitura** e, depois do login, numa aba própria.
 
 **Cidadão**
 - Reportar um problema com foto, localização e categoria. Antes do relato, um pop-up explica para que serve a localização e leva ao pedido de permissão do aparelho; com a permissão, o ponto vem do GPS, e sem ela o ponto é escolhido no mapa. O marcador pode ser arrastado para corrigir
-- Centralizar o mapa onde a pessoa está, com o círculo de precisão do GPS
+- Ver no mapa onde a pessoa está, em tempo real, como no Waze: o mapa segue a seta até ela arrastá-lo, e o botão de centralizar volta a seguir. Com o GPS impreciso, aparece o círculo de precisão
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 - **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta
@@ -246,9 +246,9 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 
 ### Outras proteções
 - **Foto com teto de 40 megapixels.** O limite é conferido no cabeçalho da imagem, antes de decodificá-la. Sem ele, um PNG de 1 MB que declara 30 000 × 30 000 pixels exigiria gigabytes de memória ao ser aberto (*decompression bomb*) e derrubaria a API.
-- **Content Security Policy no mapa.** A página só carrega scripts, estilos, fontes e imagens da própria API, do Leaflet no cdnjs e dos tiles do OpenStreetMap (mais `blob:` para a prévia da foto, que ainda está no aparelho), e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
-- **Permissions-Policy.** Só a própria página pode pedir a localização do usuário, e câmera, microfone, pagamento e USB ficam bloqueados para qualquer script. A localização fica no navegador: a API recebe apenas o ponto de um relato enviado, como ao clicar no mapa.
-- **Leaflet com Subresource Integrity.** O navegador confere o hash do arquivo e o recusa se o CDN entregar algo diferente da versão 1.9.4.
+- **Content Security Policy no mapa.** A página só carrega scripts, estilos, fontes e imagens da própria API, do Leaflet e do MapLibre no cdnjs, do mapa vetorial do OpenFreeMap e dos tiles do OpenStreetMap (mais `blob:` para a prévia da foto, que ainda está no aparelho, e para o worker do MapLibre), e não pode ser embutida em outro site. Assim, um script injetado não roda e não envia dados para fora. Só o Swagger UI aceita estilos inline, porque precisa deles.
+- **Permissions-Policy.** Só a própria página pode pedir a localização do usuário, e câmera, microfone, pagamento e USB ficam bloqueados para qualquer script. A localização fica no navegador: a API recebe a área do mapa à vista, para buscar os problemas, e o ponto de um relato enviado, nunca a posição.
+- **Leaflet e MapLibre com Subresource Integrity.** O navegador confere o hash de cada arquivo e o recusa se o CDN entregar algo diferente das versões fixadas (Leaflet 1.9.4, MapLibre 5.24.0). O plugin que junta os dois (`@maplibre/maplibre-gl-leaflet` 0.1.4, ISC) vai na própria API, em `static/vendor`.
 - **Métricas com senha.** O `/actuator/prometheus` revela rotas, volumes e erros, por isso exige `METRICS_USER` e `METRICS_PASSWORD` (HTTP Basic, como o Prometheus espera). Sem essas variáveis, ninguém lê as métricas.
 - **Bancos só em `127.0.0.1`.** O Docker Compose publica PostgreSQL, RabbitMQ e MongoDB apenas na máquina local. Sem isso, o Docker abre as portas para a rede inteira, inclusive passando por cima do firewall do host (ufw).
 - **Dependências sem vulnerabilidades conhecidas.** Tomcat, Jackson e o cliente do RabbitMQ estão fixados acima das versões do Spring Boot 4.1.1, conferidas no [OSV](https://osv.dev). Essas linhas do `pom.xml` saem quando o Boot trouxer versões iguais ou mais novas.
@@ -647,7 +647,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Carga dos distritos de São Paulo com população (IBGE)
 - [x] Indicadores normalizados e priority score
 - [x] Ciclo de status com histórico
-- [x] Mapa web (Leaflet)
+- [x] Mapa web (Leaflet + MapLibre), com a localização em tempo real
 
 **Fase 3 — Assíncrono e robustez**
 - [x] Outbox + RabbitMQ com DLQ
