@@ -73,6 +73,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Remoção de metadados EXIF e anonimização do autor (LGPD)
 - Rate limit por IP contra spam e força bruta no login
 - Métricas expostas para Prometheus
+- **Painel do CEO** (`/ceo`), fora da área da prefeitura e só para a conta do CEO: relatos de hoje, 7 e 30 dias, com o gráfico dos últimos 14 dias; pessoas que relataram, chamados abertos e resolvidos, tempo mediano até resolver, moderação, conferência das fotos e os tipos e distritos com mais chamados; a saúde de cada parte (banco, fotos, filas, outbox, disco, worker e DLQs), memória e processador; a atividade desde a subida (requisições, erros 4xx e 5xx, logins errados, bloqueios do rate limit) e os últimos erros inesperados com o código de rastreio. Atualiza sozinho a cada minuto enquanto está na tela
 
 ## Arquitetura
 
@@ -179,6 +180,7 @@ O cidadão continua anônimo: ver o mapa e enviar relatos não pede login (para 
 - **Senhas** ficam com bcrypt. Um e-mail inexistente, uma senha errada e um usuário desativado recebem a mesma resposta, no mesmo tempo, para não revelar quem tem conta.
 - **Erros 401 e 403** saem no mesmo formato `ProblemDetail` das demais respostas de erro.
 - **Administrador e operadores.** O primeiro usuário (criado pelo `OPERATOR_EMAIL`) é **administrador**: além de tudo o que o operador faz, ele cadastra, desativa e reativa a equipe em `/api/v1/operators` ou pela aba **Prefeitura › Equipe** do mapa. Ninguém é apagado, para o histórico continuar dizendo quem mudou cada status. O administrador não pode desativar a si mesmo, então sempre sobra um ativo.
+- **CEO.** A conta do dono do produto, criada na subida por `CEO_EMAIL` e `CEO_PASSWORD`, abre só o painel em `/ceo` e troca a própria senha. Ela não mexe em chamados, na moderação nem na equipe, e fica fora da equipe do órgão: o administrador da prefeitura não a vê na lista, não a desativa e não cria outra. O painel recusa a equipe da prefeitura, administrador incluído (403). Se o CEO entrar pelo login da prefeitura, vai direto para o painel.
 - **Revogação apesar do JWT.** Um JWT vale até vencer, mas a cada requisição a API confere se o usuário continua ativo e se o token foi emitido depois da última troca de senha ou desativação (`tokens_valid_after`). Quem é desativado perde o acesso na hora; quem troca a senha (`PUT /api/v1/auth/password`) encerra as outras sessões e recebe um token novo. A conferência é uma consulta por chave primária, só nas rotas do operador.
 - **Senhas de 12 a 72 bytes.** Abaixo de 12 caracteres a senha é recusada; acima de 72 bytes também, porque o bcrypt ignoraria o resto sem avisar.
 
@@ -354,6 +356,7 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `GET` | `/api/v1/operators` | Equipe do órgão público (🔒 administrador) |
 | `POST` | `/api/v1/operators` | Cadastra operador ou administrador (🔒 administrador) |
 | `PATCH` | `/api/v1/operators/{id}` | Desativa ou reativa (`active`); desativar corta o acesso na hora (🔒 administrador) |
+| `GET` | `/api/v1/ceo/dashboard` | Painel: números do produto, saúde do sistema, atividade e erros recentes (🔒 CEO) |
 | `GET` | `/api/v1/privacy` | Responsável pelos dados e contato do encarregado, para a página de privacidade |
 | `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado (🔒 operador) |
 | `POST` | `/api/v1/issues/{id}/resolution` | Resolve o chamado com a foto do conserto e uma nota, as duas opcionais (multipart: `photo`, `note`) (🔒 operador) |
@@ -385,6 +388,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 |---|---|
 | `JWT_SECRET` | chave que assina os tokens, com no mínimo 32 bytes (`openssl rand -base64 48`) |
 | `REPORTER_HASH` | chave do HMAC que identifica o autor dos relatos, com no mínimo 32 bytes (`openssl rand -base64 48`); trocá-la faz os relatos antigos pararem de casar com os novos do mesmo cidadão |
+| `CEO_EMAIL`, `CEO_PASSWORD`, `CEO_NAME` | conta do CEO, criada na subida se ainda não existir (senha com 12+ caracteres); é a única que abre o painel em `/ceo` |
 | `OPERATOR_EMAIL`, `OPERATOR_PASSWORD`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir (senha com 12+ caracteres); ele cadastra o resto da equipe |
 | `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT` | órgão responsável pelos dados e e-mail (ou página `https://`) do encarregado, mostrados na [página de privacidade](#privacidade-lgpd) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
@@ -532,6 +536,8 @@ O Grafana abre direto no dashboard **SP Bem-Estar** (http://localhost:3000), com
 Esse código vai no filtro **traceId** do painel de logs, ou direto no Loki: `{service_name="spbemestar-api"} |= "4bf92f35..."`.
 
 **Health.** Além de banco, RabbitMQ e MongoDB, o `/actuator/health` da API olha a outbox: se o evento pendente mais antigo passar de 5 minutos (`app.observability.outbox-lag-limit`), o status vira `DEGRADED`, que ainda responde 200 — a API atende, mas os relatos não chegam ao classificador. O worker carrega o modelo na subida e não fica de pé sem ele; o health mostra também a versão do modelo e quantas categorias ele tem, para conferir um deploy.
+
+**Painel do CEO.** Para acompanhar o produto sem subir o Grafana, a conta do CEO tem a página **`/ceo`** (`GET /api/v1/ceo/dashboard`). Os números do produto vêm do banco; a saúde, dos mesmos health checks do `/actuator/health`, mais o health do worker, consultado com 2 s de limite; a atividade, dos contadores do Micrometer. Os últimos 50 erros 500 ficam na memória da API, com o método, o caminho (sem a query string), a exceção, a mensagem e o `traceId` que leva ao log completo. Os contadores e os erros voltam a zero quando a API reinicia: para histórico e alertas, use o Grafana e o Prometheus.
 
 **Métricas de negócio**, além das de HTTP, JVM e RabbitMQ que o Spring já exporta:
 

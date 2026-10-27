@@ -10,13 +10,15 @@ import java.time.Duration;
  * @param tokenTtl          validade de um token
  * @param issuer            emissor gravado e conferido em cada token
  * @param bootstrapOperator operador criado na subida se ainda não existir (e-mail e senha vazios = desligado)
+ * @param bootstrapCeo      conta do CEO, criada do mesmo jeito; é ela que abre o painel em {@code /ceo}
  */
 @ConfigurationProperties("app.security")
 public record SecurityProperties(
         String jwtSecret,
         @DefaultValue("8h") Duration tokenTtl,
         @DefaultValue("spbemestar-api") String issuer,
-        @DefaultValue BootstrapOperator bootstrapOperator
+        @DefaultValue BootstrapOperator bootstrapOperator,
+        @DefaultValue BootstrapOperator bootstrapCeo
 ) {
 
     public record BootstrapOperator(String email, String password, @DefaultValue("Operador") String name) {

@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Cria o primeiro usuário, como administrador, a partir de {@code app.security.bootstrap-operator}, para o
- * órgão público conseguir entrar logo após a instalação. Nunca altera um usuário que já existe.
+ * órgão público conseguir entrar logo após a instalação, e a conta do CEO, de {@code app.security.bootstrap-ceo}.
+ * Nunca altera um usuário que já existe.
  */
 @Slf4j
 @Component
@@ -25,16 +26,20 @@ public class OperatorBootstrapRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        SecurityProperties.BootstrapOperator operator = properties.bootstrapOperator();
-        if (operator == null || !operator.enabled()) {
+        // o primeiro usuário é o administrador: é ele quem cadastra o resto da equipe
+        create(properties.bootstrapOperator(), UserRole.ADMIN, "Administrador inicial");
+        create(properties.bootstrapCeo(), UserRole.CEO, "Conta do CEO");
+    }
+
+    private void create(SecurityProperties.BootstrapOperator account, UserRole role, String description) {
+        if (account == null || !account.enabled()) {
             return;
         }
-        String email = AppUser.normalizeEmail(operator.email());
+        String email = AppUser.normalizeEmail(account.email());
         if (users.existsByEmail(email)) {
             return;
         }
-        // o primeiro usuário é o administrador: é ele quem cadastra o resto da equipe
-        AppUser admin = authService.createUser(email, operator.name(), operator.password(), UserRole.ADMIN);
-        log.info("Administrador inicial criado (usuário {})", admin.getId());
+        AppUser user = authService.createUser(email, account.name(), account.password(), role);
+        log.info("{} criada (usuário {})", description, user.getId());
     }
 }

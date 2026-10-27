@@ -114,6 +114,11 @@ app:
       email: ${OPERATOR_EMAIL:}
       password: ${OPERATOR_PASSWORD:}
       name: ${OPERATOR_NAME:Operador}
+    # Conta do CEO, a única que abre o painel de métricas e saúde em /ceo
+    bootstrap-ceo:
+      email: ${CEO_EMAIL:}
+      password: ${CEO_PASSWORD:}
+      name: ${CEO_NAME:CEO}
   # Usuário do Prometheus no /actuator/prometheus (HTTP Basic); vazio = ninguém lê as métricas
   metrics:
     username: ${METRICS_USER:}
