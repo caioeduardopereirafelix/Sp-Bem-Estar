@@ -365,7 +365,7 @@ const GEOLOCATION_ERRORS = {
 };
 
 const tracking = {watchId: null, position: null, marker: null, accuracy: null, following: false,
-    gpsHeading: null, compass: null, compassOn: false, asked: false, warned: false, frame: 0};
+    gpsHeading: null, compass: null, compassOn: false, highAccuracy: true, asked: false, warned: false, frame: 0};
 const locateButton = document.getElementById('locate-button');
 
 const geolocationAvailable = () => window.isSecureContext && 'geolocation' in navigator;
@@ -387,12 +387,29 @@ function currentPosition() {
     });
 }
 
+// Alta precisão é o GPS: no celular, a seta acompanha a rua; no computador, sem GPS, a resposta pode nunca vir.
+// Por isso uma posição aproximada (Wi-Fi, rede) chega logo, o GPS refina por cima, e se ele esgotar o tempo o
+// acompanhamento segue em precisão normal
+const HIGH_ACCURACY = {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000};
+const NORMAL_ACCURACY = {enableHighAccuracy: false, maximumAge: 60_000, timeout: 30000};
+
 function startTracking() {
     if (tracking.watchId !== null || !geolocationAvailable()) {
         return;
     }
-    tracking.watchId = navigator.geolocation.watchPosition(onPosition, onPositionError,
-        {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000});
+    watchPosition(HIGH_ACCURACY);
+    navigator.geolocation.getCurrentPosition((position) => {
+        if (!tracking.position) {
+            onPosition(position);
+        }
+    }, () => {
+        // sem a aproximada, os avisos vêm do acompanhamento
+    }, {enableHighAccuracy: false, maximumAge: 600_000, timeout: 15000});
+}
+
+function watchPosition(options) {
+    tracking.highAccuracy = options.enableHighAccuracy;
+    tracking.watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, options);
 }
 
 function stopTracking() {
@@ -410,8 +427,8 @@ function onPosition(position) {
     tracking.gpsHeading = Number.isFinite(heading) && speed > MOVING_SPEED ? heading : null;
     drawUserMarker();
     locateButton.classList.remove('unavailable');
-    if (first && tracking.asked) {
-        toast.hidden = true; // tira o "Buscando sua localização…"
+    if (first) {
+        toast.hidden = true; // o "Buscando sua localização…", ou um aviso de demora que a posição já respondeu
     }
     if (tracking.following) {
         followUser(first);
@@ -419,6 +436,11 @@ function onPosition(position) {
 }
 
 function onPositionError(error) {
+    if (error.code === 3 && tracking.highAccuracy) {
+        stopTracking();
+        watchPosition(NORMAL_ACCURACY); // o GPS não respondeu: tenta pela rede antes de avisar
+        return;
+    }
     if (error.code === 1) {
         stopTracking(); // negado: o navegador não volta a perguntar, e o botão tenta de novo se a pessoa liberar
         setFollow(false);
@@ -431,9 +453,10 @@ function onPositionError(error) {
     }
     tracking.warned = true;
     let text = GEOLOCATION_ERRORS[error.code] ?? 'Não foi possível obter sua localização.';
-    if (error.code === 2 && isDesktop()) {
+    if (error.code !== 1 && isDesktop()) {
         text += ' No computador, confira se a localização está ligada nas configurações do sistema '
-            + '(no Windows: Privacidade e segurança › Localização).';
+            + '(no Windows: Privacidade e segurança › Localização). Sem Wi-Fi, o Windows pode não achar a '
+            + 'posição; ali dá para definir um local padrão.';
     }
     showToast(text, 10000);
 }
@@ -521,7 +544,11 @@ function centerShowing(latlng, zoom) {
 }
 
 function followUser(jump = false) {
-    const zoom = jump ? Math.max(map.getZoom(), FOLLOW_ZOOM) : map.getZoom();
+    // com a posição aproximada (rede, Wi-Fi), o zoom de rua esconderia o círculo de precisão
+    const accuracy = tracking.position.coords.accuracy;
+    const zoom = !jump ? map.getZoom() : accuracy > LOW_ACCURACY_METERS
+        ? Math.min(FOLLOW_ZOOM, map.getBoundsZoom(userLatLng().toBounds(accuracy * 2.5)))
+        : Math.max(map.getZoom(), FOLLOW_ZOOM);
     const target = centerShowing(userLatLng(), zoom);
     if (jump) {
         map.setView(target, zoom, {animate: false});
