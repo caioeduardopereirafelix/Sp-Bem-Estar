@@ -57,6 +57,8 @@ class SecurityHardeningTests {
         String csp = page.getResponse().getHeader("Content-Security-Policy");
         assertThat(csp).isEqualTo(SecurityConfig.CONTENT_SECURITY_POLICY)
                 .contains("script-src 'self' https://cdnjs.cloudflare.com", "frame-ancestors 'none'")
+                // o mapa vetorial só fala com o OpenFreeMap; workers, só o das notificações e o do próprio MapLibre
+                .contains("connect-src 'self' https://tiles.openfreemap.org", "worker-src 'self' blob:")
                 .doesNotContain("unsafe-inline", "unsafe-eval");
         assertThat(page).hasHeader("X-Content-Type-Options", "nosniff");
         // a localização do usuário só pode ser pedida pela própria página, e câmera e microfone por ninguém

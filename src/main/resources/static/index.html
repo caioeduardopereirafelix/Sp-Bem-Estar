@@ -1,13 +1,17 @@
 <!doctype html>
-<html lang="pt-BR">
+<!-- tema escuro, como nos apps de navegação: o mapa escuro cansa menos a vista e o que importa se destaca -->
+<html lang="pt-BR" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#3445d1">
+    <meta name="theme-color" content="#1b1f29">
     <title>SP Bem-Estar · Relate problemas da sua rua</title>
     <!-- integrity: o navegador recusa o arquivo se o CDN entregar algo diferente desta versão -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
           integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
+          crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.24.0/maplibre-gl.css"
+          integrity="sha512-KIMsMWIdnoG9OwZa+oaIafmbDonqck1UCmq+/zcUi2aaZ97N9QE6TqpTM+n36EO40HGh64hU/375zxtjx7WTyQ=="
           crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="preload" href="fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="map.css">
@@ -15,8 +19,22 @@
 <body>
 <div id="map" class="map" aria-label="Mapa dos problemas relatados"></div>
 
+<!-- Botões por cima do mapa, como nos apps de navegação -->
+<button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: relatos, prefeitura e privacidade">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
+</button>
+<button type="button" class="fab fab-locate" id="locate-button" aria-label="Centralizar o mapa em você"
+        aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle class="locate-ring" cx="12" cy="12" r="7.5"/>
+        <path class="locate-ticks" d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/>
+        <path class="locate-arrow" d="M12 7.6l3.4 8.2-3.4-1.9-3.4 1.9z"/>
+    </svg>
+</button>
+<p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+
 <!-- No celular é uma gaveta que sobe de baixo; no computador, um painel à esquerda do mapa -->
-<aside class="panel" id="panel" data-size="half" aria-label="SP Bem-Estar">
+<aside class="panel" id="panel" data-size="peek" aria-label="SP Bem-Estar">
     <button type="button" class="sheet-handle" id="sheet-handle" aria-label="Expandir ou recolher o painel"></button>
 
     <header class="panel-head">
@@ -38,20 +56,24 @@
     <div class="views">
         <!-- Explorar: o que já foi relatado e o convite para relatar -->
         <section class="view" data-view="explore">
-            <h1 class="view-title">Viu um problema na rua? Avise a prefeitura.</h1>
-            <p class="lede">Buraco, lixo, poste apagado: relate com uma foto, sem cadastro, e acompanhe até ser resolvido.</p>
-            <button type="button" class="cta" id="report-begin">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-                Relatar um problema
+            <h1 class="visually-hidden">Viu um problema na rua? Avise a prefeitura.</h1>
+            <!-- o lugar da busca "Para onde?" dos apps de navegação: aqui, a ação principal -->
+            <button type="button" class="report-pill" id="report-begin">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                <span>Relatar um problema</span>
+                <span class="report-pill-plus" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg>
+                </span>
             </button>
+            <div class="chips" id="category-chips" role="group" aria-label="Filtrar por tipo de problema"></div>
 
             <h2 class="section-title" id="issue-count" aria-live="polite">Problemas nesta área</h2>
-            <div class="chips" id="category-chips" role="group" aria-label="Filtrar por tipo de problema"></div>
             <div class="segmented" role="group" aria-label="Situação dos problemas">
                 <button type="button" data-status="" aria-pressed="true">Em aberto</button>
                 <button type="button" data-status="RESOLVED" aria-pressed="false">Resolvidos</button>
             </div>
             <ul class="status-key" aria-label="Como ler os marcadores" id="status-key"></ul>
+            <p class="lede">Buraco, lixo, poste apagado: relate com uma foto, sem cadastro, e acompanhe até ser resolvido.</p>
         </section>
 
         <!-- Novo relato em três etapas: local, tipo e foto -->
@@ -171,7 +193,9 @@
             <p class="message" id="login-message" aria-live="polite"></p>
 
             <p class="sources">
-                Mapa: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+                Mapa: <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>,
+                <a href="https://www.openmaptiles.org" target="_blank" rel="noopener">OpenMapTiles</a> e
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
                 Distritos: <a href="https://geosampa.prefeitura.sp.gov.br" target="_blank" rel="noopener">GeoSampa</a>.
                 População: <a href="https://sidra.ibge.gov.br/tabela/9923" target="_blank" rel="noopener">IBGE, Censo 2022</a>.
             </p>
@@ -275,6 +299,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
         integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- MapLibre desenha o mapa vetorial (ruas nítidas em qualquer zoom); o plugin o encaixa como camada do Leaflet -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.24.0/maplibre-gl.js"
+        integrity="sha512-rOFgoUgWaVi69JW1dzBu6PWF9xKW9rxYfY5u2SexFABHhWk0qUWkJoWNz4UuZRMvSXsNZG66+tU5B+HlwWF5kA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="vendor/leaflet-maplibre-gl.js"></script>
 <script src="map.js"></script>
 </body>
 </html>

@@ -98,10 +98,61 @@ function saveSession(session) {
 
 const map = L.map('map', {zoomControl: false}).setView([-23.55, -46.63], 12);
 L.control.zoom({position: 'topright'}).addTo(map);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-}).addTo(map);
+// no celular a gaveta cobre o pé do mapa: os créditos sobem para o canto de cima
+map.attributionControl.setPosition(isDesktop() ? 'bottomright' : 'topright');
+
+// Mapa vetorial escuro (estilo Fiord do OpenFreeMap, sem chave nem cadastro), com as cores puxadas para o
+// azul-marinho dos apps de navegação. Sem WebGL, ou se o estilo não carregar, ficam os tiles do OpenStreetMap
+// escurecidos por filtro
+const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/fiord';
+const BASE_COLORS = {
+    background: {'background-color': '#222a38'},
+    water: {'fill-color': '#1d3b6e'},
+    building: {'fill-color': 'hsla(222,30%,30%,0.55)'},
+    park: {'fill-color': '#22392f'},
+    landcover_wood: {'fill-color': 'hsla(150,25%,20%,0.5)'},
+    highway_minor: {'line-color': '#3f4d66'},
+    highway_major_casing: {'line-color': '#52627f'},
+    highway_major_inner: {'line-color': '#46556f'},
+    highway_motorway_casing: {'line-color': '#5c6d8c'},
+    highway_name_other: {'text-color': '#b7c3d9', 'text-halo-color': '#222a38'},
+    highway_path: {'line-opacity': 0.35}, // calçadas e trilhas tracejadas: discretas, para as ruas se destacarem
+};
+
+function supportsWebGL() {
+    try {
+        return Boolean(document.createElement('canvas').getContext('webgl2'));
+    } catch {
+        return false;
+    }
+}
+
+// os créditos (OpenFreeMap, OpenMapTiles, OpenStreetMap) vêm do próprio estilo, na barra do Leaflet
+async function addBaseMap() {
+    if (window.maplibregl && L.maplibreGL && supportsWebGL()) {
+        try {
+            const response = await fetch(BASE_STYLE_URL);
+            if (!response.ok) {
+                throw new Error(`estilo do mapa: ${response.status}`);
+            }
+            const style = await response.json();
+            for (const layer of style.layers) {
+                Object.assign(layer.paint ??= {}, BASE_COLORS[layer.id]);
+            }
+            L.maplibreGL({style}).addTo(map);
+            return;
+        } catch {
+            // segue para os tiles do OpenStreetMap
+        }
+    }
+    map.getContainer().classList.add('raster-dark');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+}
+
+addBaseMap();
 
 map.createPane('districts').style.zIndex = 350;
 // os distritos coloridos ficam desligados por padrão: o mapa limpo deixa os problemas à vista
@@ -133,10 +184,11 @@ async function api(path, options = {}) {
 // --- Painel: abas, tamanho da gaveta no celular ---
 
 const panel = document.getElementById('panel');
-const VIEW_SIZES = {explore: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
+const VIEW_SIZES = {explore: 'peek', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
 
 function setSheet(size) {
     panel.dataset.size = size;
+    document.body.dataset.sheet = size;
 }
 
 function showView(name) {
@@ -172,8 +224,40 @@ document.addEventListener('click', (event) => {
     }
 });
 
-document.getElementById('sheet-handle').addEventListener('click', () => {
-    setSheet(panel.dataset.size === 'full' ? 'peek' : 'full');
+// A gaveta sobe e desce arrastando a alça, ou com um toque nela
+const SHEET_SIZES = ['peek', 'half', 'full'];
+const sheetHandle = document.getElementById('sheet-handle');
+let sheetDrag = null;
+
+sheetHandle.addEventListener('pointerdown', (event) => {
+    sheetDrag = {y: event.clientY, moved: false};
+    sheetHandle.setPointerCapture(event.pointerId);
+});
+sheetHandle.addEventListener('pointerup', (event) => {
+    const dy = event.clientY - (sheetDrag?.y ?? event.clientY);
+    if (Math.abs(dy) > 12) {
+        const index = SHEET_SIZES.indexOf(panel.dataset.size) + (dy < 0 ? 1 : -1);
+        setSheet(SHEET_SIZES[Math.min(Math.max(index, 0), SHEET_SIZES.length - 1)]);
+        sheetDrag.moved = true;
+    }
+});
+sheetHandle.addEventListener('click', () => {
+    if (!sheetDrag?.moved) {
+        setSheet(panel.dataset.size === 'full' ? 'peek' : 'full');
+    }
+    sheetDrag = null;
+});
+
+// Os botões sobre o mapa acompanham a altura da gaveta, como no app de navegação
+new ResizeObserver(() => {
+    document.documentElement.style.setProperty('--sheet-height', `${panel.offsetHeight}px`);
+}).observe(panel);
+
+document.getElementById('menu-button').addEventListener('click', () => {
+    if (state.report.active) {
+        resetReport();
+    }
+    showView(panel.dataset.current === 'more' && panel.dataset.size === 'full' ? 'explore' : 'more');
 });
 
 // Identidade anônima do cidadão: um JWT de 15 min para enviar relatos, renovado com o refresh token.
@@ -268,19 +352,33 @@ function sendReport(data) {
     return reporterFetch('/reports', {method: 'POST', body: data});
 }
 
-// Localização do usuário pelo navegador. Fica só nesta página: a API recebe apenas o ponto de um relato
-// enviado, como já acontecia ao clicar no mapa.
+// Localização do usuário em tempo real, como nos apps de navegação. A posição fica só neste aparelho: a API
+// recebe a área do mapa à vista, para buscar os problemas, e o ponto de um relato enviado.
 const LOW_ACCURACY_METERS = 50;
+const FOLLOW_ZOOM = 17;
+const MOVING_SPEED = 0.7; // m/s: abaixo disso o rumo do GPS é ruído, e vale a bússola
+const NO_GEOLOCATION = 'Este navegador não informa a localização aqui (é preciso HTTPS). Marque o ponto no mapa.';
 const GEOLOCATION_ERRORS = {
     1: 'Sem permissão para usar sua localização. Libere nas configurações do navegador ou marque o ponto no mapa.',
     2: 'Sua localização não está disponível agora. Marque o ponto no mapa.',
     3: 'A localização demorou demais. Tente de novo ou marque o ponto no mapa.',
 };
 
+const tracking = {watchId: null, position: null, marker: null, accuracy: null, following: false,
+    gpsHeading: null, compass: null, compassOn: false, asked: false, frame: 0};
+const locateButton = document.getElementById('locate-button');
+
+const geolocationAvailable = () => window.isSecureContext && 'geolocation' in navigator;
+
 function currentPosition() {
     return new Promise((resolve, reject) => {
-        if (!window.isSecureContext || !('geolocation' in navigator)) {
-            reject(new Error('Este navegador não informa a localização aqui (é preciso HTTPS). Marque o ponto no mapa.'));
+        if (!geolocationAvailable()) {
+            reject(new Error(NO_GEOLOCATION));
+            return;
+        }
+        // o acompanhamento em tempo real já tem uma posição recente: não precisa esperar o GPS de novo
+        if (tracking.position && Date.now() - tracking.position.timestamp < 30_000) {
+            resolve(tracking.position);
             return;
         }
         navigator.geolocation.getCurrentPosition(resolve,
@@ -289,19 +387,153 @@ function currentPosition() {
     });
 }
 
-// Ponto azul com o círculo de precisão, como nos apps de mapa
+function startTracking() {
+    if (tracking.watchId !== null || !geolocationAvailable()) {
+        return;
+    }
+    tracking.watchId = navigator.geolocation.watchPosition(onPosition, onPositionError,
+        {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000});
+}
+
+function stopTracking() {
+    if (tracking.watchId !== null) {
+        navigator.geolocation.clearWatch(tracking.watchId);
+        tracking.watchId = null;
+    }
+}
+
+function onPosition(position) {
+    const first = !tracking.position;
+    tracking.position = position;
+    const {heading, speed} = position.coords;
+    // parado, o GPS não sabe para onde você está virado: o rumo dele só vale em movimento
+    tracking.gpsHeading = Number.isFinite(heading) && speed > MOVING_SPEED ? heading : null;
+    drawUserMarker();
+    locateButton.classList.remove('unavailable');
+    if (first && tracking.asked) {
+        toast.hidden = true; // tira o "Buscando sua localização…"
+    }
+    if (tracking.following) {
+        followUser(first);
+    }
+}
+
+function onPositionError(error) {
+    if (error.code === 1) {
+        stopTracking(); // negado: o navegador não volta a perguntar, e o botão tenta de novo se a pessoa liberar
+        setFollow(false);
+        locateButton.classList.add('unavailable');
+    }
+    // no primeiro acesso a recusa já é a resposta; o aviso só aparece se a pessoa pediu pelo botão
+    if (tracking.asked && !tracking.position) {
+        showToast(GEOLOCATION_ERRORS[error.code] ?? 'Não foi possível obter sua localização.');
+    }
+}
+
+function userLatLng() {
+    const {latitude, longitude} = tracking.position.coords;
+    return L.latLng(latitude, longitude);
+}
+
+// A seta azul, virada para onde você vai (ou para onde o celular aponta); sem rumo, vira um ponto
+function drawUserMarker() {
+    const latlng = userLatLng();
+    const accuracy = tracking.position.coords.accuracy;
+    if (!tracking.marker) {
+        tracking.accuracy = L.circle(latlng, {radius: accuracy, className: 'user-accuracy', interactive: false});
+        tracking.marker = L.marker(latlng, {
+            icon: L.divIcon({className: 'user-marker', iconSize: [64, 64], html: `<span class="user-halo"></span>
+                <svg class="user-arrow" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 5l11 28-11-6.5L9 33z"/></svg>
+                <span class="user-dot"></span>`}),
+            interactive: false, keyboard: false, zIndexOffset: 1000,
+        });
+        tracking.accuracy.addTo(map);
+        tracking.marker.addTo(map);
+    } else {
+        tracking.marker.setLatLng(latlng);
+        tracking.accuracy.setLatLng(latlng).setRadius(accuracy);
+    }
+    // com GPS bom o círculo só polui; ele aparece quando a posição é aproximada
+    tracking.accuracy.getElement()?.classList.toggle('visible', accuracy > LOW_ACCURACY_METERS);
+    scheduleArrowUpdate();
+}
+
+function scheduleArrowUpdate() {
+    if (tracking.frame || !tracking.marker) {
+        return;
+    }
+    tracking.frame = requestAnimationFrame(() => {
+        tracking.frame = 0;
+        const element = tracking.marker.getElement();
+        const heading = tracking.gpsHeading ?? tracking.compass;
+        element?.classList.toggle('no-heading', heading === null);
+        element?.querySelector('.user-arrow')?.style.setProperty('rotate', `${heading ?? 0}deg`);
+    });
+}
+
+// Bússola do aparelho: no Android vem sem pedir; no iPhone, só depois de um toque e de a pessoa permitir
+function onOrientation(event) {
+    let heading = null;
+    if (typeof event.webkitCompassHeading === 'number') {
+        heading = event.webkitCompassHeading;
+    } else if (event.absolute && event.alpha !== null) {
+        heading = 360 - event.alpha;
+    }
+    if (heading === null) {
+        return;
+    }
+    tracking.compass = (heading + (screen.orientation?.angle ?? 0)) % 360;
+    scheduleArrowUpdate();
+}
+
+async function enableCompass() {
+    const Orientation = window.DeviceOrientationEvent;
+    if (tracking.compassOn || !Orientation) {
+        return;
+    }
+    if (typeof Orientation.requestPermission === 'function') {
+        try {
+            if (await Orientation.requestPermission() !== 'granted') {
+                return;
+            }
+        } catch {
+            return; // fora de um toque o iPhone recusa; tenta de novo no próximo toque no botão
+        }
+    }
+    tracking.compassOn = true;
+    window.addEventListener('ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation',
+        onOrientation);
+}
+
+// O centro do mapa que deixa um ponto no meio da parte visível: no celular a gaveta cobre o pé da tela,
+// no computador o painel cobre a esquerda
+function centerShowing(latlng, zoom) {
+    const offset = isDesktop() ? L.point(-panel.offsetWidth / 2 - 8, 0) : L.point(0, panel.offsetHeight / 2);
+    return map.unproject(map.project(latlng, zoom).add(offset), zoom);
+}
+
+function followUser(jump = false) {
+    const zoom = jump ? Math.max(map.getZoom(), FOLLOW_ZOOM) : map.getZoom();
+    const target = centerShowing(userLatLng(), zoom);
+    if (jump) {
+        map.setView(target, zoom, {animate: false});
+    } else if (map.latLngToContainerPoint(target).distanceTo(map.latLngToContainerPoint(map.getCenter())) > 8) {
+        map.panTo(target, {animate: true, duration: 0.6});
+    }
+}
+
+function setFollow(following) {
+    tracking.following = following;
+    locateButton.setAttribute('aria-pressed', String(following));
+}
+
+// Mostra a posição para escolher o ponto do relato; com precisão baixa, o círculo inteiro fica à vista
 function showUserLocation(position) {
-    const latlng = L.latLng(position.coords.latitude, position.coords.longitude);
-    state.userLocation?.remove();
-    const accuracy = L.circle(latlng, {radius: position.coords.accuracy, color: '#1a73e8', weight: 1,
-        fillOpacity: 0.12, interactive: false});
-    state.userLocation = L.layerGroup([
-        accuracy,
-        L.circleMarker(latlng, {radius: 7, color: '#fff', weight: 2, fillColor: '#1a73e8', fillOpacity: 1})
-            .bindTooltip('Você está aqui'),
-    ]).addTo(map);
-    // com GPS preciso, aproxima até a rua; com precisão baixa, mostra o círculo inteiro
-    map.fitBounds(accuracy.getBounds(), {maxZoom: 17, animate: false, paddingTopLeft: mapPadding()});
+    onPosition(position);
+    const latlng = userLatLng();
+    const radius = Math.max(position.coords.accuracy, 40);
+    map.fitBounds(latlng.toBounds(radius * 2), {maxZoom: 18, animate: false,
+        paddingTopLeft: mapPadding(), paddingBottomRight: isDesktop() ? [0, 0] : [0, panel.offsetHeight]});
     return latlng;
 }
 
@@ -310,28 +542,47 @@ function mapPadding() {
     return isDesktop() ? [440, 0] : [0, 0];
 }
 
-const locateControl = L.control({position: 'topright'});
-locateControl.onAdd = () => {
-    const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control locate-control');
-    container.innerHTML = `<button type="button" title="Mostrar onde estou" aria-label="Mostrar onde estou">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/>
-        </svg></button>`;
-    const button = container.querySelector('button');
-    L.DomEvent.disableClickPropagation(container);
-    button.addEventListener('click', async () => {
-        button.disabled = true;
-        try {
-            showUserLocation(await currentPosition());
-        } catch (error) {
-            setReportMessage(error.message, 'error');
-        } finally {
-            button.disabled = false;
-        }
-    });
-    return container;
-};
-locateControl.addTo(map);
+locateButton.addEventListener('click', async () => {
+    enableCompass();
+    if (!geolocationAvailable()) {
+        showToast(NO_GEOLOCATION);
+        return;
+    }
+    // bloqueado, o navegador nem pergunta de novo: o aviso diz onde liberar
+    if (await geolocationPermission() === 'denied') {
+        showToast('O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado '
+            + 'do endereço e permita a localização.');
+        return;
+    }
+    tracking.asked = true;
+    setFollow(true);
+    if (tracking.position) {
+        followUser(true);
+    } else {
+        showToast('Buscando sua localização…');
+    }
+    startTracking();
+});
+
+// Arrastar o mapa é olhar outro lugar: o mapa para de seguir você até o toque no botão
+map.on('dragstart', () => setFollow(false));
+map.on('zoomend', () => {
+    if (tracking.following && tracking.position) {
+        followUser();
+    }
+});
+
+const toast = document.getElementById('toast');
+let toastTimer = null;
+
+function showToast(text, duration = 6000) {
+    toast.textContent = text;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toast.hidden = true;
+    }, duration);
+}
 
 function shapeSvg(status, size = 18) {
     const {color, shape} = STATUS[status];
@@ -469,15 +720,24 @@ function scheduleIssueLoad() {
         state.autoPanning = false;
         return;
     }
+    // seguindo você, o mapa anda a cada passo: dentro da área já carregada, basta recontar
+    if (state.loaded?.zoom === map.getZoom() && state.loaded.bounds.contains(map.getBounds())) {
+        renderIssueCount();
+        return;
+    }
     clearTimeout(state.loadTimer);
     state.loadTimer = setTimeout(loadIssues, 250);
 }
 
 async function loadIssues() {
-    const bounds = map.getBounds();
-    if (bounds.getWest() >= bounds.getEast() || bounds.getSouth() >= bounds.getNorth()) {
+    const visible = map.getBounds();
+    if (visible.getWest() >= visible.getEast() || visible.getSouth() >= visible.getNorth()) {
         return;
     }
+    // busca uma margem além da tela, para pequenos deslocamentos não pedirem tudo de novo
+    const padded = visible.pad(0.3);
+    const bounds = L.latLngBounds([Math.max(padded.getSouth(), -90), Math.max(padded.getWest(), -180)],
+        [Math.min(padded.getNorth(), 90), Math.min(padded.getEast(), 180)]);
     const params = new URLSearchParams({
         bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()].map((v) => v.toFixed(6)).join(','),
     });
@@ -485,6 +745,7 @@ async function loadIssues() {
     if (state.filters.status) params.set('status', state.filters.status);
 
     const collection = await api(`/issues?${params}`);
+    state.loaded = {bounds, zoom: map.getZoom(), truncated: collection.features.length >= 500};
     issueLayer.clearLayers();
     state.markers.clear();
     for (const feature of collection.features) {
@@ -498,18 +759,29 @@ async function loadIssues() {
         marker.bindTooltip(`${escapeHtml(shortName(p.category, p.categoryName))}: ${STATUS[p.status].label}`);
         marker.bindPopup('Carregando…', {maxWidth: 320, minWidth: 260, autoPanPaddingTopLeft: mapPadding()});
         marker.on('popupopen', () => {
+            setFollow(false); // o mapa parado, para o popup não sair da tela
             if (!isDesktop()) setSheet('peek'); // no celular a gaveta desce para o popup caber
             showIssue(feature.id, marker);
         });
         issueLayer.addLayer(marker);
         state.markers.set(feature.id, marker);
     }
-    const count = collection.features.length;
+    renderIssueCount();
+}
+
+// Conta só o que está na tela, não a margem carregada além dela
+function renderIssueCount() {
+    const visible = map.getBounds();
+    let count = 0;
+    state.markers.forEach((marker) => {
+        if (visible.contains(marker.getLatLng())) count++;
+    });
     const resolved = state.filters.status === 'RESOLVED';
     document.getElementById('issue-count').textContent = count === 0
         ? (resolved ? 'Nenhum problema resolvido nesta área' : 'Nenhum problema em aberto nesta área')
         : `${numberFormat.format(count)} ${count === 1 ? 'problema' : 'problemas'} ${resolved
-            ? (count === 1 ? 'resolvido' : 'resolvidos') : 'em aberto'} nesta área${count >= 500 ? ' (mostrando 500)' : ''}`;
+            ? (count === 1 ? 'resolvido' : 'resolvidos') : 'em aberto'} nesta área${state.loaded?.truncated
+            ? ' (mostrando parte)' : ''}`;
 }
 
 async function showIssue(id, marker) {
@@ -643,6 +915,7 @@ function goToStep(step) {
 
 function startReport() {
     resetReport();
+    setFollow(false); // o mapa fica parado enquanto a pessoa marca o ponto
     state.report.active = true;
     map.closePopup();
     showView('report');
@@ -1012,6 +1285,7 @@ function openLinkedIssue() {
 
 // Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
 async function focusIssue(item) {
+    setFollow(false);
     // um chamado resolvido, ou de outro tipo, não estaria no mapa com os filtros atuais
     const resolved = item.status === 'RESOLVED';
     if (item.status && (state.filters.status === 'RESOLVED') !== resolved) {
@@ -1363,6 +1637,22 @@ map.on('moveend', scheduleIssueLoad);
 map.whenReady(() => map.invalidateSize());
 renderSession();
 showView('explore');
+// Ao abrir, o mapa vai até você e passa a seguir, como no app de navegação. Quem chega por um link de chamado
+// (a notificação) vê o chamado, e a seta aparece sem mover o mapa.
+if (geolocationAvailable()) {
+    setFollow(!new URLSearchParams(location.search).has('issue'));
+    geolocationPermission().then((permission) => {
+        if (permission !== 'denied') {
+            startTracking();
+            enableCompass();
+        } else {
+            setFollow(false);
+            locateButton.classList.add('unavailable');
+        }
+    });
+} else {
+    locateButton.classList.add('unavailable');
+}
 Promise.all([loadCategories(), loadDistricts(), loadIssues()])
     .then(openLinkedIssue)
     .catch((error) => setReportMessage(`Não foi possível carregar o mapa: ${error.message}`, 'error'));

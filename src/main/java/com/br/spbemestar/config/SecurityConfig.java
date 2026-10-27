@@ -68,8 +68,9 @@ public class SecurityConfig {
             PathPatternRequestMatcher.pathPattern("/swagger-ui/**"));
 
     /**
-     * O mapa só carrega scripts, estilos e imagens da própria API, do Leaflet no cdnjs e dos tiles do
-     * OpenStreetMap; um script injetado num relato não roda, nem manda dados para outro domínio.
+     * O mapa só carrega scripts, estilos e imagens da própria API, do Leaflet e do MapLibre no cdnjs, do mapa
+     * vetorial do OpenFreeMap e dos tiles do OpenStreetMap (a reserva sem WebGL); um script injetado num relato
+     * não roda, nem manda dados para outro domínio.
      */
     static final String CONTENT_SECURITY_POLICY = String.join("; ",
             "default-src 'self'",
@@ -77,7 +78,11 @@ public class SecurityConfig {
             "style-src 'self' https://cdnjs.cloudflare.com",
             // blob: é a prévia da foto escolhida no relato, que ainda está só no aparelho
             "img-src 'self' data: blob: https://cdnjs.cloudflare.com https://tile.openstreetmap.org",
-            "connect-src 'self'",
+            // estilo, ruas, ícones e fontes do mapa vetorial
+            "connect-src 'self' https://tiles.openfreemap.org",
+            // o service worker das notificações, e o worker em que o MapLibre desenha o mapa (criado a partir do
+            // próprio código, como blob:)
+            "worker-src 'self' blob:",
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
@@ -188,7 +193,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/*.js", "/*.css",
-                                "/favicon.ico", "/fonts/**").permitAll()
+                                "/favicon.ico", "/fonts/**", "/vendor/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()

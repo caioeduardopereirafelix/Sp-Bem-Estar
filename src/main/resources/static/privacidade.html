@@ -40,8 +40,10 @@
         </ul>
         <p>Não guardamos:</p>
         <ul>
-            <li><strong>A sua localização em tempo real.</strong> Se você permitir, o navegador usa o GPS só para
-                posicionar o ponto do relato; o servidor recebe apenas o ponto do relato que você enviar.</li>
+            <li><strong>A sua localização em tempo real.</strong> Se você permitir, o navegador usa o GPS para mostrar
+                onde você está no mapa e para posicionar o ponto do relato. A sua posição não sai do aparelho: o
+                servidor recebe a área do mapa que está na tela, para buscar os problemas dela, sem guardá-la, e o
+                ponto do relato que você enviar.</li>
             <li><strong>O seu endereço IP.</strong> Ele fica só na memória do servidor, por até uma hora, para
                 limitar envios em excesso (proteção contra spam e robôs).</li>
         </ul>
@@ -75,9 +77,10 @@
     <section>
         <h2>Serviços de terceiros</h2>
         <ul>
-            <li><strong>OpenStreetMap:</strong> as imagens do mapa vêm dos servidores dele, que recebem o IP do seu
-                navegador e a região que você está vendo.</li>
-            <li><strong>cdnjs (Cloudflare):</strong> entrega a biblioteca do mapa (Leaflet).</li>
+            <li><strong>OpenFreeMap:</strong> as ruas e os nomes do mapa vêm dos servidores dele (com dados do
+                OpenStreetMap), que recebem o IP do seu navegador e a região que você está vendo. Em navegadores sem
+                suporte a WebGL, as imagens do mapa vêm do <strong>OpenStreetMap</strong>, nas mesmas condições.</li>
+            <li><strong>cdnjs (Cloudflare):</strong> entrega as bibliotecas do mapa (Leaflet e MapLibre).</li>
             <li><strong>Serviço de push do navegador</strong> (Google, Mozilla, Apple ou Microsoft), só se você
                 ligar os avisos: ele entrega a notificação, mas recebe a mensagem cifrada e não consegue lê-la.</li>
         </ul>
