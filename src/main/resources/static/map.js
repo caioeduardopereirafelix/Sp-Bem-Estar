@@ -365,7 +365,7 @@ const GEOLOCATION_ERRORS = {
 };
 
 const tracking = {watchId: null, position: null, marker: null, accuracy: null, following: false,
-    gpsHeading: null, compass: null, compassOn: false, asked: false, frame: 0};
+    gpsHeading: null, compass: null, compassOn: false, asked: false, warned: false, frame: 0};
 const locateButton = document.getElementById('locate-button');
 
 const geolocationAvailable = () => window.isSecureContext && 'geolocation' in navigator;
@@ -424,10 +424,18 @@ function onPositionError(error) {
         setFollow(false);
         locateButton.classList.add('unavailable');
     }
-    // no primeiro acesso a recusa já é a resposta; o aviso só aparece se a pessoa pediu pelo botão
-    if (tracking.asked && !tracking.position) {
-        showToast(GEOLOCATION_ERRORS[error.code] ?? 'Não foi possível obter sua localização.');
+    // recusar o pedido já é a resposta da pessoa; as outras falhas (GPS ou localização do sistema desligados,
+    // demora) ficariam mudas sem o aviso. Um aviso por tentativa: o watchPosition repete o erro a cada 20 s
+    if (tracking.position || tracking.warned || (error.code === 1 && !tracking.asked)) {
+        return;
     }
+    tracking.warned = true;
+    let text = GEOLOCATION_ERRORS[error.code] ?? 'Não foi possível obter sua localização.';
+    if (error.code === 2 && isDesktop()) {
+        text += ' No computador, confira se a localização está ligada nas configurações do sistema '
+            + '(no Windows: Privacidade e segurança › Localização).';
+    }
+    showToast(text, 10000);
 }
 
 function userLatLng() {
@@ -555,6 +563,7 @@ locateButton.addEventListener('click', async () => {
         return;
     }
     tracking.asked = true;
+    tracking.warned = false;
     setFollow(true);
     if (tracking.position) {
         followUser(true);
