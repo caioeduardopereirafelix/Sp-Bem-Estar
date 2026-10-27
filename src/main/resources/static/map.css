@@ -1762,6 +1762,22 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 
 /* --- Página de texto (privacidade): rola a página inteira, sem o mapa --- */
 
+/* sem internet: a mensagem no meio da tela, com o ícone do app */
+.doc.offline {
+    text-align: center;
+    padding-top: 18vh;
+}
+
+.offline img {
+    border-radius: 22px;
+}
+
+.offline .cta {
+    display: inline-flex;
+    width: auto;
+    text-decoration: none;
+}
+
 body.doc-page {
     overflow: auto;
     height: auto;

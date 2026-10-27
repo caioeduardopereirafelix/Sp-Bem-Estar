@@ -195,7 +195,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/termos.html", "/*.js", "/*.css",
-                                "/favicon.ico", "/fonts/**", "/vendor/**").permitAll()
+                                "/favicon.ico", "/fonts/**", "/vendor/**",
+                                // o app instalável: manifesto, ícones e a tela de "sem internet"
+                                "/manifest.webmanifest", "/icons/**", "/offline.html").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
