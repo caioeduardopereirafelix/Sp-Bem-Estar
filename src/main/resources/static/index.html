@@ -32,6 +32,14 @@
     </svg>
 </button>
 <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
+<!-- Posição aproximada (computador sem GPS, lugar fechado): a pessoa corrige com um toque no mapa -->
+<div class="locate-fix" id="locate-fix" role="dialog" aria-labelledby="locate-fix-text" hidden>
+    <p id="locate-fix-text"></p>
+    <div class="locate-fix-actions">
+        <button type="button" class="button primary" id="locate-fix-start">Marcar onde estou</button>
+        <button type="button" class="button" id="locate-fix-dismiss">Agora não</button>
+    </div>
+</div>
 
 <!-- No celular é uma gaveta que sobe de baixo; no computador, um painel à esquerda do mapa -->
 <aside class="panel" id="panel" data-size="peek" aria-label="SP Bem-Estar">
