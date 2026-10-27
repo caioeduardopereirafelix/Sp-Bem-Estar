@@ -129,6 +129,15 @@
                         Tirar ou escolher uma foto
                     </span>
                 </label>
+                <!-- o classificador viu outra coisa na foto: o envio volta com o tipo que ele sugere -->
+                <div class="suggestion" id="category-suggestion" role="alert" hidden>
+                    <p id="suggestion-text"></p>
+                    <div class="stack">
+                        <button type="button" class="cta" id="suggestion-accept"></button>
+                        <button type="button" class="button" id="suggestion-photo">Trocar a foto</button>
+                        <button type="button" class="link-button" id="suggestion-insist"></button>
+                    </div>
+                </div>
                 <p class="privacy-note">A foto fica pública no mapa: enquadre só o problema, sem rostos nem placas.
                     Ao enviar, você concorda com os <a href="termos.html" target="_blank" rel="noopener">termos de uso</a>.
                     <a href="privacidade.html" target="_blank" rel="noopener">Como usamos os dados</a></p>

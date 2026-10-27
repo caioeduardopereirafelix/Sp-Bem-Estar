@@ -33,6 +33,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Foto inválida", e.getMessage());
     }
 
+    /** 422 com o tipo que o modelo viu, para o app oferecer trocar o tipo, trocar a foto ou enviar assim mesmo. */
+    @ExceptionHandler(PhotoCategoryMismatchException.class)
+    ProblemDetail handlePhotoCategoryMismatch(PhotoCategoryMismatchException e) {
+        ProblemDetail body = problem(HttpStatus.UNPROCESSABLE_CONTENT, "A foto não combina com o tipo escolhido",
+                e.getMessage());
+        body.setProperty("chosenCategory", e.getChosenCategory());
+        body.setProperty("predictedCategory", e.getPredictedCategory());
+        body.setProperty("predictedCategoryName", e.getPredictedCategoryName());
+        body.setProperty("confidence", e.getConfidence());
+        return body;
+    }
+
     @ExceptionHandler(UnknownCategoryException.class)
     ProblemDetail handleUnknownCategory(UnknownCategoryException e) {
         return problem(HttpStatus.BAD_REQUEST, "Categoria inválida", e.getMessage());

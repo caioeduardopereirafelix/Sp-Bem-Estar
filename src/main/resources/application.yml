@@ -165,3 +165,12 @@ app:
     confirm-timeout: 5s
   classification:
     min-confidence: 0.6 # abaixo disso o relato vai para moderação
+    # Conferência da foto na hora do envio, pelo worker (POST /api/classify). Se o modelo vir, com confiança alta,
+    # outro tipo ou nenhum problema de rua, o envio é recusado e a pessoa escolhe o tipo certo (ou insiste, e o
+    # relato vai para a moderação). Sem CLASSIFIER_URL, ou com o worker fora do ar, o relato segue sem ela.
+    precheck:
+      url: ${CLASSIFIER_URL:}
+      username: ${CLASSIFIER_API_USER:}
+      password: ${CLASSIFIER_API_PASSWORD:}
+      timeout: 3s
+      reject-confidence: 0.8

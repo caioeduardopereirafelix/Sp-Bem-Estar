@@ -71,6 +71,10 @@ app:
   metrics:
     username: ${METRICS_USER:}
     password: ${METRICS_PASSWORD:}
+  # Usuário da API em POST /api/classify (HTTP Basic), para conferir a foto na hora do envio; vazio = desligado
+  classify-api:
+    username: ${CLASSIFIER_API_USER:}
+    password: ${CLASSIFIER_API_PASSWORD:}
 
 classifier:
   model: ${CLASSIFIER_MODEL:file:models/classifier.onnx}
