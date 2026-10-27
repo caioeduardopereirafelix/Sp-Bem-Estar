@@ -1440,6 +1440,53 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     resize: vertical;
 }
 
+/* o resultado da conferência da foto, logo depois do envio */
+.photo-check {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--page);
+    color: var(--text-secondary);
+    font-size: 15px;
+}
+
+.photo-check.pending::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    vertical-align: -1px;
+    border: 2px solid var(--text-muted);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+.photo-check.success {
+    color: var(--success-text);
+    border-color: var(--success-text);
+}
+
+.photo-check.warning {
+    color: var(--status-progress);
+    border-color: var(--status-progress);
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.track-check {
+    display: block;
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--status-progress);
+}
+
 .track-resolution {
     display: flex;
     align-items: center;
@@ -1685,6 +1732,10 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 @media (prefers-reduced-motion: reduce) {
     .panel {
         transition: none;
+    }
+
+    .photo-check.pending::before {
+        animation: none;
     }
 }
 
