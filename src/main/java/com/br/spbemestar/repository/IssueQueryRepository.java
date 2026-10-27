@@ -4,12 +4,15 @@ import com.br.spbemestar.dto.BoundingBox;
 import com.br.spbemestar.dto.IssueSummary;
 import com.br.spbemestar.model.IssueStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Repository
@@ -66,5 +69,41 @@ public class IssueQueryRepository {
         sql.append(" ORDER BY i.priority_score DESC, i.last_reported_at DESC LIMIT :limit");
 
         return jdbc.query(sql.toString(), params, ROW_MAPPER);
+    }
+
+    /**
+     * Os chamados para a planilha da prefeitura, do mais antigo para o mais novo. Sem {@code status}, todos menos
+     * os descartados pela moderação; {@code from} e {@code to} filtram pelo primeiro relato (fim exclusivo).
+     */
+    public void export(IssueStatus status, String category, Instant from, Instant to, RowCallbackHandler rows) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT i.id, i.category_code, c.name AS category_name, i.status, i.report_count, i.reporter_count,
+                       i.priority_score, i.first_reported_at, i.last_reported_at, i.resolved_at,
+                       i.resolution_note, i.resolution_photo_id, n.name AS neighborhood_name,
+                       ST_Y(i.location::geometry) AS latitude, ST_X(i.location::geometry) AS longitude
+                FROM issue i
+                JOIN category c ON c.code = i.category_code
+                LEFT JOIN neighborhood n ON n.id = i.neighborhood_id
+                WHERE i.status <> 'DISCARDED'
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (status != null) {
+            sql.append(" AND i.status = :status");
+            params.addValue("status", status.name());
+        }
+        if (category != null) {
+            sql.append(" AND i.category_code = :category");
+            params.addValue("category", category);
+        }
+        if (from != null) {
+            sql.append(" AND i.first_reported_at >= :from");
+            params.addValue("from", OffsetDateTime.ofInstant(from, ZoneOffset.UTC));
+        }
+        if (to != null) {
+            sql.append(" AND i.first_reported_at < :to");
+            params.addValue("to", OffsetDateTime.ofInstant(to, ZoneOffset.UTC));
+        }
+        sql.append(" ORDER BY i.first_reported_at, i.id");
+        jdbc.query(sql.toString(), params, rows);
     }
 }

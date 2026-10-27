@@ -140,6 +140,7 @@ class AuthControllerTests {
         assertThat(mvc.get().uri("/api/v1/categories").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/privacidade.html").exchange()).hasStatusOk();
+        assertThat(mvc.get().uri("/termos.html").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/fonts/atkinson-400.woff2").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/vendor/leaflet-maplibre-gl.js").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/api/v1/privacy").exchange()).hasStatusOk()

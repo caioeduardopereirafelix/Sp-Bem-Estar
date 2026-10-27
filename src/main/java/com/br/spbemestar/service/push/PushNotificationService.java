@@ -93,7 +93,8 @@ public class PushNotificationService {
         if (reporters.isEmpty()) {
             return 0;
         }
-        byte[] payload = payload(issueId, categoryName, status);
+        boolean withPhoto = status == IssueStatus.RESOLVED && issues.existsByIdAndResolutionPhotoIdIsNotNull(issueId);
+        byte[] payload = payload(issueId, categoryName, status, withPhoto);
         int delivered = 0;
         List<PushSubscription> expired = new ArrayList<>();
         for (PushSubscription subscription : subscriptions.findByReporterHashIn(reporters)) {
@@ -119,7 +120,7 @@ public class PushNotificationService {
      * O corpo vai cifrado até o navegador; o service worker do mapa monta a notificação com ele e, no clique,
      * abre {@code /?issue=<id>} do próprio site.
      */
-    private byte[] payload(Long issueId, String categoryName, IssueStatus status) {
+    private byte[] payload(Long issueId, String categoryName, IssueStatus status, boolean withPhoto) {
         String subject = categoryName + " #" + issueId;
         Map<String, Object> message = new LinkedHashMap<>();
         switch (status) {
@@ -133,7 +134,9 @@ public class PushNotificationService {
             }
             default -> {
                 message.put("title", "Problema resolvido");
-                message.put("body", subject + " foi marcado como resolvido. Obrigado por relatar!");
+                message.put("body", subject + (withPhoto
+                        ? " foi resolvido. Toque para ver a foto do conserto."
+                        : " foi marcado como resolvido. Obrigado por relatar!"));
             }
         }
         message.put("issueId", issueId);

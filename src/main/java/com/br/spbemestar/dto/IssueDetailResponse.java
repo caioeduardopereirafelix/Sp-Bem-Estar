@@ -19,8 +19,20 @@ public record IssueDetailResponse(
         Instant lastReportedAt,
         Instant resolvedAt,
         List<ReportItem> reports,
-        List<StatusChange> history
+        List<StatusChange> history,
+        Resolution resolution
 ) {
+
+    /**
+     * O que a equipe mostrou ao resolver; vazio se o chamado não foi resolvido ou se ninguém deixou foto nem nota.
+     */
+    public record Resolution(String photoUrl, String note) {
+
+        public static Resolution of(String photoId, String note) {
+            return photoId == null && note == null ? null
+                    : new Resolution(photoId == null ? null : "/api/v1/photos/" + photoId, note);
+        }
+    }
 
     public record ReportItem(Long id, Instant createdAt, String photoUrl, String classificationStatus) {
     }

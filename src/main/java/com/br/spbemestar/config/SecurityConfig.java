@@ -183,16 +183,18 @@ public class SecurityConfig {
                         .addHeaderWriter(new StaticHeadersWriter("Permissions-Policy", PERMISSIONS_POLICY)))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.PATCH, "/api/v1/issues/*/status").hasRole("OPERATOR")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/issues/*/resolution").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports/*/block-reporter").hasRole("OPERATOR")
                         // antes do GET /api/v1/** público: fila e moderação são só do operador
                         .requestMatchers(HttpMethod.GET, "/api/v1/issues/queue").hasRole("OPERATOR")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/issues/export").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/moderation/**").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/operators", "/api/v1/operators/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/v1/auth/password").hasRole("OPERATOR")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
-                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/*.js", "/*.css",
+                        .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/termos.html", "/*.js", "/*.css",
                                 "/favicon.ico", "/fonts/**", "/vendor/**").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()

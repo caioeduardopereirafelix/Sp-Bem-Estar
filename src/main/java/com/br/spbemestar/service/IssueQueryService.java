@@ -78,6 +78,7 @@ public class IssueQueryService {
                 issue.getLastReportedAt(),
                 issue.getResolvedAt(),
                 reportItems,
-                statusChanges);
+                statusChanges,
+                IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()));
     }
 }

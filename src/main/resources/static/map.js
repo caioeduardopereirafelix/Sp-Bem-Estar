@@ -891,6 +891,7 @@ async function showIssue(id, marker) {
     try {
         const issue = await api(`/issues/${id}`);
         const [hero, ...more] = issue.reports;
+        const after = issue.resolution?.photoUrl;
         const photos = more.slice(0, 4).map((r) =>
             `<a href="${r.photoUrl}" target="_blank" rel="noopener"><img src="${r.photoUrl}" alt="Outra foto do problema" loading="lazy"></a>`).join('');
         const history = issue.history.map((h) =>
@@ -898,14 +899,24 @@ async function showIssue(id, marker) {
                 h.changedBy ? ` por ${escapeHtml(h.changedBy)}` : ''}</li>`).join('');
         const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
             `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
+        // antes e depois: a foto do relato ao lado da foto do conserto, quando a equipe deixou uma
+        const heroHtml = hero && after
+            ? `<div class="popup-hero before-after">
+                <a href="${hero.photoUrl}" target="_blank" rel="noopener"><img src="${hero.photoUrl}" alt="Antes: foto do problema"><span>Antes</span></a>
+                <a href="${after}" target="_blank" rel="noopener"><img src="${after}" alt="Depois: foto do conserto"><span>Depois</span></a>
+            </div>`
+            : hero ? `<a class="popup-hero" href="${hero.photoUrl}" target="_blank" rel="noopener">
+                <img src="${hero.photoUrl}" alt="Foto do problema"></a>` : '';
+        const note = issue.resolution?.note
+            ? `<p class="resolution-note"><strong>O que foi feito:</strong> ${escapeHtml(issue.resolution.note)}</p>` : '';
         const moderation = state.session ? issue.reports.slice(0, 4).map((r) =>
             `<button type="button" class="button" data-block-report="${r.id}">Bloquear autor do relato #${r.id}</button>`).join('') : '';
 
         marker.setPopupContent(`<div class="issue-popup">
-            ${hero ? `<a class="popup-hero" href="${hero.photoUrl}" target="_blank" rel="noopener">
-                <img src="${hero.photoUrl}" alt="Foto do problema"></a>` : ''}
+            ${heroHtml}
             <h3>${escapeHtml(issue.categoryName)}</h3>
             ${trackLine(issue.status)}
+            ${note}
             <ul class="popup-facts">
                 <li>${peopleLabel(issue.reporterCount)}${issue.reportCount !== issue.reporterCount
                     ? ` (${reportsLabel(issue.reportCount, issue.reporterCount)})` : ''}</li>
@@ -920,8 +931,18 @@ async function showIssue(id, marker) {
                 <div class="popup-actions">${moderation}</div>` : ''}
         </div>`);
 
-        marker.getPopup().getElement()?.querySelectorAll('[data-status]').forEach((button) => {
-            button.addEventListener('click', () => changeStatus(issue.id, button.dataset.status, marker));
+        // só os botões: a linha de etapas (trackLine) também tem data-status, e um clique nela não muda nada
+        marker.getPopup().getElement()?.querySelectorAll('.popup-actions button[data-status]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                if (button.dataset.status !== 'RESOLVED') {
+                    changeStatus(issue.id, button.dataset.status, marker);
+                    return;
+                }
+                // o botão sai da página com a troca pelo formulário, e o Leaflet tomaria o clique por um clique
+                // no mapa, que fecha o pop-up
+                event.stopPropagation();
+                showResolveForm(issue.id, marker, button.closest('.popup-actions'));
+            });
         });
         marker.getPopup().getElement()?.querySelectorAll('[data-block-report]').forEach((button) => {
             button.addEventListener('click', () => blockReporter(button.dataset.blockReport, button));
@@ -957,6 +978,49 @@ async function changeStatus(id, status, marker) {
     } catch (error) {
         marker.setPopupContent(`<p class="message error">${escapeHtml(error.message)}</p>`);
     }
+}
+
+// Resolver mostrando o que foi feito: a foto do conserto e uma nota, para quem relatou ver o resultado
+function showResolveForm(id, marker, actions) {
+    const form = document.createElement('form');
+    form.className = 'resolve-form';
+    form.innerHTML = `<label>Foto do conserto (opcional)
+            <input type="file" name="photo" accept="image/jpeg,image/png" capture="environment">
+        </label>
+        <label>O que foi feito (opcional)
+            <textarea name="note" maxlength="500" rows="3" placeholder="Ex.: buraco tapado com asfalto novo"></textarea>
+        </label>
+        <p class="hint">A foto e a nota ficam públicas no mapa e vão no aviso para quem relatou. Enquadre só o local,
+            sem rostos nem placas.</p>
+        <div class="popup-actions">
+            <button type="submit" class="button primary">Confirmar resolvido</button>
+            <button type="button" class="button" data-cancel>Cancelar</button>
+        </div>
+        <p class="message" aria-live="polite"></p>`;
+    actions.replaceWith(form);
+    form.querySelector('[data-cancel]').addEventListener('click', (event) => {
+        event.stopPropagation(); // pelo mesmo motivo do botão "Resolvido"
+        form.replaceWith(actions);
+    });
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const submit = form.querySelector('[type="submit"]');
+        const data = new FormData(form);
+        if (!data.get('photo')?.size) {
+            data.delete('photo');
+        }
+        submit.disabled = true;
+        try {
+            await api(`/issues/${id}/resolution`, {method: 'POST', body: data});
+            marker.closePopup();
+            await Promise.all([loadIssues(), loadDistricts(), loadQueue()]);
+        } catch (error) {
+            const message = form.querySelector('.message');
+            message.textContent = error.message;
+            message.className = 'message error';
+            submit.disabled = false;
+        }
+    });
 }
 
 // Filtros: chips de tipo e a situação (em aberto ou resolvidos)
@@ -1229,6 +1293,9 @@ async function loadMyReports(append = false) {
                     ? `, atualizado ${timeAgo(item.updatedAt)}` : ''}</span>
             </span>
             ${note}
+            ${item.resolution ? `<span class="track-resolution">${item.resolution.photoUrl
+                ? `<img src="${item.resolution.photoUrl}" alt="Foto do conserto" loading="lazy">` : ''}<span>${
+                item.resolution.note ? escapeHtml(item.resolution.note) : 'A equipe deixou uma foto do conserto.'}</span></span>` : ''}
         </button></li>`;
     }).join('');
     list.querySelectorAll('[data-index]:not([disabled])').forEach((button) => {
@@ -1577,6 +1644,45 @@ async function moderate(reportId, decision, blockReporter, button) {
 document.getElementById('queue-category').addEventListener('change', () => loadQueue());
 document.getElementById('queue-status').addEventListener('change', () => loadQueue());
 document.getElementById('queue-more').addEventListener('click', () => loadQueue(true));
+
+// Planilha dos chamados: o arquivo vem com o token do operador, então o download passa por um blob
+document.getElementById('export-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const submit = form.querySelector('[type="submit"]');
+    const message = document.getElementById('export-message');
+    const params = new URLSearchParams([...new FormData(form)].filter(([, value]) => value));
+    submit.disabled = true;
+    message.className = 'message';
+    message.textContent = 'Gerando a planilha…';
+    try {
+        const response = await fetch(`${API}/issues/export?${params}`,
+            {headers: {Authorization: `Bearer ${state.session?.accessToken}`}});
+        if (response.status === 401) {
+            saveSession(null);
+            throw new Error('Sua sessão terminou. Entre de novo em "Sou da prefeitura".');
+        }
+        if (!response.ok) {
+            const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
+            throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
+        }
+        const name = /filename="?([^";]+)"?/.exec(response.headers.get('content-disposition') ?? '')?.[1]
+            ?? 'chamados.csv';
+        const url = URL.createObjectURL(await response.blob());
+        const link = Object.assign(document.createElement('a'), {href: url, download: name});
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        message.className = 'message success';
+        message.textContent = `Planilha ${name} baixada.`;
+    } catch (error) {
+        message.className = 'message error';
+        message.textContent = error.message;
+    } finally {
+        submit.disabled = false;
+    }
+});
 document.getElementById('moderation-more').addEventListener('click', () => loadModeration(true));
 
 // Equipe (só o administrador) e troca da própria senha
@@ -1733,6 +1839,7 @@ async function loadCategories() {
     state.categories = await api('/categories');
     const options = state.categories.map((c) => `<option value="${c.code}">${escapeHtml(c.name)}</option>`).join('');
     document.getElementById('queue-category').insertAdjacentHTML('beforeend', options);
+    document.getElementById('export-category').insertAdjacentHTML('beforeend', options);
     renderCategoryChips();
     renderCategoryTiles();
 }
