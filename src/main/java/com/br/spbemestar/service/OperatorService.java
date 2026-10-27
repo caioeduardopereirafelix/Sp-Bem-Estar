@@ -6,6 +6,7 @@ import com.br.spbemestar.exception.OperatorAlreadyExistsException;
 import com.br.spbemestar.exception.OperatorChangeNotAllowedException;
 import com.br.spbemestar.exception.ResourceNotFoundException;
 import com.br.spbemestar.model.AppUser;
+import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-/** Equipe do órgão público, gerida pelo administrador. Ninguém é apagado: desativar preserva o histórico. */
+/**
+ * Equipe do órgão público, gerida pelo administrador. Ninguém é apagado: desativar preserva o histórico. A conta
+ * do CEO não é da equipe: o administrador não a vê, não cria outra nem a desativa.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -31,11 +35,15 @@ public class OperatorService {
     @Transactional(readOnly = true)
     public List<OperatorItem> list() {
         return users.findAll(Sort.by("active").descending().and(Sort.by("name"))).stream()
+                .filter(user -> user.getRole() != UserRole.CEO)
                 .map(OperatorItem::from).toList();
     }
 
     @Transactional
     public OperatorItem create(Long adminId, CreateOperatorRequest request) {
+        if (request.role() == UserRole.CEO) {
+            throw new OperatorChangeNotAllowedException("A conta do CEO não é cadastrada pela equipe.");
+        }
         String email = AppUser.normalizeEmail(request.email());
         if (users.existsByEmail(email)) {
             throw new OperatorAlreadyExistsException(email);
@@ -52,7 +60,8 @@ public class OperatorService {
             // também garante que sempre sobra um administrador ativo: quem desativa continua ativo
             throw new OperatorChangeNotAllowedException("Você não pode desativar o próprio usuário.");
         }
-        AppUser user = users.findById(userId).orElseThrow(() -> new ResourceNotFoundException("Usuário", userId));
+        AppUser user = users.findById(userId).filter(u -> u.getRole() != UserRole.CEO)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuário", userId));
         if (active) {
             user.activate();
         } else if (user.isActive()) {

@@ -165,7 +165,8 @@ class AuthControllerTests {
     void bootstrapCreatesTheFirstOperatorOnlyOnce() {
         String email = "primeiro@teste.sp.gov.br";
         SecurityProperties withOperator = new SecurityProperties(properties.jwtSecret(), properties.tokenTtl(),
-                properties.issuer(), new SecurityProperties.BootstrapOperator(email, "senha-inicial-123", "Primeiro"));
+                properties.issuer(), new SecurityProperties.BootstrapOperator(email, "senha-inicial-123", "Primeiro"),
+                properties.bootstrapCeo());
         OperatorBootstrapRunner runner = new OperatorBootstrapRunner(withOperator, users, auth);
 
         runner.run(null);
@@ -176,7 +177,8 @@ class AuthControllerTests {
         assertThat(login(email, "senha-inicial-123")).hasStatusOk();
 
         new OperatorBootstrapRunner(new SecurityProperties(properties.jwtSecret(), properties.tokenTtl(),
-                properties.issuer(), new SecurityProperties.BootstrapOperator("", "", "Ninguém")), users, auth)
+                properties.issuer(), new SecurityProperties.BootstrapOperator("", "", "Ninguém"),
+                new SecurityProperties.BootstrapOperator("", "", "Ninguém")), users, auth)
                 .run(null);
         assertThat(users.existsByEmail("")).isFalse();
     }

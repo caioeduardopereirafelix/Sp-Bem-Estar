@@ -1,0 +1,108 @@
+<!doctype html>
+<!-- Painel do CEO: fora do mapa e da área da prefeitura. Só a conta com o papel CEO abre os dados -->
+<html lang="pt-BR" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="theme-color" content="#1b1f29">
+    <title>Painel do CEO · SP Bem-Estar</title>
+    <link rel="preload" href="fonts/atkinson-400.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="map.css">
+    <link rel="stylesheet" href="ceo.css">
+</head>
+<body class="doc-page">
+<header class="topbar ceo-topbar">
+    <h1><a href="/">SP Bem-Estar</a></h1>
+    <p>Painel do CEO</p>
+    <button type="button" class="link-button" id="logout" hidden>Sair</button>
+</header>
+
+<main class="ceo">
+    <!-- Login: o mesmo do órgão público, mas a página só aceita a conta do CEO -->
+    <section class="ceo-login" id="login" hidden>
+        <h2 class="view-title">Entrar no painel</h2>
+        <p class="hint">Métricas do produto, saúde do sistema e erros. Só para a conta do CEO.</p>
+        <form id="login-form" class="stack">
+            <label>E-mail
+                <input type="email" name="email" autocomplete="username" required>
+            </label>
+            <label>Senha
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+            <button type="submit" class="button primary">Entrar</button>
+        </form>
+        <p class="message" id="login-message" aria-live="polite"></p>
+    </section>
+
+    <div class="dashboard" id="dashboard" hidden>
+        <div class="dash-head">
+            <p class="hint" id="dash-updated" aria-live="polite">Carregando…</p>
+            <button type="button" class="button" id="dash-refresh">Atualizar</button>
+        </div>
+        <p class="dash-health" id="dash-health"></p>
+        <p class="message error" id="dash-message" aria-live="polite"></p>
+
+        <h2 class="section-title">Uso do produto</h2>
+        <div class="dash-tiles" id="dash-product"></div>
+        <figure class="dash-chart">
+            <figcaption>Relatos por dia, últimos 14 dias</figcaption>
+            <div class="dash-chart-plot" id="dash-chart"></div>
+            <details>
+                <summary>Ver como tabela</summary>
+                <table class="dash-table" id="dash-chart-table"></table>
+            </details>
+        </figure>
+        <div class="dash-columns">
+            <section>
+                <h3 class="dash-subtitle">Chamados em aberto</h3>
+                <ul class="dash-list" id="dash-open"></ul>
+            </section>
+            <section>
+                <h3 class="dash-subtitle">Conferência das fotos (30 dias)</h3>
+                <ul class="dash-list" id="dash-photos"></ul>
+            </section>
+            <section>
+                <h3 class="dash-subtitle">Tipos com mais chamados abertos</h3>
+                <ol class="dash-list" id="dash-categories"></ol>
+            </section>
+            <section>
+                <h3 class="dash-subtitle">Distritos com mais chamados abertos</h3>
+                <ol class="dash-list" id="dash-neighborhoods"></ol>
+            </section>
+        </div>
+
+        <h2 class="section-title">Saúde do sistema</h2>
+        <ul class="dash-list" id="dash-components"></ul>
+        <div class="dash-tiles" id="dash-runtime"></div>
+
+        <h2 class="section-title">Desde que a API subiu</h2>
+        <p class="hint">Contadores da memória do servidor: voltam a zero a cada reinício.</p>
+        <div class="dash-tiles" id="dash-activity"></div>
+
+        <h2 class="section-title">Erros recentes</h2>
+        <p class="hint">Falhas inesperadas da API (erro 500). O código de rastreio leva ao log completo.</p>
+        <ul class="dash-errors" id="dash-errors"></ul>
+
+        <details class="ceo-password">
+            <summary>Trocar minha senha</summary>
+            <form id="password-form" class="stack">
+                <label>Senha atual
+                    <input type="password" name="currentPassword" autocomplete="current-password" required>
+                </label>
+                <label>Senha nova (12 caracteres ou mais)
+                    <input type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                </label>
+                <label>Repita a senha nova
+                    <input type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="72" required>
+                </label>
+                <button type="submit" class="button primary">Trocar senha</button>
+            </form>
+            <p class="message" id="password-message" aria-live="polite"></p>
+        </details>
+    </div>
+</main>
+
+<script src="ceo.js"></script>
+</body>
+</html>

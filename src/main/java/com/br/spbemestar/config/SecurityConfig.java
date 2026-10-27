@@ -190,7 +190,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/issues/export").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/moderation/**").hasRole("OPERATOR")
                         .requestMatchers("/api/v1/operators", "/api/v1/operators/**").hasRole("ADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/auth/password").hasRole("OPERATOR")
+                        .requestMatchers("/api/v1/ceo/**").hasRole("CEO")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/auth/password").hasAnyRole("OPERATOR", "CEO")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
                         // mapa web, documentação e monitoramento
@@ -199,6 +200,8 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
+                        // a página do CEO é pública; os dados dela vêm de /api/v1/ceo/**, só com a conta do CEO
+                        .requestMatchers(HttpMethod.GET, "/ceo", "/ceo.html").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))

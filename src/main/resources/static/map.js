@@ -2018,6 +2018,16 @@ loginForm.addEventListener('submit', async (event) => {
             body: JSON.stringify({email: data.get('email'), password: data.get('password')}),
         });
         loginForm.reset();
+        if (session.role === 'CEO') {
+            // a conta do CEO não é da equipe da prefeitura: ela abre o painel próprio, já conectada
+            try {
+                sessionStorage.setItem('ceo', JSON.stringify(session));
+            } catch {
+                // sem storage: o painel pede o login de novo
+            }
+            location.assign('/ceo.html');
+            return;
+        }
         saveSession(session);
         showView('operator');
         showSubview('queue');

@@ -1,6 +1,7 @@
 package com.br.spbemestar.exception;
 
 import com.br.spbemestar.config.TraceContext;
+import com.br.spbemestar.observability.RecentErrors;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private final TraceContext traceContext;
+    private final RecentErrors recentErrors;
 
     @ExceptionHandler(InvalidPhotoException.class)
     ProblemDetail handleInvalidPhoto(InvalidPhotoException e) {
@@ -134,6 +136,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ProblemDetail handleUnexpected(Exception e, HttpServletRequest request) {
         log.error("Erro inesperado em {} {}", request.getMethod(), request.getRequestURI(), e);
         String traceId = traceContext.currentTraceId();
+        recentErrors.record(request.getMethod(), request.getRequestURI(), e, traceId); // para o painel do administrador
         ProblemDetail body = problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", traceId == null
                 ? "Algo deu errado do nosso lado. Tente de novo em instantes."
                 : "Algo deu errado do nosso lado. Se continuar, informe o código " + traceId + ".");
