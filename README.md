@@ -22,6 +22,7 @@ API para o cidadão reportar problemas urbanos — buracos, lixo descartado irre
 - [Modelo de dados](#modelo-de-dados)
 - [Endpoints](#endpoints)
 - [Como rodar](#como-rodar)
+- [Deploy em produção](#deploy-em-produção-vps)
 - [Observabilidade](#observabilidade)
 - [Testes](#testes)
 - [Estrutura do projeto](#estrutura-do-projeto)
@@ -446,6 +447,58 @@ Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o model
 | `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
 | `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
 
+## Deploy em produção (VPS)
+
+A pasta [`deploy/`](deploy) sobe tudo num servidor com Docker:
+
+- **Caddy na frente.** Ele recebe a internet nas portas 80 e 443, obtém e renova sozinho o certificado HTTPS do domínio (Let's Encrypt) e redireciona HTTP para HTTPS.
+- **O resto fica na rede interna.** API, PostgreSQL, RabbitMQ, MongoDB e o worker (opcional) não têm porta aberta para fora.
+
+```
+celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL · RabbitMQ · MongoDB
+                                   (rede interna do Docker)
+```
+
+**Servidor:** Ubuntu 24.04 com 2 vCPU, 4 GB de RAM e 40 GB de disco (Hetzner, DigitalOcean, Contabo, Magalu Cloud ou outro).
+
+1. **Aponte o domínio** para o IP do servidor, com um registro `A` no DNS (e `AAAA`, se tiver IPv6). Confira com `dig +short seudominio.com.br` antes de seguir: o Caddy só consegue o certificado quando o domínio já chega ao servidor.
+2. **Instale o Docker e libere as portas:**
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ufw allow OpenSSH && ufw allow 80,443/tcp && ufw allow 443/udp && ufw enable
+   ```
+3. **Baixe o projeto e gere as variáveis.** O `init-env.sh` cria o `deploy/.env` com senhas, segredos e o par de chaves das notificações, tudo aleatório. Ele mostra a senha inicial do administrador: anote-a.
+   ```bash
+   git clone https://github.com/caioeduardopereirafelix/Sp-Bem-Estar.git
+   cd Sp-Bem-Estar/deploy
+   ./init-env.sh seudominio.com.br ti@seudominio.com.br voce@seudominio.com.br "Nome do órgão"
+   ```
+4. **Suba.** O primeiro build compila a API dentro do Docker e leva alguns minutos.
+   ```bash
+   docker compose up -d --build
+   docker compose ps              # todos "healthy"
+   docker compose logs -f caddy   # "certificate obtained successfully"
+   ```
+5. **Teste no celular.** Abra `https://seudominio.com.br`, entre em **Mais › Sou da prefeitura** com o administrador e troque a senha em **Minha conta**.
+6. **Agende o backup diário** do PostgreSQL e das fotos (guarda 14 dias em `deploy/backups`; copie para fora do servidor de tempos em tempos):
+   ```bash
+   (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -
+   ```
+
+**Atualizar:** `git pull && docker compose up -d --build`. As migrations do banco rodam sozinhas na subida.
+
+**Classificador:** coloque o modelo treinado em `deploy/models/classifier.onnx` e suba com `docker compose --profile classifier up -d --build`. Sem ele, os relatos ficam sem classificação automática e o resto funciona igual.
+
+O que o compose já configura:
+- **Rate limit** ligado. A API lê o IP do cliente no `X-Forwarded-For` (`SERVER_FORWARD_HEADERS_STRATEGY=native`), e o Caddy substitui esse cabeçalho pelo IP real, então ninguém escapa do limite forjando um.
+- **Distritos de São Paulo** importados a cada subida (a importação é idempotente).
+- **Swagger desligado** e **`/actuator/prometheus` bloqueado** no Caddy.
+- **Sem log de acesso** no Caddy, para não gravar o IP dos cidadãos.
+- **Logs em JSON** no console.
+- A API roda com um usuário sem privilégios e com locale UTF-8, sem o qual os acentos das variáveis de ambiente quebram.
+
+> Antes de divulgar o endereço, revise com o jurídico o texto de [`/privacidade.html`](src/main/resources/static/privacidade.html) e confira `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT` no `deploy/.env`.
+
 ## Observabilidade
 
 ```bash
@@ -610,4 +663,5 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [ ] Carga com dataset público e benchmarks
 - [x] CI com GitHub Actions
 - [x] Observabilidade: métricas de negócio, logs em JSON, traceId de ponta a ponta, dashboard e alertas
-- [ ] Deploy com demo pública
+- [x] Deploy em VPS com Caddy (HTTPS automático), backups e segredos gerados
+- [ ] Demo pública no ar

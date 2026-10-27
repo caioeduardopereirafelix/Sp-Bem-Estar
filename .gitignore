@@ -58,3 +58,8 @@ build/
 
 ### Logs locais (LOG_FILE=logs/api.log) ###
 /logs/
+
+### Deploy: segredos e cópias de segurança ###
+/deploy/.env
+/deploy/backups/
+/deploy/models/
