@@ -46,7 +46,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 
 **Cidadão**
 - Reportar um problema com foto, localização e categoria. Antes do relato, um pop-up explica para que serve a localização e leva ao pedido de permissão do aparelho; com a permissão, o ponto vem do GPS, e sem ela o ponto é escolhido no mapa. O marcador pode ser arrastado para corrigir
-- Ver no mapa onde a pessoa está, em tempo real, como no Waze: o mapa segue a seta até ela arrastá-lo, e o botão de centralizar volta a seguir. Com o GPS impreciso, aparece o círculo de precisão
+- Ver no mapa onde a pessoa está, em tempo real, como no Waze: o mapa segue a seta até ela arrastá-lo, e o botão de centralizar volta a seguir. Com o GPS impreciso, aparece o círculo de precisão. Se a posição vier aproximada (mais de 100 m, como num computador sem GPS), o app convida a pessoa a tocar no mapa onde ela está; o ponto marcado vale até o aparelho achar a posição com precisão
 - Visualizar no mapa os problemas abertos, filtrando por categoria e status
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 - **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta

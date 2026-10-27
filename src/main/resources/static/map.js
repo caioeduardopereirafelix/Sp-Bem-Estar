@@ -355,6 +355,7 @@ function sendReport(data) {
 // Localização do usuário em tempo real, como nos apps de navegação. A posição fica só neste aparelho: a API
 // recebe a área do mapa à vista, para buscar os problemas, e o ponto de um relato enviado.
 const LOW_ACCURACY_METERS = 50;
+const CORRECTABLE_METERS = 100; // acima disso, a posição é a da rede, não a do GPS, e a pessoa pode corrigi-la
 const FOLLOW_ZOOM = 17;
 const MOVING_SPEED = 0.7; // m/s: abaixo disso o rumo do GPS é ruído, e vale a bússola
 const NO_GEOLOCATION = 'Este navegador não informa a localização aqui (é preciso HTTPS). Marque o ponto no mapa.';
@@ -365,7 +366,8 @@ const GEOLOCATION_ERRORS = {
 };
 
 const tracking = {watchId: null, position: null, marker: null, accuracy: null, following: false,
-    gpsHeading: null, compass: null, compassOn: false, highAccuracy: true, asked: false, warned: false, frame: 0};
+    gpsHeading: null, compass: null, compassOn: false, highAccuracy: true, asked: false, warned: false, frame: 0,
+    manual: null, fixing: false, fixDismissed: false};
 const locateButton = document.getElementById('locate-button');
 
 const geolocationAvailable = () => window.isSecureContext && 'geolocation' in navigator;
@@ -422,6 +424,11 @@ function stopTracking() {
 function onPosition(position) {
     const first = !tracking.position;
     tracking.position = position;
+    const precise = position.coords.accuracy <= CORRECTABLE_METERS;
+    if (precise && tracking.manual) {
+        tracking.manual = null; // o aparelho achou você com precisão: ele vale mais que o ponto marcado à mão
+        showToast('Sua localização ficou precisa: o ponto azul voltou a ser o do aparelho.');
+    }
     const {heading, speed} = position.coords;
     // parado, o GPS não sabe para onde você está virado: o rumo dele só vale em movimento
     tracking.gpsHeading = Number.isFinite(heading) && speed > MOVING_SPEED ? heading : null;
@@ -432,6 +439,9 @@ function onPosition(position) {
     }
     if (tracking.following) {
         followUser(first);
+    }
+    if (!precise && !tracking.manual) {
+        offerLocationFix();
     }
 }
 
@@ -461,15 +471,23 @@ function onPositionError(error) {
     showToast(text, 10000);
 }
 
+// O ponto marcado à mão, se a pessoa corrigiu a posição aproximada; senão, o do aparelho
 function userLatLng() {
+    if (tracking.manual) {
+        return tracking.manual;
+    }
     const {latitude, longitude} = tracking.position.coords;
     return L.latLng(latitude, longitude);
+}
+
+function userAccuracy() {
+    return tracking.manual ? 0 : tracking.position.coords.accuracy;
 }
 
 // A seta azul, virada para onde você vai (ou para onde o celular aponta); sem rumo, vira um ponto
 function drawUserMarker() {
     const latlng = userLatLng();
-    const accuracy = tracking.position.coords.accuracy;
+    const accuracy = userAccuracy();
     if (!tracking.marker) {
         tracking.accuracy = L.circle(latlng, {radius: accuracy, className: 'user-accuracy', interactive: false});
         tracking.marker = L.marker(latlng, {
@@ -545,7 +563,7 @@ function centerShowing(latlng, zoom) {
 
 function followUser(jump = false) {
     // com a posição aproximada (rede, Wi-Fi), o zoom de rua esconderia o círculo de precisão
-    const accuracy = tracking.position.coords.accuracy;
+    const accuracy = userAccuracy();
     const zoom = !jump ? map.getZoom() : accuracy > LOW_ACCURACY_METERS
         ? Math.min(FOLLOW_ZOOM, map.getBoundsZoom(userLatLng().toBounds(accuracy * 2.5)))
         : Math.max(map.getZoom(), FOLLOW_ZOOM);
@@ -566,7 +584,7 @@ function setFollow(following) {
 function showUserLocation(position) {
     onPosition(position);
     const latlng = userLatLng();
-    const radius = Math.max(position.coords.accuracy, 40);
+    const radius = Math.max(userAccuracy(), 40);
     map.fitBounds(latlng.toBounds(radius * 2), {maxZoom: 18, animate: false,
         paddingTopLeft: mapPadding(), paddingBottomRight: isDesktop() ? [0, 0] : [0, panel.offsetHeight]});
     return latlng;
@@ -594,11 +612,60 @@ locateButton.addEventListener('click', async () => {
     setFollow(true);
     if (tracking.position) {
         followUser(true);
+        if (!tracking.manual && tracking.position.coords.accuracy > CORRECTABLE_METERS) {
+            tracking.fixDismissed = false; // pediu a localização de novo: o convite para corrigir volta
+            offerLocationFix();
+        }
     } else {
         showToast('Buscando sua localização…');
     }
     startTracking();
 });
+
+// --- Corrigir a posição aproximada com um toque no mapa ---
+
+const locateFix = document.getElementById('locate-fix');
+
+function offerLocationFix() {
+    if (tracking.fixDismissed || tracking.fixing || state.report.active || !locateFix.hidden) {
+        return;
+    }
+    const meters = numberFormat.format(Math.round(tracking.position.coords.accuracy / 10) * 10);
+    document.getElementById('locate-fix-text').textContent = `Sua localização está aproximada (cerca de ${meters} m). `
+        + 'Toque em "Marcar onde estou" e depois no mapa, no lugar onde você está.';
+    locateFix.hidden = false;
+}
+
+function stopLocationFix() {
+    tracking.fixing = false;
+    document.body.classList.remove('fixing-location');
+    locateFix.hidden = true;
+}
+
+document.getElementById('locate-fix-start').addEventListener('click', () => {
+    tracking.fixing = true;
+    locateFix.hidden = true;
+    document.body.classList.add('fixing-location');
+    if (!isDesktop()) {
+        setSheet('peek');
+    }
+    showToast('Toque no mapa no lugar onde você está.', 20000);
+});
+
+document.getElementById('locate-fix-dismiss').addEventListener('click', () => {
+    tracking.fixDismissed = true;
+    stopLocationFix();
+});
+
+function setManualLocation(latlng) {
+    stopLocationFix();
+    tracking.manual = latlng;
+    drawUserMarker();
+    setFollow(true);
+    followUser(true);
+    showToast('Pronto: o ponto azul está onde você marcou. Ele volta a ser o do aparelho quando a localização '
+        + 'ficar precisa.');
+}
 
 // Arrastar o mapa é olhar outro lugar: o mapa para de seguir você até o toque no botão
 map.on('dragstart', () => setFollow(false));
@@ -951,6 +1018,7 @@ function goToStep(step) {
 
 function startReport() {
     resetReport();
+    stopLocationFix(); // o relato também usa o toque no mapa: os dois modos não convivem
     setFollow(false); // o mapa fica parado enquanto a pessoa marca o ponto
     state.report.active = true;
     map.closePopup();
@@ -1003,7 +1071,7 @@ async function locateForReport() {
     try {
         const position = await currentPosition();
         pickLocation(showUserLocation(position));
-        const accuracy = Math.round(position.coords.accuracy);
+        const accuracy = Math.round(userAccuracy());
         setReportMessage(accuracy > LOW_ACCURACY_METERS
             ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o pino antes de continuar.`
             : '');
@@ -1057,6 +1125,10 @@ document.querySelectorAll('[data-step-back]').forEach((button) => {
 });
 
 map.on('click', (event) => {
+    if (tracking.fixing) {
+        setManualLocation(event.latlng);
+        return;
+    }
     if (state.report.active && state.report.step === 'where'
         && (document.getElementById('report-hint').hidden === false || state.pickMarker)) {
         pickLocation(event.latlng);

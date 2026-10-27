@@ -1200,6 +1200,38 @@ select, input[type="text"], input[type="email"], input[type="password"] {
     stroke: currentColor;
 }
 
+/* convite para corrigir a posição aproximada: acima do botão de centralizar */
+.locate-fix {
+    position: fixed;
+    z-index: 1002;
+    left: 16px;
+    right: 16px;
+    bottom: calc(var(--sheet-height, 0px) + 88px);
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border-radius: 16px;
+    background: var(--surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+    font-size: 15px;
+}
+
+.locate-fix p {
+    margin: 0;
+}
+
+.locate-fix-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* marcando a posição: o cursor de mira mostra que o próximo toque no mapa vale */
+.fixing-location .leaflet-container {
+    cursor: crosshair;
+}
+
 .toast {
     position: fixed;
     z-index: 1002;
@@ -1489,6 +1521,13 @@ select, input[type="text"], input[type="email"], input[type="password"] {
         left: 442px;
         right: auto;
         max-width: 420px;
+    }
+
+    .locate-fix {
+        left: auto;
+        right: 16px;
+        bottom: 112px;
+        max-width: 380px;
     }
 
     .panel-head {
