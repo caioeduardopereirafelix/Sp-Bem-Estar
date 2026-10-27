@@ -1559,7 +1559,9 @@ function renderPush() {
         return;
     }
     if (!pushSupported) {
-        text = 'Este navegador não recebe notificações deste site. No iPhone, adicione o site à tela de início para recebê-las.';
+        text = isIos && !standalone()
+            ? 'No iPhone, os avisos chegam pelo app: instale-o na tela de início (veja em Mais › Instalar o app).'
+            : 'Este navegador não recebe notificações deste site.';
     } else if (Notification.permission === 'denied') {
         text = 'As notificações deste site estão bloqueadas. Libere nas configurações do navegador para ser avisado.';
     } else if (push.subscription) {
@@ -1618,6 +1620,81 @@ async function togglePush(toggle) {
 document.querySelectorAll('[data-push-toggle]').forEach((toggle) => {
     toggle.addEventListener('click', () => togglePush(toggle));
 });
+
+// --- App instalável (PWA): ícone na tela de início, tela cheia e, no iPhone, as notificações ---
+
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// o iPad se apresenta como Mac; a tela de toque denuncia
+const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let installPrompt = null;
+
+// Android e computador: o navegador oferece instalar, e o botão abre esse pedido. iPhone: não há pedido, só o
+// passo a passo pelo Compartilhar do Safari
+function renderInstall() {
+    const box = document.getElementById('install-box');
+    const button = document.getElementById('install-button');
+    if (standalone()) {
+        box.hidden = true;
+        return;
+    }
+    if (installPrompt) {
+        box.hidden = false;
+        button.hidden = false;
+        return;
+    }
+    if (isIos) {
+        document.getElementById('install-text').textContent = 'No iPhone: toque em Compartilhar (o quadrado com a '
+            + 'seta para cima, na barra do Safari) e depois em "Adicionar à Tela de Início". O mapa passa a abrir '
+            + 'como um aplicativo, e você pode ligar os avisos dos seus relatos.';
+        box.hidden = false;
+        button.hidden = true;
+        return;
+    }
+    box.hidden = true;
+}
+
+window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault(); // o pedido fica guardado para o botão, em vez de aparecer sozinho
+    installPrompt = event;
+    renderInstall();
+});
+window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    renderInstall();
+    showToast('App instalado: o SP Bem-Estar está na sua tela de início.');
+});
+document.getElementById('install-button').addEventListener('click', async () => {
+    if (!installPrompt) {
+        return;
+    }
+    installPrompt.prompt();
+    await installPrompt.userChoice;
+    installPrompt = null;
+    renderInstall();
+});
+
+// o service worker entra sempre (a tela de "sem internet" e a instalação dependem dele), não só com os avisos
+navigator.serviceWorker?.register('/sw.js').catch(() => {
+    // sem service worker o app funciona igual, só sem a tela de "sem internet"
+});
+renderInstall();
+
+// Atalhos do ícone do app (manifest.webmanifest): segurar o ícone mostra "Relatar um problema" e "Meus relatos"
+function openShortcut() {
+    const params = new URLSearchParams(location.search);
+    const action = params.get('acao');
+    const tab = params.get('aba');
+    if (!action && !tab) {
+        return;
+    }
+    history.replaceState(null, '', location.pathname);
+    if (action === 'relatar') {
+        document.getElementById('report-begin').click();
+    } else if (tab === 'meus-relatos') {
+        showView('mine');
+    }
+}
 
 // O service worker avisa a página aberta: a lista se atualiza e o clique na notificação abre o chamado
 navigator.serviceWorker?.addEventListener('message', (event) => {
@@ -2066,5 +2143,6 @@ if (geolocationAvailable()) {
 }
 Promise.all([loadCategories(), loadDistricts(), loadIssues()])
     .then(openLinkedIssue)
+    .then(openShortcut)
     .catch((error) => setReportMessage(`Não foi possível carregar o mapa: ${error.message}`, 'error'));
 loadMyReports().then(setupPush).catch((error) => setMyReportsMessage(error.message, 'error'));

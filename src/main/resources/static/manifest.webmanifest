@@ -1,0 +1,33 @@
+{
+  "id": "/",
+  "name": "SP Bem-Estar",
+  "short_name": "SP Bem-Estar",
+  "description": "Relate problemas da sua rua (buraco, lixo, poste apagado) com uma foto e acompanhe até a prefeitura resolver.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12151c",
+  "theme_color": "#1b1f29",
+  "categories": ["utilities", "government", "navigation"],
+  "icons": [
+    {"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {
+      "name": "Relatar um problema",
+      "short_name": "Relatar",
+      "url": "/?acao=relatar",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]
+    },
+    {
+      "name": "Meus relatos",
+      "url": "/?aba=meus-relatos",
+      "icons": [{"src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png"}]
+    }
+  ]
+}
