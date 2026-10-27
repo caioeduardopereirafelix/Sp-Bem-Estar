@@ -930,7 +930,7 @@ label {
     font-size: 15px;
 }
 
-select, input[type="text"], input[type="email"], input[type="password"] {
+select, input[type="text"], input[type="email"], input[type="password"], input[type="date"] {
     font: inherit;
     font-size: 16px; /* abaixo de 16px, o iPhone dá zoom ao focar */
     color: var(--text-primary);
@@ -1381,6 +1381,80 @@ select, input[type="text"], input[type="email"], input[type="password"] {
     display: block;
     height: 150px;
     background: var(--page);
+}
+
+/* antes e depois, lado a lado: a foto do relato e a do conserto */
+.popup-hero.before-after {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+}
+
+.before-after a {
+    position: relative;
+    display: block;
+}
+
+.before-after img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    display: block;
+}
+
+.before-after span {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(18, 21, 28, 0.8);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.resolution-note {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.resolve-form {
+    display: grid;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.resolve-form textarea, .resolve-form input[type="file"] {
+    width: 100%;
+    font: inherit;
+}
+
+.resolve-form textarea {
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--page);
+    color: var(--text-primary);
+    resize: vertical;
+}
+
+.track-resolution {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.track-resolution img {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 8px;
 }
 
 .popup-hero img {

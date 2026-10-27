@@ -53,7 +53,8 @@ public class MyReportsService {
                 changes.isEmpty() ? report.getCreatedAt() : changes.getLast().changedAt(),
                 issue.getLocation().getY(),
                 issue.getLocation().getX(),
-                changes);
+                changes,
+                IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()));
     }
 
     private static IssueDetailResponse.StatusChange change(IssueStatusHistory h) {

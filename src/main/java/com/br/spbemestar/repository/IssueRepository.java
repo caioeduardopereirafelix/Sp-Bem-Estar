@@ -85,4 +85,7 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
 
     @Query("SELECT c.name FROM Issue i JOIN i.category c WHERE i.id = :id")
     Optional<String> findCategoryNameById(@Param("id") Long id);
+
+    /** Se o aviso de "resolvido" pode chamar para ver a foto do conserto. */
+    boolean existsByIdAndResolutionPhotoIdIsNotNull(Long id);
 }

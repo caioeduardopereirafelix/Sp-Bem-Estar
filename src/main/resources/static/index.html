@@ -130,6 +130,7 @@
                     </span>
                 </label>
                 <p class="privacy-note">A foto fica pública no mapa: enquadre só o problema, sem rostos nem placas.
+                    Ao enviar, você concorda com os <a href="termos.html" target="_blank" rel="noopener">termos de uso</a>.
                     <a href="privacidade.html" target="_blank" rel="noopener">Como usamos os dados</a></p>
                 <button type="submit" class="cta">Enviar relato</button>
                 <button type="button" class="link-button" data-step-back="what">Trocar o tipo</button>
@@ -183,9 +184,12 @@
                 <tbody id="ranking-body"></tbody>
             </table>
 
-            <h2 class="section-title">Seus dados</h2>
-            <p class="hint">Sem nome, e-mail ou CPF. Veja o que é guardado e quem vê.</p>
-            <a class="button" href="privacidade.html">Política de privacidade</a>
+            <h2 class="section-title">Seus dados e as regras de uso</h2>
+            <p class="hint">Sem nome, e-mail ou CPF. Veja o que é guardado, quem vê e o que pode ser enviado.</p>
+            <div class="stack">
+                <a class="button" href="privacidade.html">Política de privacidade</a>
+                <a class="button" href="termos.html">Termos de uso</a>
+            </div>
 
             <h2 class="section-title" id="operator-login-title">Sou da prefeitura</h2>
             <p class="hint" id="operator-hint">Para a equipe que confirma, encaminha e resolve os chamados.</p>
@@ -243,6 +247,40 @@
                 <ol class="queue" id="queue-list"></ol>
                 <p class="hint" id="queue-summary" aria-live="polite"></p>
                 <button type="button" class="button" id="queue-more" hidden>Mostrar mais</button>
+
+                <details class="subform">
+                    <summary>Baixar planilha dos chamados</summary>
+                    <form id="export-form">
+                        <p class="hint">Arquivo CSV que o Excel abre direto, para levar ao sistema da prefeitura ou a
+                            relatórios. Só dados dos chamados: nada de quem relatou.</p>
+                        <div class="filters">
+                            <label>Tipo
+                                <select name="category" id="export-category">
+                                    <option value="">Todos</option>
+                                </select>
+                            </label>
+                            <label>Situação
+                                <select name="status">
+                                    <option value="">Todas</option>
+                                    <option value="OPEN">Aberto</option>
+                                    <option value="CONFIRMED">Confirmado</option>
+                                    <option value="IN_PROGRESS">Em andamento</option>
+                                    <option value="RESOLVED">Resolvido</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="filters">
+                            <label>Relatado de
+                                <input type="date" name="from">
+                            </label>
+                            <label>até
+                                <input type="date" name="to">
+                            </label>
+                        </div>
+                        <button type="submit" class="button primary">Baixar planilha</button>
+                    </form>
+                    <p class="message" id="export-message" aria-live="polite"></p>
+                </details>
             </div>
 
             <div class="subview" data-subview-panel="moderation" hidden>

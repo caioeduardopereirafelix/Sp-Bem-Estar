@@ -51,11 +51,15 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Acompanhar quantas pessoas reportaram o mesmo ponto e o histórico de status
 - **Meus relatos:** ver os relatos enviados deste navegador e o andamento de cada chamado, sem criar conta
 - Receber uma notificação push quando um chamado relatado for confirmado, entrar em andamento ou for resolvido, mesmo com o mapa fechado
+- Ver o **antes e depois**: quando a equipe resolve com uma foto do conserto, o pop-up mostra a foto do relato ao lado da do conserto, com a nota do que foi feito, e "Meus relatos" também
+- Termos de uso (`/termos.html`) e política de privacidade (`/privacidade.html`), com o responsável e o contato do encarregado vindos da configuração
 - Para o operador logado, o histórico mostra quem fez cada mudança de status (o mapa público mostra o histórico sem nomes)
 
 **Órgão público**
 - Ranking de bairros por problemas a cada 10 mil habitantes
 - Fila de atendimento: chamados em aberto do mais urgente para o menos, com filtro por categoria, status e bairro
+- Resolver com foto e nota: ao marcar um chamado como resolvido, o operador pode anexar a foto do conserto (sem EXIF, como as dos relatos) e uma nota de até 500 caracteres, que vão para o mapa e para o aviso de quem relatou
+- Planilha dos chamados (CSV) para o sistema de atendimento do órgão e relatórios, filtrando por tipo, situação e período. Abre direto no Excel em português (UTF-8 com BOM, `;` e vírgula decimal), não leva nenhum dado de quem relatou, protege contra fórmulas injetadas pela nota e cada exportação fica no log com o operador que a fez
 - Equipe: o administrador cadastra, desativa e reativa operadores; cada um troca a própria senha
 - Fila de moderação: relatos em que o classificador discordou da categoria ou teve pouca confiança; o operador aprova, rejeita ou rejeita e bloqueia o autor
 - Atualização de status: `OPEN → CONFIRMED → IN_PROGRESS → RESOLVED`
@@ -349,6 +353,8 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `PATCH` | `/api/v1/operators/{id}` | Desativa ou reativa (`active`); desativar corta o acesso na hora (🔒 administrador) |
 | `GET` | `/api/v1/privacy` | Responsável pelos dados e contato do encarregado, para a página de privacidade |
 | `PATCH` | `/api/v1/issues/{id}/status` | Atualiza o status do chamado (🔒 operador) |
+| `POST` | `/api/v1/issues/{id}/resolution` | Resolve o chamado com a foto do conserto e uma nota, as duas opcionais (multipart: `photo`, `note`) (🔒 operador) |
+| `GET` | `/api/v1/issues/export?status=&category=&from=&to=` | Planilha CSV dos chamados, no formato do Excel em português (🔒 operador) |
 | `GET` | `/api/v1/neighborhoods?city=` | Distritos em GeoJSON com os indicadores (para o mapa) |
 | `GET` | `/api/v1/neighborhoods/stats` | Indicadores por bairro (normalizados) |
 | `GET` | `/api/v1/categories` | Categorias ativas |
@@ -497,7 +503,7 @@ O que o compose já configura:
 - **Logs em JSON** no console.
 - A API roda com um usuário sem privilégios e com locale UTF-8, sem o qual os acentos das variáveis de ambiente quebram.
 
-> Antes de divulgar o endereço, revise com o jurídico o texto de [`/privacidade.html`](src/main/resources/static/privacidade.html) e confira `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT` no `deploy/.env`.
+> Antes de divulgar o endereço, revise com o jurídico o texto de [`/privacidade.html`](src/main/resources/static/privacidade.html) e de [`/termos.html`](src/main/resources/static/termos.html), seguindo a lista de [`docs/revisao-juridica.md`](docs/revisao-juridica.md), e confira `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT` no `deploy/.env`.
 
 ## Observabilidade
 

@@ -98,6 +98,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Não encontrado", e.getMessage());
     }
 
+    @ExceptionHandler(InvalidResolutionException.class)
+    ProblemDetail handleInvalidResolution(InvalidResolutionException e) {
+        return problem(HttpStatus.BAD_REQUEST, "Resolução inválida", e.getMessage());
+    }
+
     @ExceptionHandler(InvalidStatusTransitionException.class)
     ProblemDetail handleInvalidTransition(InvalidStatusTransitionException e) {
         return problem(HttpStatus.CONFLICT, "Transição de status inválida", e.getMessage());

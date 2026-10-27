@@ -8,6 +8,7 @@ import java.util.List;
  *
  * @param rejected    a moderação recusou o relato; ele não conta mais no chamado
  * @param updatedAt   última mudança de status do chamado, ou o envio, se ainda não houve nenhuma
+ * @param resolution  a foto do conserto e a nota da equipe, quando o chamado foi resolvido com elas
  */
 public record MyReportItem(
         Long reportId,
@@ -20,6 +21,7 @@ public record MyReportItem(
         Instant updatedAt,
         double latitude,
         double longitude,
-        List<IssueDetailResponse.StatusChange> history
+        List<IssueDetailResponse.StatusChange> history,
+        IssueDetailResponse.Resolution resolution
 ) {
 }
