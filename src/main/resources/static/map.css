@@ -193,12 +193,62 @@ a {
     stroke-linejoin: round;
 }
 
+.tabs-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
 .tabs {
     display: flex;
+    flex: 1;
+    min-width: 0;
     gap: 4px;
     overflow-x: auto;
     scrollbar-width: none;
-    margin: 6px -4px 0;
+    margin: 0 0 0 -4px;
+}
+
+/* Entrar sempre à vista: a pílula de destaque para quem não entrou; a inicial, em círculo, para quem já entrou */
+.account-chip {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 0 14px 0 10px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.account-chip svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+}
+
+.account-chip.signed-in {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+    background: var(--accent-soft);
+    border-color: var(--border);
+    color: var(--text-primary);
+    font-size: 17px;
+}
+
+.account-chip.signed-in svg {
+    display: none;
 }
 
 .tab {

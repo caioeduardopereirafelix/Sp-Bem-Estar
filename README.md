@@ -42,7 +42,7 @@ Este projeto ataca três pontos:
 
 ## Funcionalidades
 
-O mapa foi pensado primeiro para o celular e funciona como um app de navegação: abre em tela cheia, com tema escuro, já centralizado em você (uma seta azul que acompanha a posição em tempo real e gira com o rumo ou com a bússola do aparelho), e com uma gaveta recolhida embaixo, onde ficam o botão de relatar e os filtros (no computador, um painel à esquerda). O mapa é vetorial (estilo Fiord do [OpenFreeMap](https://openfreemap.org), com dados do OpenStreetMap), desenhado pelo MapLibre dentro do Leaflet; sem WebGL, ficam os tiles do OpenStreetMap escurecidos. O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). Todo mundo entra pelo mesmo **Mais › Entrar**, com um código enviado por e-mail e sem senha: quem a prefeitura cadastrou na equipe ganha a aba **Prefeitura**, e qualquer outra pessoa entra como cidadão.
+O mapa foi pensado primeiro para o celular e funciona como um app de navegação: abre em tela cheia, com tema escuro, já centralizado em você (uma seta azul que acompanha a posição em tempo real e gira com o rumo ou com a bússola do aparelho), e com uma gaveta recolhida embaixo, onde ficam o botão de relatar e os filtros (no computador, um painel à esquerda). O mapa é vetorial (estilo Fiord do [OpenFreeMap](https://openfreemap.org), com dados do OpenStreetMap), desenhado pelo MapLibre dentro do Leaflet; sem WebGL, ficam os tiles do OpenStreetMap escurecidos. O relato é um passo a passo de três etapas (local, tipo com ícones, foto com prévia) e cada relato mostra a trilha **Recebido → Confirmado → Em andamento → Resolvido**, como o rastreio de uma encomenda. A fonte é a [Atkinson Hyperlegible](https://www.brailleinstitute.org/freefont/), desenhada para ser lida por qualquer pessoa, inclusive com baixa visão, e servida pela própria API (licença OFL em `static/fonts`). Todo mundo entra pelo mesmo botão **Entrar**, sempre à vista no alto do painel, com um código enviado por e-mail e sem senha: quem a prefeitura cadastrou na equipe ganha a aba **Prefeitura**, e qualquer outra pessoa entra como cidadão.
 
 **Cidadão**
 - Entrar com o e-mail, sem senha: chega um código de 6 números (pelo [Brevo](https://www.brevo.com)), e a sessão fica no aparelho por até 90 dias. Relatar exige entrar; ver o mapa, não. Os relatos aparecem em "Meus relatos" em qualquer aparelho em que a pessoa entrar
@@ -406,7 +406,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `PUSH_VAPID_PUBLIC_KEY`, `PUSH_VAPID_PRIVATE_KEY`, `PUSH_VAPID_SUBJECT` | opcionais; ligam os [avisos por push](#meus-relatos-e-avisos-por-push). Gere o par com `node scripts/generate-vapid-keys.mjs`; o subject é um `mailto:` ou `https://` de contato, exigido pelos serviços de push |
 | `GRAFANA_ADMIN_PASSWORD` | opcional; senha do `admin` do Grafana (padrão `admin`, que ele pede para trocar no primeiro login) |
 
-Com o operador criado, entre em **Mais › Entrar** no mapa com o `OPERATOR_EMAIL`: o código chega no e-mail (ou no log, com `MAIL_LOG_CODES=true`). No Swagger UI, faça `POST /api/v1/auth/code` e `POST /api/v1/auth/verify` e cole o `accessToken` em **Authorize**.
+Com o operador criado, toque em **Entrar**, no alto do mapa, com o `OPERATOR_EMAIL`: o código chega no e-mail (ou no log, com `MAIL_LOG_CODES=true`). No Swagger UI, faça `POST /api/v1/auth/code` e `POST /api/v1/auth/verify` e cole o `accessToken` em **Authorize**.
 
 | Serviço | Endereço |
 |---|---|
@@ -497,7 +497,7 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
    docker compose ps              # todos "healthy"
    docker compose logs -f caddy   # "certificate obtained successfully"
    ```
-5. **Teste no celular.** Abra `https://seudominio.com.br` e entre em **Mais › Entrar** com o e-mail do administrador: o código chega pelo Brevo.
+5. **Teste no celular.** Abra `https://seudominio.com.br`, toque em **Entrar**, no alto do app, e use o e-mail do administrador: o código chega pelo Brevo.
 6. **Agende o backup diário** do PostgreSQL e das fotos (guarda 14 dias em `deploy/backups`; copie para fora do servidor de tempos em tempos):
    ```bash
    (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -

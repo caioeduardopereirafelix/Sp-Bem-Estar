@@ -175,7 +175,7 @@ async function api(path, options = {}) {
     const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
     if (response.status === 401 && state.session) {
         saveSession(null);
-        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Entre de novo em Mais › Entrar.');
+        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Toque em Entrar, no alto do app, para entrar de novo.');
     }
     if (!response.ok) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
@@ -1965,7 +1965,7 @@ document.getElementById('export-form').addEventListener('submit', async (event) 
             {headers: {Authorization: `Bearer ${state.session?.accessToken}`}});
         if (response.status === 401) {
             saveSession(null);
-            throw new Error('Sua sessão terminou. Entre de novo em Mais › Entrar.');
+            throw new Error('Sua sessão terminou. Toque em Entrar, no alto do app, para entrar de novo.');
         }
         if (!response.ok) {
             const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
@@ -2063,7 +2063,7 @@ teamForm.addEventListener('submit', async (event) => {
             body: JSON.stringify({name: data.get('name'), email: data.get('email'), role: data.get('role')}),
         });
         teamForm.reset();
-        setTeamMessage(`Cadastro de ${user.name} feito. A pessoa já pode entrar em Mais › Entrar, com o código que chega `
+        setTeamMessage(`Cadastro de ${user.name} feito. A pessoa já pode tocar em Entrar, no alto do app, e usar o código que chega `
             + 'no e-mail.', 'success');
         await loadTeam();
     } catch (error) {
@@ -2230,9 +2230,24 @@ function renderAccount() {
     const signed = Boolean(state.session || reporter?.email);
     document.getElementById('account-login').hidden = signed;
     document.getElementById('account-logout').hidden = !signed;
+
+    const who = state.session?.name ?? reporter?.email;
+    const chip = document.getElementById('account-chip');
+    chip.classList.toggle('signed-in', signed);
+    document.getElementById('account-chip-text').textContent = signed ? who.trim().charAt(0).toUpperCase() : 'Entrar';
+    chip.setAttribute('aria-label', signed ? `Sua conta: ${who}` : 'Entrar com o e-mail');
+    chip.title = signed ? `Conectado como ${who}` : '';
 }
 
 document.getElementById('account-login').addEventListener('click', () => openLogin());
+// conectado, a inicial abre Mais, onde ficam a conta e o Sair
+document.getElementById('account-chip').addEventListener('click', () => {
+    if (state.session || citizenSignedIn()) {
+        showView('more');
+    } else if (panel.dataset.current !== 'login') {
+        openLogin();
+    }
+});
 
 document.getElementById('account-logout').addEventListener('click', async () => {
     if (state.session) {

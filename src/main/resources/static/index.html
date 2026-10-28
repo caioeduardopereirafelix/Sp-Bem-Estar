@@ -27,7 +27,7 @@
 <div id="map" class="map" aria-label="Mapa dos problemas relatados"></div>
 
 <!-- Botões por cima do mapa, como nos apps de navegação -->
-<button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: relatos, prefeitura e privacidade">
+<button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: sua conta, relatos e privacidade">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
 </button>
 <button type="button" class="fab fab-locate" id="locate-button" aria-label="Centralizar o mapa em você"
@@ -60,12 +60,19 @@
             </svg>
             <span>SP Bem-Estar</span>
         </a>
-        <nav class="tabs" aria-label="Seções">
-            <button type="button" class="tab" data-goto="explore" aria-current="page">Mapa</button>
-            <button type="button" class="tab" data-goto="mine">Meus relatos <span class="badge" id="mine-count"></span></button>
-            <button type="button" class="tab" data-goto="operator" id="operator-tab" hidden>Prefeitura</button>
-            <button type="button" class="tab" data-goto="more">Mais</button>
-        </nav>
+        <div class="tabs-row">
+            <nav class="tabs" aria-label="Seções">
+                <button type="button" class="tab" data-goto="explore" aria-current="page">Mapa</button>
+                <button type="button" class="tab" data-goto="mine">Meus relatos <span class="badge" id="mine-count"></span></button>
+                <button type="button" class="tab" data-goto="operator" id="operator-tab" hidden>Prefeitura</button>
+                <button type="button" class="tab" data-goto="more">Mais</button>
+            </nav>
+            <!-- sempre à vista, como nos apps: "Entrar" para quem não entrou, a inicial para quem já entrou -->
+            <button type="button" class="account-chip" id="account-chip">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg>
+                <span id="account-chip-text">Entrar</span>
+            </button>
+        </div>
     </header>
 
     <div class="views">
@@ -367,7 +374,7 @@
                             </select>
                         </label>
                         <button type="submit" class="button primary">Cadastrar</button>
-                        <p class="hint">Sem senha: a pessoa entra em Mais › Entrar com esse e-mail e recebe um código na hora.</p>
+                        <p class="hint">Sem senha: a pessoa toca em Entrar, no alto do app, usa esse e-mail e recebe um código na hora.</p>
                     </form>
                 </details>
                 <p class="message" id="team-message" aria-live="polite"></p>
