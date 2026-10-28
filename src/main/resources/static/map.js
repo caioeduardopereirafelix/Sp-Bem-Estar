@@ -1261,8 +1261,7 @@ const WHERE_TEXT = {
 
 document.getElementById('report-begin').addEventListener('click', async () => {
     if (!citizenSignedIn()) {
-        openLogin('Para relatar, entre com o seu e-mail. Assim você acompanha o relato em qualquer aparelho.',
-            () => document.getElementById('report-begin').click());
+        openLogin('Para relatar, entre com o seu e-mail. Assim você acompanha o relato em qualquer aparelho.', 'report');
         return;
     }
     startReport();
@@ -1427,7 +1426,7 @@ reportForm.addEventListener('submit', async (event) => {
         if (error.loginRequired) {
             // a foto e o ponto continuam no formulário: depois do login, é só enviar de novo
             setReportMessage('');
-            openLogin(`${error.message} O relato continua aqui, pronto para enviar.`, () => showView('report'));
+            openLogin(`${error.message} O relato continua aqui, pronto para enviar.`, 'report-form');
             return;
         }
         setReportMessage(error.message, 'error');
@@ -1561,7 +1560,7 @@ function renderMineEmpty(total) {
 }
 
 document.getElementById('mine-login').addEventListener('click', () =>
-    openLogin('Entre com o seu e-mail para ver os seus relatos.', () => showView('mine')));
+    openLogin('Entre com o seu e-mail para ver os seus relatos.', 'mine'));
 
 document.getElementById('my-reports-more').addEventListener('click', () =>
     loadMyReports(true).catch((error) => setMyReportsMessage(error.message, 'error')));
@@ -2100,7 +2099,40 @@ teamForm.addEventListener('submit', async (event) => {
 // --- Entrar: um login só, por código enviado por e-mail. Quem entra decide a API, pelo e-mail: a equipe da
 // prefeitura vai para a aba Prefeitura, o CEO para o painel dele, e qualquer outra pessoa entra como cidadão ---
 
-const login = {email: null, then: null, back: 'more'};
+const login = {email: null, intent: null, back: 'more'};
+
+// O que fazer depois que o cidadão entra, pelo motivo de ter aberto o Entrar
+const LOGIN_INTENTS = {
+    report: () => document.getElementById('report-begin').click(),
+    // a foto e o ponto ainda estão no formulário; se a página recarregou no meio, começa o relato de novo
+    'report-form': () => (state.pickedLocation ? showView('report') : document.getElementById('report-begin').click()),
+    mine: () => showView('mine'),
+};
+
+// O login em andamento fica guardado por alguns minutos: no celular, abrir o e-mail para ler o código costuma
+// recarregar a página, e sem isso a pessoa voltaria para o mapa e teria de pedir outro código
+const PENDING_LOGIN_KEY = 'login-pending';
+
+function savePendingLogin(pending) {
+    try {
+        if (pending) {
+            localStorage.setItem(PENDING_LOGIN_KEY, JSON.stringify(pending));
+        } else {
+            localStorage.removeItem(PENDING_LOGIN_KEY);
+        }
+    } catch {
+        // sem storage: o login vale só enquanto a página estiver aberta
+    }
+}
+
+function loadPendingLogin() {
+    try {
+        const pending = JSON.parse(localStorage.getItem(PENDING_LOGIN_KEY) ?? 'null');
+        return pending && new Date(pending.expiresAt) > new Date() ? pending : null;
+    } catch {
+        return null;
+    }
+}
 const loginEmailForm = document.getElementById('login-email-form');
 const loginCodeForm = document.getElementById('login-code-form');
 const loginMessage = document.getElementById('login-message');
@@ -2111,10 +2143,11 @@ function setLoginMessage(text, kind) {
 }
 
 /**
- * Abre a tela de entrar; {@code then} roda depois que um cidadão entra (voltar ao relato, por exemplo).
+ * Abre a tela de entrar; {@code intent} (uma chave de LOGIN_INTENTS) diz o que fazer depois que um cidadão entra.
  */
-function openLogin(reason, then) {
-    login.then = then ?? null;
+function openLogin(reason, intent) {
+    login.intent = intent ?? null;
+    login.reason = reason ?? null;
     login.back = panel.dataset.current && panel.dataset.current !== 'login' ? panel.dataset.current : 'more';
     document.getElementById('login-reason').textContent = reason
         ?? 'Sem senha: mandamos um código de 6 números para o seu e-mail.';
@@ -2140,10 +2173,28 @@ async function requestLoginCode(email) {
         body: JSON.stringify({email}),
     });
     login.email = email;
-    const minutes = Math.round((new Date(sent.expiresAt).getTime() - Date.now()) / 60_000);
+    savePendingLogin({email, intent: login.intent, reason: login.reason, expiresAt: sent.expiresAt});
+    showCodeStep(email, sent.expiresAt);
+}
+
+function showCodeStep(email, expiresAt) {
+    const minutes = Math.round((new Date(expiresAt).getTime() - Date.now()) / 60_000);
     document.getElementById('login-code-hint').textContent = `Mandamos um código para ${email}. Ele vale por ${
         Math.max(1, minutes)} minutos. Não chegou? Veja a caixa de spam.`;
     showLoginStep('code');
+}
+
+// A página recarregou com um código a caminho (a pessoa foi ler o e-mail): volta direto para o campo do código
+function resumePendingLogin() {
+    const pending = loadPendingLogin();
+    if (!pending || state.session || citizenSignedIn()) {
+        savePendingLogin(null);
+        return;
+    }
+    openLogin(pending.reason, pending.intent);
+    login.email = pending.email;
+    loginEmailForm.elements.email.value = pending.email;
+    showCodeStep(pending.email, pending.expiresAt);
 }
 
 loginEmailForm.addEventListener('submit', async (event) => {
@@ -2174,12 +2225,16 @@ document.getElementById('login-resend').addEventListener('click', async (event) 
 });
 
 document.getElementById('login-change-email').addEventListener('click', () => {
+    savePendingLogin(null);
     setLoginMessage('');
     showLoginStep('email');
     loginEmailForm.elements.email.focus();
 });
 
-document.getElementById('login-cancel').addEventListener('click', () => showView(login.back));
+document.getElementById('login-cancel').addEventListener('click', () => {
+    savePendingLogin(null);
+    showView(login.back);
+});
 
 loginCodeForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -2206,8 +2261,9 @@ loginCodeForm.addEventListener('submit', async (event) => {
 });
 
 async function signedIn(result) {
-    const then = login.then;
-    login.then = null;
+    const then = LOGIN_INTENTS[login.intent];
+    login.intent = null;
+    savePendingLogin(null);
     if (result.role === 'CEO') {
         // a conta do CEO não é da equipe da prefeitura: ela abre o painel próprio, já conectada
         try {
@@ -2321,6 +2377,7 @@ map.on('moveend', scheduleIssueLoad);
 map.whenReady(() => map.invalidateSize());
 renderSession();
 showView('explore');
+resumePendingLogin();
 // Ao abrir, o mapa vai até você e passa a seguir, como no app de navegação. Quem chega por um link de chamado
 // (a notificação) vê o chamado, e a seta aparece sem mover o mapa.
 if (geolocationAvailable()) {
