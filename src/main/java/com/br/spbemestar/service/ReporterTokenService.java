@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Identidade anônima do cidadão: um JWT de 15 minutos para enviar relatos e um refresh token de 90 dias
+ * Identidade do cidadão, emitida no login por código: um JWT de 15 minutos para enviar relatos e um refresh token de 90 dias
  * para renová-lo. O JWT não pode ser revogado, por isso é curto; o refresh token fica no banco (só o hash)
  * e é trocado a cada uso. Se um token já trocado aparece de novo, alguém o copiou: todos os tokens daquele
  * cidadão são revogados.
@@ -56,10 +56,11 @@ public class ReporterTokenService {
     private final Clock clock;
     private final MeterRegistry meters;
 
+    /** Um par novo para o cidadão que acabou de confirmar o e-mail. */
     @Transactional
-    public ReporterTokenResponse register() {
+    public ReporterTokenResponse issueFor(UUID reporterId) {
         event("registered");
-        return issue(UUID.randomUUID(), now());
+        return issue(reporterId, now());
     }
 
     // As revogações precisam ficar gravadas mesmo quando a renovação é recusada
@@ -93,7 +94,7 @@ public class ReporterTokenService {
 
     /**
      * Bloqueia quem enviou o relato: novos relatos e renovações dele são recusados na hora, inclusive com um
-     * JWT ainda válido. Ele pode pedir uma identidade nova, mas isso passa pelo rate limit por IP.
+     * JWT ainda válido. Para voltar, precisaria de outro e-mail e de confirmá-lo.
      */
     @Transactional
     public void blockAuthorOf(Long reportId, Long operatorId) {

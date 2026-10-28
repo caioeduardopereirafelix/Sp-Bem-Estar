@@ -39,7 +39,7 @@ public class OperatorBootstrapRunner implements ApplicationRunner {
         if (users.existsByEmail(email)) {
             return;
         }
-        AppUser user = authService.createUser(email, account.name(), account.password(), role);
+        AppUser user = authService.createUser(email, account.name(), role);
         log.info("{} criada (usuário {})", description, user.getId());
     }
 }

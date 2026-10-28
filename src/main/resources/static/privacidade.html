@@ -17,8 +17,9 @@
     <p class="hint">Atualizada em 27 de outubro de 2026. Veja também os <a href="termos.html">termos de uso</a>.</p>
 
     <p>O SP Bem-Estar recebe relatos de problemas urbanos (buracos, lixo, iluminação) para que o órgão público
-        os encontre e resolva. Você relata <strong>sem criar conta</strong>: não pedimos nome, e-mail, telefone
-        nem CPF. Esta página explica o que é guardado, quem vê e como pedir a exclusão.</p>
+        os encontre e resolva. Para relatar, você <strong>entra com o seu e-mail</strong>: mandamos um código de
+        acesso, sem senha. Não pedimos nome, telefone nem CPF. Esta página explica o que é guardado, quem vê e
+        como pedir a exclusão.</p>
 
     <section>
         <h2>Quem cuida dos dados</h2>
@@ -33,9 +34,12 @@
             <li><strong>A foto do problema.</strong> Antes de guardar, apagamos os metadados do arquivo (EXIF), como
                 a localização gravada pela câmera, a data e o modelo do aparelho.</li>
             <li><strong>O ponto no mapa e a categoria</strong> que você escolheu, e a data do envio.</li>
-            <li><strong>Um identificador anônimo.</strong> Na primeira vez, o seu navegador recebe um código
-                aleatório; é ele que liga os seus relatos para você ver a lista "Meus relatos". No servidor
-                guardamos só uma versão cifrada desse código (HMAC), que não revela quem você é.</li>
+            <li><strong>O seu e-mail</strong>, para você entrar e ver os seus relatos em qualquer aparelho. Ele fica
+                só na sua conta, separado dos relatos.</li>
+            <li><strong>Um identificador da sua conta.</strong> Cada relato guarda só uma versão cifrada dele (HMAC),
+                que não revela o seu e-mail nem quem você é. É ele que monta a sua lista "Meus relatos".</li>
+            <li><strong>O código de acesso</strong> enviado por e-mail, só numa versão cifrada, que não permite
+                entrar por quem lê o banco de dados.</li>
             <li><strong>A inscrição de notificações</strong>, só se você ligar os avisos: o endereço que o serviço
                 de push do seu navegador criou e as chaves para cifrar a mensagem.</li>
         </ul>
@@ -59,12 +63,12 @@
             <li><strong>Qualquer pessoa</strong> vê também a foto do conserto e a nota que a equipe deixa ao
                 resolver um chamado. A equipe é orientada a enquadrar só o local, sem pessoas nem placas.</li>
             <li><strong>Os servidores do órgão público</strong> veem os relatos para confirmar, encaminhar,
-                resolver e moderar. Eles também não sabem quem enviou cada relato.</li>
+                resolver e moderar. Eles não veem o seu e-mail nem sabem quem enviou cada relato.</li>
             <li><strong>O sistema de atendimento do órgão</strong> pode receber uma planilha dos chamados (local,
                 categoria, status, datas, a nota e o link da foto do conserto), exportada por um servidor com login.
-                A planilha não tem nenhum dado de quem relatou, nem o identificador anônimo, e cada exportação fica
+                A planilha não tem nenhum dado de quem relatou, nem o e-mail nem o identificador, e cada exportação fica
                 registrada com o servidor que a fez.</li>
-            <li>Ninguém vê a sua lista "Meus relatos", que só abre com o código guardado no seu navegador.</li>
+            <li>Ninguém mais vê a sua lista "Meus relatos": ela só abre depois que você entra com o seu e-mail.</li>
         </ul>
     </section>
 
@@ -88,6 +92,9 @@
                 OpenStreetMap), que recebem o IP do seu navegador e a região que você está vendo. Em navegadores sem
                 suporte a WebGL, as imagens do mapa vêm do <strong>OpenStreetMap</strong>, nas mesmas condições.</li>
             <li><strong>cdnjs (Cloudflare):</strong> entrega as bibliotecas do mapa (Leaflet e MapLibre).</li>
+            <li><strong>Brevo:</strong> envia o e-mail com o código de acesso. Recebe o seu e-mail e o texto da
+                mensagem (o código), e mais nada sobre os seus relatos. É uma empresa francesa, então esse envio
+                sai do Brasil.</li>
             <li><strong>Serviço de push do navegador</strong> (Google, Mozilla, Apple ou Microsoft), só se você
                 ligar os avisos: ele entrega a notificação, mas recebe a mensagem cifrada e não consegue lê-la.</li>
         </ul>
@@ -98,7 +105,10 @@
         <ul>
             <li><strong>Relatos e fotos</strong> ficam guardados enquanto forem úteis ao atendimento e ao histórico
                 do serviço. A foto de um relato rejeitado pela moderação é apagada na hora.</li>
-            <li><strong>O identificador anônimo</strong> vale por até 90 dias sem uso e é renovado a cada visita.</li>
+            <li><strong>O seu e-mail e a sua conta</strong> ficam até você pedir a exclusão.</li>
+            <li><strong>A sessão no aparelho</strong> vale por até 90 dias sem uso e é renovada a cada visita;
+                "Sair", em Mais, encerra a sessão neste aparelho na hora.</li>
+            <li><strong>Os códigos de acesso</strong> valem 10 minutos e são apagados um dia depois de vencer.</li>
             <li><strong>A inscrição de notificações</strong> fica até você desligar os avisos ou o navegador
                 cancelá-la.</li>
             <li><strong>Registros técnicos</strong> (logs), sem e-mail, IP ou conteúdo dos relatos, ficam por até
@@ -109,21 +119,21 @@
     <section>
         <h2>Seus direitos</h2>
         <p>A LGPD (art. 18) garante, entre outros, saber quais dados existem, corrigi-los e pedir a exclusão.
-            Como o serviço não sabe quem você é, para pedir a exclusão de relatos escreva ao encarregado
+            Para pedir a exclusão da conta ou de relatos, escreva ao encarregado a partir do e-mail da conta,
             informando os números dos chamados, que aparecem em "Meus relatos".</p>
         <p>Pelo próprio navegador, você pode:</p>
         <ul>
             <li>desligar os avisos em "Meus relatos" (a inscrição é apagada do servidor);</li>
-            <li>apagar os dados deste site nas configurações do navegador, o que descarta o seu identificador
-                anônimo. Os relatos já enviados continuam no mapa, mas deixam de aparecer na sua lista.</li>
+            <li>sair da conta em Mais › Sua conta, o que encerra a sessão e desliga os avisos neste aparelho.</li>
         </ul>
     </section>
 
     <section>
         <h2>Segurança</h2>
         <p>A comunicação usa HTTPS; a foto perde os metadados antes de ser guardada; o identificador do autor
-            fica cifrado com uma chave que não está no banco de dados; o acesso dos servidores exige login, e
-            um servidor desativado perde o acesso na hora.</p>
+            fica cifrado com uma chave que não está no banco de dados; o código de acesso vale poucos minutos e
+            poucas tentativas, e só a versão cifrada dele é guardada; o acesso dos servidores exige o código
+            enviado ao e-mail cadastrado, e um servidor desativado perde o acesso na hora.</p>
     </section>
 
     <p><a href="termos.html">Termos de uso</a> · <a href="/">Voltar ao mapa</a></p>

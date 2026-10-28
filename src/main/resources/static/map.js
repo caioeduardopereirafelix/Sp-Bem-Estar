@@ -175,7 +175,7 @@ async function api(path, options = {}) {
     const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
     if (response.status === 401 && state.session) {
         saveSession(null);
-        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Entre de novo em "Sou da prefeitura".');
+        throw new Error('Sua sessão terminou (venceu ou foi encerrada). Toque em Entrar, no alto do app, para entrar de novo.');
     }
     if (!response.ok) {
         throw new Error(body?.detail || body?.title || `Erro ${response.status}`);
@@ -186,7 +186,8 @@ async function api(path, options = {}) {
 // --- Painel: abas, tamanho da gaveta no celular ---
 
 const panel = document.getElementById('panel');
-const VIEW_SIZES = {explore: 'peek', issue: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full'};
+const VIEW_SIZES = {explore: 'peek', issue: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full',
+    login: 'full'};
 
 function setSheet(size) {
     panel.dataset.size = size;
@@ -200,7 +201,8 @@ function showView(name) {
     document.querySelectorAll('.tab').forEach((tab) => {
         const current = tab.dataset.goto === name
             || ((name === 'report' || name === 'issue') && tab.dataset.goto === 'explore')
-            || (name === 'sent' && tab.dataset.goto === 'mine');
+            || (name === 'sent' && tab.dataset.goto === 'mine')
+            || (name === 'login' && tab.dataset.goto === 'more');
         tab.toggleAttribute('aria-current', current);
         if (current) tab.setAttribute('aria-current', 'page');
     });
@@ -266,8 +268,10 @@ document.getElementById('menu-button').addEventListener('click', () => {
     showView(panel.dataset.current === 'more' && panel.dataset.size === 'full' ? 'explore' : 'more');
 });
 
-// Identidade anônima do cidadão: um JWT de 15 min para enviar relatos, renovado com o refresh token.
-// O par fica neste navegador para o mesmo cidadão ser reconhecido nas próximas visitas.
+// O cidadão depois do login por código: um JWT de 15 min para enviar relatos, renovado com o refresh token.
+// O par fica neste navegador, com o e-mail, para a pessoa continuar conectada nas próximas visitas. Um par sem
+// e-mail é a identidade anônima de antes do login: ela não envia mais relatos, mas no primeiro login os relatos
+// feitos com ela passam para a conta.
 const REPORTER_KEY = 'reporter';
 let reporterRequest = null;
 
@@ -286,10 +290,20 @@ function loadReporter() {
 function saveReporter(tokens) {
     state.reporter = tokens;
     try {
-        localStorage.setItem(REPORTER_KEY, JSON.stringify(tokens));
+        if (tokens) {
+            localStorage.setItem(REPORTER_KEY, JSON.stringify(tokens));
+        } else {
+            localStorage.removeItem(REPORTER_KEY);
+        }
     } catch {
         // sem storage (aba anônima, bloqueio): a identidade vale até recarregar a página
     }
+}
+
+const citizenSignedIn = () => Boolean(loadReporter()?.email);
+
+function loginRequired(message = 'Entre com o seu e-mail para continuar.') {
+    return Object.assign(new Error(message), {loginRequired: true});
 }
 
 async function postReporter(path, body) {
@@ -310,20 +324,19 @@ async function obtainReporterToken(forceRenew) {
     if (current?.refreshToken && new Date(current.refreshTokenExpiresAt) > new Date()) {
         const {response, payload} = await postReporter('/reporters/refresh', {refreshToken: current.refreshToken});
         if (response.ok) {
-            saveReporter(payload);
+            saveReporter({...payload, email: current.email}); // o e-mail não vem na renovação
             return payload.accessToken;
         }
         if (response.status === 403) {
             throw new Error(payload?.detail ?? 'Este autor foi bloqueado pela moderação.');
         }
-        // 401: vencido ou revogado; segue para uma identidade nova
+        // 401: vencido ou revogado
     }
-    const {response, payload} = await postReporter('/reporters');
-    if (!response.ok) {
-        throw new Error(payload?.detail || payload?.title || `Erro ${response.status}`);
+    if (current?.email) {
+        saveReporter(null);
+        renderAccount();
     }
-    saveReporter(payload);
-    return payload.accessToken;
+    throw loginRequired('Sua sessão terminou. Entre de novo com o seu e-mail.');
 }
 
 // Uma renovação por vez, também entre abas: duas com o mesmo refresh token parecem uma cópia roubada,
@@ -346,6 +359,9 @@ async function reporterFetch(path, options = {}) {
         const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
         if (response.status === 401 && !forceRenew) {
             continue;
+        }
+        if (body?.loginRequired) {
+            throw loginRequired(body.detail);
         }
         if (!response.ok) {
             // o corpo do erro vai junto: a recusa da foto traz o tipo que o classificador sugere
@@ -1228,6 +1244,11 @@ const WHERE_TEXT = {
 };
 
 document.getElementById('report-begin').addEventListener('click', async () => {
+    if (!citizenSignedIn()) {
+        openLogin('Para relatar, entre com o seu e-mail. Assim você acompanha o relato em qualquer aparelho.',
+            () => document.getElementById('report-begin').click());
+        return;
+    }
     startReport();
     const permission = await geolocationPermission();
     if (permission === 'granted') {
@@ -1387,6 +1408,12 @@ reportForm.addEventListener('submit', async (event) => {
             showSuggestion(error.problem);
             return;
         }
+        if (error.loginRequired) {
+            // a foto e o ponto continuam no formulário: depois do login, é só enviar de novo
+            setReportMessage('');
+            openLogin(`${error.message} O relato continua aqui, pronto para enviar.`, () => showView('report'));
+            return;
+        }
         setReportMessage(error.message, 'error');
     } finally {
         submit.disabled = false;
@@ -1461,10 +1488,14 @@ function setMyReportsMessage(text, kind) {
 
 async function loadMyReports(append = false) {
     const list = document.getElementById('my-reports-list');
-    if (!loadReporter()) {
-        // sem identidade guardada: nada a buscar, e nem vale criar uma só para ver a lista vazia
+    if (!citizenSignedIn()) {
+        // sem login: nada a buscar
+        myReports.items = [];
+        myReports.total = 0;
         list.innerHTML = '';
+        document.getElementById('my-reports-more').hidden = true;
         renderMineEmpty(0);
+        renderPush();
         return;
     }
     myReports.page = append ? myReports.page + 1 : 0;
@@ -1502,12 +1533,19 @@ async function loadMyReports(append = false) {
 }
 
 function renderMineEmpty(total) {
+    const signedIn = citizenSignedIn();
     document.getElementById('mine-count').textContent = total ? numberFormat.format(total) : '';
-    document.getElementById('my-reports-hint').textContent = total === 0
-        ? 'Você ainda não relatou nada deste aparelho. Quando relatar, acompanhe aqui cada etapa até o problema ser resolvido.'
-        : 'Toque num relato para ver o chamado no mapa.';
-    document.getElementById('mine-empty-cta').hidden = total > 0;
+    document.getElementById('my-reports-hint').textContent = !signedIn
+        ? 'Entre com o seu e-mail para ver aqui os seus relatos, em qualquer aparelho, com o andamento de cada um.'
+        : total === 0
+            ? 'Você ainda não relatou nada. Quando relatar, acompanhe aqui cada etapa até o problema ser resolvido.'
+            : 'Toque num relato para ver o chamado no mapa.';
+    document.getElementById('mine-empty-cta').hidden = !signedIn || total > 0;
+    document.getElementById('mine-login').hidden = signedIn;
 }
+
+document.getElementById('mine-login').addEventListener('click', () =>
+    openLogin('Entre com o seu e-mail para ver os seus relatos.', () => showView('mine')));
 
 document.getElementById('my-reports-more').addEventListener('click', () =>
     loadMyReports(true).catch((error) => setMyReportsMessage(error.message, 'error')));
@@ -1543,7 +1581,7 @@ async function setupPush() {
         subscription = null;
     }
     push.subscription = subscription;
-    if (subscription && loadReporter()) {
+    if (subscription && citizenSignedIn()) {
         // liga o navegador à identidade atual, que pode ter sido trocada depois da inscrição
         await saveSubscription(subscription);
     }
@@ -1760,16 +1798,10 @@ async function focusIssue(item) {
 
 // --- Prefeitura ---
 
-const loginForm = document.getElementById('login-form');
-const loginMessage = document.getElementById('login-message');
-
 function renderSession() {
     const session = state.session;
     document.getElementById('operator-tab').hidden = !session;
-    loginForm.hidden = Boolean(session);
-    document.getElementById('operator-hint').textContent = session
-        ? `Você está conectado como ${session.name}. As filas ficam na aba Prefeitura.`
-        : 'Para a equipe que confirma, encaminha e resolve os chamados.';
+    renderAccount();
     document.getElementById('operator-name').textContent = session
         ? `Conectado como ${session.name}. Toque num chamado da fila para abri-lo no mapa e alterar o status.` : '';
     document.getElementById('team-subtab').hidden = session?.role !== 'ADMIN';
@@ -1933,7 +1965,7 @@ document.getElementById('export-form').addEventListener('submit', async (event) 
             {headers: {Authorization: `Bearer ${state.session?.accessToken}`}});
         if (response.status === 401) {
             saveSession(null);
-            throw new Error('Sua sessão terminou. Entre de novo em "Sou da prefeitura".');
+            throw new Error('Sua sessão terminou. Toque em Entrar, no alto do app, para entrar de novo.');
         }
         if (!response.ok) {
             const body = response.headers.get('content-type')?.includes('json') ? await response.json() : null;
@@ -2016,17 +2048,7 @@ async function setUserActive(id, active, button) {
     }
 }
 
-// 18 caracteres de um alfabeto sem letras ambíguas (l, I, O, 0), sorteados pelo navegador
-function generatePassword() {
-    const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const bytes = crypto.getRandomValues(new Uint32Array(18));
-    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-}
-
 const teamForm = document.getElementById('team-form');
-document.getElementById('team-generate').addEventListener('click', () => {
-    teamForm.elements.password.value = generatePassword();
-});
 
 teamForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -2038,11 +2060,11 @@ teamForm.addEventListener('submit', async (event) => {
         const user = await api('/operators', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({name: data.get('name'), email: data.get('email'), password: data.get('password'),
-                role: data.get('role')}),
+            body: JSON.stringify({name: data.get('name'), email: data.get('email'), role: data.get('role')}),
         });
         teamForm.reset();
-        setTeamMessage(`Cadastro de ${user.name} feito. A pessoa já pode entrar com o e-mail e a senha inicial.`, 'success');
+        setTeamMessage(`Cadastro de ${user.name} feito. A pessoa já pode tocar em Entrar, no alto do app, e usar o código que chega `
+            + 'no e-mail.', 'success');
         await loadTeam();
     } catch (error) {
         setTeamMessage(error.message, 'error');
@@ -2051,69 +2073,205 @@ teamForm.addEventListener('submit', async (event) => {
     }
 });
 
-const passwordForm = document.getElementById('password-form');
-const accountMessage = document.getElementById('account-message');
-passwordForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = new FormData(passwordForm);
-    if (data.get('newPassword') !== data.get('confirmPassword')) {
-        accountMessage.textContent = 'A senha nova e a repetição não são iguais.';
-        accountMessage.className = 'message error';
-        return;
+// --- Entrar: um login só, por código enviado por e-mail. Quem entra decide a API, pelo e-mail: a equipe da
+// prefeitura vai para a aba Prefeitura, o CEO para o painel dele, e qualquer outra pessoa entra como cidadão ---
+
+const login = {email: null, then: null, back: 'more'};
+const loginEmailForm = document.getElementById('login-email-form');
+const loginCodeForm = document.getElementById('login-code-form');
+const loginMessage = document.getElementById('login-message');
+
+function setLoginMessage(text, kind) {
+    loginMessage.textContent = text;
+    loginMessage.className = `message ${kind ?? ''}`;
+}
+
+/**
+ * Abre a tela de entrar; {@code then} roda depois que um cidadão entra (voltar ao relato, por exemplo).
+ */
+function openLogin(reason, then) {
+    login.then = then ?? null;
+    login.back = panel.dataset.current && panel.dataset.current !== 'login' ? panel.dataset.current : 'more';
+    document.getElementById('login-reason').textContent = reason
+        ?? 'Sem senha: mandamos um código de 6 números para o seu e-mail.';
+    showLoginStep('email');
+    setLoginMessage('');
+    showView('login');
+    loginEmailForm.elements.email.focus();
+}
+
+function showLoginStep(step) {
+    loginEmailForm.hidden = step !== 'email';
+    loginCodeForm.hidden = step !== 'code';
+    if (step === 'code') {
+        loginCodeForm.reset();
+        loginCodeForm.elements.code.focus();
     }
-    const submit = passwordForm.querySelector('[type="submit"]');
+}
+
+async function requestLoginCode(email) {
+    const sent = await api('/auth/code', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email}),
+    });
+    login.email = email;
+    const minutes = Math.round((new Date(sent.expiresAt).getTime() - Date.now()) / 60_000);
+    document.getElementById('login-code-hint').textContent = `Mandamos um código para ${email}. Ele vale por ${
+        Math.max(1, minutes)} minutos. Não chegou? Veja a caixa de spam.`;
+    showLoginStep('code');
+}
+
+loginEmailForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = loginEmailForm.querySelector('[type="submit"]');
     submit.disabled = true;
+    setLoginMessage('');
     try {
-        const session = await api('/auth/password', {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({currentPassword: data.get('currentPassword'), newPassword: data.get('newPassword')}),
-        });
-        passwordForm.reset();
-        saveSession(session); // o token antigo deixou de valer: segue com o novo
-        accountMessage.textContent = 'Senha trocada. As outras sessões foram encerradas.';
-        accountMessage.className = 'message success';
+        await requestLoginCode(loginEmailForm.elements.email.value.trim());
     } catch (error) {
-        accountMessage.textContent = error.message;
-        accountMessage.className = 'message error';
+        setLoginMessage(error.message, 'error');
     } finally {
         submit.disabled = false;
     }
 });
 
-loginForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const submit = loginForm.querySelector('[type="submit"]');
-    const data = new FormData(loginForm);
-    submit.disabled = true;
-    loginMessage.textContent = '';
-    loginMessage.className = 'message';
+document.getElementById('login-resend').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
     try {
-        const session = await api('/auth/login', {
+        await requestLoginCode(login.email);
+        setLoginMessage('Mandamos um código novo. O anterior não vale mais.', 'success');
+    } catch (error) {
+        setLoginMessage(error.message, 'error');
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.getElementById('login-change-email').addEventListener('click', () => {
+    setLoginMessage('');
+    showLoginStep('email');
+    loginEmailForm.elements.email.focus();
+});
+
+document.getElementById('login-cancel').addEventListener('click', () => showView(login.back));
+
+loginCodeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = loginCodeForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    setLoginMessage('');
+    try {
+        // a identidade anônima de antes do login, se houver: os relatos dela passam para a conta
+        const previous = loadReporter()?.refreshToken && !citizenSignedIn()
+            ? await reporterToken().catch(() => null) : null;
+        const result = await api('/auth/verify', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email: data.get('email'), password: data.get('password')}),
+            body: JSON.stringify({email: login.email, code: loginCodeForm.elements.code.value.trim(),
+                reporterToken: previous}),
         });
-        loginForm.reset();
-        if (session.role === 'CEO') {
-            // a conta do CEO não é da equipe da prefeitura: ela abre o painel próprio, já conectada
-            try {
-                sessionStorage.setItem('ceo', JSON.stringify(session));
-            } catch {
-                // sem storage: o painel pede o login de novo
-            }
-            location.assign('/ceo.html');
-            return;
-        }
-        saveSession(session);
-        showView('operator');
-        showSubview('queue');
+        loginCodeForm.reset();
+        await signedIn(result);
     } catch (error) {
-        loginMessage.textContent = error.message;
-        loginMessage.className = 'message error';
+        setLoginMessage(error.message, 'error');
     } finally {
         submit.disabled = false;
     }
+});
+
+async function signedIn(result) {
+    const then = login.then;
+    login.then = null;
+    if (result.role === 'CEO') {
+        // a conta do CEO não é da equipe da prefeitura: ela abre o painel próprio, já conectada
+        try {
+            sessionStorage.setItem('ceo', JSON.stringify(result));
+        } catch {
+            // sem storage: o painel pede o login de novo
+        }
+        location.assign('/ceo.html');
+        return;
+    }
+    if (result.role !== 'CITIZEN') {
+        saveSession({accessToken: result.accessToken, tokenType: result.tokenType, expiresAt: result.expiresAt,
+            name: result.name, role: result.role});
+        showView('operator');
+        showSubview('queue');
+        return;
+    }
+    saveReporter({accessToken: result.accessToken, tokenType: result.tokenType, expiresAt: result.expiresAt,
+        refreshToken: result.refreshToken, refreshTokenExpiresAt: result.refreshTokenExpiresAt, email: result.email});
+    renderAccount();
+    if (push.subscription) {
+        saveSubscription(push.subscription).catch(() => {}); // os avisos deste aparelho passam para a conta
+    }
+    loadMyReports().catch((error) => setMyReportsMessage(error.message, 'error'));
+    if (then) {
+        then();
+    } else {
+        showView('explore');
+        showToast(`Você entrou como ${result.email}.`);
+    }
+}
+
+// Mais › Sua conta: quem está conectado neste aparelho
+function renderAccount() {
+    const reporter = loadReporter();
+    const status = document.getElementById('account-status');
+    if (state.session) {
+        status.textContent = `Conectado como ${state.session.name}, da equipe da prefeitura. As filas ficam na aba Prefeitura.`;
+    } else if (reporter?.email) {
+        status.textContent = `Conectado como ${reporter.email}. Seus relatos ficam em "Meus relatos", em qualquer aparelho.`;
+    } else {
+        status.textContent = 'Entre com o seu e-mail para relatar e acompanhar os seus relatos. Sem senha: chega um código.';
+    }
+    const signed = Boolean(state.session || reporter?.email);
+    document.getElementById('account-login').hidden = signed;
+    document.getElementById('account-logout').hidden = !signed;
+
+    const who = state.session?.name ?? reporter?.email;
+    const chip = document.getElementById('account-chip');
+    chip.classList.toggle('signed-in', signed);
+    document.getElementById('account-chip-text').textContent = signed ? who.trim().charAt(0).toUpperCase() : 'Entrar';
+    chip.setAttribute('aria-label', signed ? `Sua conta: ${who}` : 'Entrar com o e-mail');
+    chip.title = signed ? `Conectado como ${who}` : '';
+}
+
+document.getElementById('account-login').addEventListener('click', () => openLogin());
+// conectado, a inicial abre Mais, onde ficam a conta e o Sair
+document.getElementById('account-chip').addEventListener('click', () => {
+    if (state.session || citizenSignedIn()) {
+        showView('more');
+    } else if (panel.dataset.current !== 'login') {
+        openLogin();
+    }
+});
+
+document.getElementById('account-logout').addEventListener('click', async () => {
+    if (state.session) {
+        saveSession(null);
+        return;
+    }
+    // os avisos deste aparelho param de chegar: quem sai não deve receber notícias da conta
+    if (push.subscription) {
+        try {
+            await reporterFetch('/reporters/me/push-subscription', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(push.subscription.toJSON()),
+            });
+            await push.subscription.unsubscribe();
+            push.subscription = null;
+        } catch {
+            // sem rede: a inscrição fica, mas a sessão sai mesmo assim
+        }
+    }
+    saveReporter(null);
+    renderAccount();
+    loadMyReports().catch(() => {});
+    showToast('Você saiu da sua conta neste aparelho.');
 });
 
 document.getElementById('logout').addEventListener('click', () => saveSession(null));

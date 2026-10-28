@@ -45,13 +45,13 @@ class MyReportsTests {
 
     @Test
     void listsOwnReportsNewestFirstWithIssueProgress() {
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         UUID me = subject(token);
         Long first = reportService.create(me, "POTHOLE", -25.10, -47.10, TestPhotos.jpeg()).issueId();
         Long second = reportService.create(me, "TRASH", -25.20, -47.20, TestPhotos.jpeg()).issueId();
         statusService.change(first, IssueStatus.IN_PROGRESS, operatorId());
         // de outro cidadão: não aparece
-        reportService.create(subject(reporterTokens.register().accessToken()), "POTHOLE", -25.30, -47.30, TestPhotos.jpeg());
+        reportService.create(subject(reporterTokens.issueFor(UUID.randomUUID()).accessToken()), "POTHOLE", -25.30, -47.30, TestPhotos.jpeg());
 
         MvcTestResult result = myReports("Bearer " + token);
 
@@ -69,7 +69,7 @@ class MyReportsTests {
 
     @Test
     void showsWhatTheClassifierSawInThePhotoUntilModerationDecides() {
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         Long reportId = reportService.create(subject(token), "POTHOLE", -25.40, -47.40, TestPhotos.jpeg()).reportId();
 
         // logo depois do envio: o classificador ainda não respondeu
@@ -90,7 +90,7 @@ class MyReportsTests {
 
     @Test
     void newIdentityStartsWithoutReports() {
-        assertThat(myReports("Bearer " + reporterTokens.register().accessToken())).hasStatusOk()
+        assertThat(myReports("Bearer " + reporterTokens.issueFor(UUID.randomUUID()).accessToken())).hasStatusOk()
                 .bodyJson().extractingPath("$.total").isEqualTo(0);
     }
 
@@ -107,7 +107,7 @@ class MyReportsTests {
 
         String[] keys = TestVapidKeys.browserKeys();
         MvcTestResult subscribe = mvc.put().uri("/api/v1/reporters/me/push-subscription")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + reporterTokens.register().accessToken())
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + reporterTokens.issueFor(UUID.randomUUID()).accessToken())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"endpoint": "https://fcm.googleapis.com/fcm/send/abc", "keys": {"p256dh": "%s", "auth": "%s"}}

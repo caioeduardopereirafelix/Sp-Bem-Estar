@@ -21,9 +21,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Cada teste usa IPs próprios, porque os contadores duram o contexto inteiro. */
 @SpringBootTest(properties = {
         "app.rate-limit.enabled=true",
-        "app.rate-limit.rules[0].name=login",
+        "app.rate-limit.rules[0].name=login-code",
         "app.rate-limit.rules[0].method=POST",
-        "app.rate-limit.rules[0].path=/api/v1/auth/login",
+        "app.rate-limit.rules[0].path=/api/v1/auth/code",
         "app.rate-limit.rules[0].capacity=2",
         "app.rate-limit.rules[0].period=1h",
         "app.rate-limit.rules[1].name=api",
@@ -40,19 +40,19 @@ class RateLimitTests {
     @Autowired AppUserRepository users;
 
     @Test
-    void loginIsLimitedPerIpEvenWithTheRightPassword() {
-        TestOperators.bearer(auth, users);
+    void loginCodesAreLimitedPerIp() {
         String ip = "203.0.113.10";
 
-        assertThat(login(ip, "senha-errada-123")).hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(ip, "senha-errada-456")).hasStatus(HttpStatus.UNAUTHORIZED);
-        MvcTestResult blocked = login(ip, TestOperators.PASSWORD);
+        assertThat(requestCode(ip, "um@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
+        assertThat(requestCode(ip, "dois@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
+        // cada pedido é um e-mail enviado: um IP não manda códigos para uma lista inteira
+        MvcTestResult blocked = requestCode(ip, "tres@teste.com.br");
 
         assertThat(blocked).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
                 .hasContentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .bodyJson().extractingPath("$.title").isEqualTo("Muitas requisições");
         assertThat(Long.parseLong(blocked.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isPositive();
-        assertThat(login("203.0.113.11", TestOperators.PASSWORD)).hasStatusOk();
+        assertThat(requestCode("203.0.113.11", "tres@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
     }
 
     @Test
@@ -75,7 +75,7 @@ class RateLimitTests {
             assertThat(categories(ip)).hasStatusOk();
         }
         assertThat(categories(ip)).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(login(ip, "senha-errada-123")).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(requestCode(ip, "quatro@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
     }
 
     @Test
@@ -97,10 +97,9 @@ class RateLimitTests {
         }
     }
 
-    private MvcTestResult login(String ip, String password) {
-        return mvc.post().uri("/api/v1/auth/login").with(from(ip)).contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\": \"%s\", \"password\": \"%s\"}".formatted(TestOperators.EMAIL, password))
-                .exchange();
+    private MvcTestResult requestCode(String ip, String email) {
+        return mvc.post().uri("/api/v1/auth/code").with(from(ip)).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\": \"%s\"}".formatted(email)).exchange();
     }
 
     private MvcTestResult delete(String ip) {

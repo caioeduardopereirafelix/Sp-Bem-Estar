@@ -8,7 +8,6 @@ import com.br.spbemestar.service.AuthService;
 public final class TestOperators {
 
     public static final String EMAIL = "operador@teste.sp.gov.br";
-    public static final String PASSWORD = "senha-de-teste-123";
 
     private TestOperators() {
     }
@@ -16,7 +15,7 @@ public final class TestOperators {
     /** Header {@code Authorization} de um operador ativo, criado na primeira chamada. */
     public static String bearer(AuthService auth, AppUserRepository users) {
         AppUser operator = users.findByEmail(EMAIL)
-                .orElseGet(() -> auth.createUser(EMAIL, "Operador de teste", PASSWORD, UserRole.OPERATOR));
+                .orElseGet(() -> auth.createUser(EMAIL, "Operador de teste", UserRole.OPERATOR));
         return "Bearer " + auth.issueToken(operator).accessToken();
     }
 }

@@ -8,6 +8,7 @@ import com.br.spbemestar.config.ReporterJwt;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.ReportService;
+import com.br.spbemestar.service.CitizenAccountService;
 import com.br.spbemestar.service.ReporterTokenService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ class IssueResolutionTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired ReportService reportService;
     @Autowired ReporterTokenService reporterTokens;
+    @Autowired CitizenAccountService citizens;
     @Autowired ReporterJwt reporterJwt;
     @Autowired AuthService auth;
     @Autowired AppUserRepository users;
@@ -121,14 +123,14 @@ class IssueResolutionTests {
         assertThat(mvc.post().uri("/api/v1/issues/{id}/resolution", id).multipart().exchange())
                 .hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(mvc.post().uri("/api/v1/issues/{id}/resolution", id).multipart()
-                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(reporterTokens)).exchange())
+                .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens)).exchange())
                 .hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(status(id)).isEqualTo("OPEN");
     }
 
     @Test
     void citizenSeesTheResolutionInTheirReports() {
-        String token = reporterTokens.register().accessToken();
+        String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         UUID me = UUID.fromString(reporterJwt.decoder().decode(token).getSubject());
         Long id = reportService.create(me, "POTHOLE", -26.06, -47.00, TestPhotos.jpeg()).issueId();
 

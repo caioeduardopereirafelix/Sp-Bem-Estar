@@ -1,7 +1,8 @@
 package com.br.spbemestar;
 
-import com.br.spbemestar.service.ReporterTokenService;
+import com.br.spbemestar.service.CitizenAccountService;
 
+import java.util.Optional;
 import java.util.UUID;
 
 public final class TestReporters {
@@ -12,8 +13,13 @@ public final class TestReporters {
     private TestReporters() {
     }
 
-    /** Header {@code Authorization} de um cidadão novo. */
-    public static String bearer(ReporterTokenService tokens) {
-        return "Bearer " + tokens.register().accessToken();
+    /** Header {@code Authorization} de um cidadão novo, já com o e-mail confirmado. */
+    public static String bearer(CitizenAccountService citizens) {
+        return "Bearer " + citizens.signIn(email(), Optional.empty()).accessToken();
+    }
+
+    /** Um e-mail que nenhum outro teste usa. */
+    public static String email() {
+        return "cidadao-" + UUID.randomUUID() + "@teste.com.br";
     }
 }

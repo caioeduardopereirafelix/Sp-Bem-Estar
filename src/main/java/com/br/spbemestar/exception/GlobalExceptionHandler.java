@@ -2,6 +2,7 @@ package com.br.spbemestar.exception;
 
 import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.observability.RecentErrors;
+import com.br.spbemestar.service.mail.EmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -57,9 +58,35 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Área inválida", e.getMessage());
     }
 
-    @ExceptionHandler(InvalidCredentialsException.class)
-    ProblemDetail handleInvalidCredentials(InvalidCredentialsException e) {
-        return problem(HttpStatus.UNAUTHORIZED, "Login inválido", e.getMessage());
+    @ExceptionHandler(InvalidLoginCodeException.class)
+    ProblemDetail handleInvalidLoginCode(InvalidLoginCodeException e) {
+        return problem(HttpStatus.UNAUTHORIZED, "Código inválido", e.getMessage());
+    }
+
+    @ExceptionHandler(LoginCodeThrottledException.class)
+    ResponseEntity<ProblemDetail> handleLoginCodeThrottled(LoginCodeThrottledException e) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+                .body(problem(HttpStatus.TOO_MANY_REQUESTS, "Espere para pedir outro código", e.getMessage()));
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    ProblemDetail handleEmailDelivery(EmailDeliveryException e) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "E-mail não enviado",
+                "Não conseguimos enviar o código agora. Tente de novo em instantes.");
+    }
+
+    @ExceptionHandler(StaffAccessDisabledException.class)
+    ProblemDetail handleStaffAccessDisabled(StaffAccessDisabledException e) {
+        return problem(HttpStatus.FORBIDDEN, "Acesso desativado", e.getMessage());
+    }
+
+    /** O app reconhece o {@code loginRequired} e abre a tela de entrar, em vez de só mostrar o erro. */
+    @ExceptionHandler(CitizenLoginRequiredException.class)
+    ProblemDetail handleCitizenLoginRequired(CitizenLoginRequiredException e) {
+        ProblemDetail body = problem(HttpStatus.FORBIDDEN, "Entre para relatar", e.getMessage());
+        body.setProperty("loginRequired", true);
+        return body;
     }
 
     @ExceptionHandler(InvalidRefreshTokenException.class)
@@ -70,11 +97,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ReporterBlockedException.class)
     ProblemDetail handleReporterBlocked(ReporterBlockedException e) {
         return problem(HttpStatus.FORBIDDEN, "Autor bloqueado", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidPasswordException.class)
-    ProblemDetail handleInvalidPassword(InvalidPasswordException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Senha inválida", e.getMessage());
     }
 
     @ExceptionHandler(OperatorAlreadyExistsException.class)

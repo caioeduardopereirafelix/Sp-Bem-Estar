@@ -84,77 +84,81 @@ function render() {
     document.getElementById('login').hidden = signedIn;
     document.getElementById('dashboard').hidden = !signedIn;
     document.getElementById('logout').hidden = !signedIn;
+    if (!signedIn) {
+        loginCodeForm.hidden = true;
+        loginEmailForm.hidden = false;
+    }
     if (signedIn) {
         loadDashboard();
     }
     syncRefresh();
 }
 
-const loginForm = document.getElementById('login-form');
+// Login por código, o mesmo do app: o e-mail recebe 6 números, sem senha
+const loginEmailForm = document.getElementById('login-email-form');
+const loginCodeForm = document.getElementById('login-code-form');
 const loginMessage = document.getElementById('login-message');
-loginForm.addEventListener('submit', async (event) => {
+let loginEmail = null;
+
+function setLoginMessage(text, kind) {
+    loginMessage.className = `message ${kind ?? ''}`;
+    loginMessage.textContent = text;
+}
+
+loginEmailForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const submit = loginForm.querySelector('[type="submit"]');
-    const data = new FormData(loginForm);
+    const submit = loginEmailForm.querySelector('[type="submit"]');
     submit.disabled = true;
-    loginMessage.className = 'message';
-    loginMessage.textContent = '';
+    setLoginMessage('');
     try {
-        const session = await api('/auth/login', {
+        loginEmail = loginEmailForm.elements.email.value.trim();
+        await api('/auth/code', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email: data.get('email'), password: data.get('password')}),
+            body: JSON.stringify({email: loginEmail}),
+        });
+        document.getElementById('login-code-hint').textContent = `Mandamos um código para ${loginEmail}.`;
+        loginEmailForm.hidden = true;
+        loginCodeForm.hidden = false;
+        loginCodeForm.elements.code.focus();
+    } catch (error) {
+        setLoginMessage(error.message, 'error');
+    } finally {
+        submit.disabled = false;
+    }
+});
+
+loginCodeForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const submit = loginCodeForm.querySelector('[type="submit"]');
+    submit.disabled = true;
+    setLoginMessage('');
+    try {
+        const session = await api('/auth/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: loginEmail, code: loginCodeForm.elements.code.value.trim()}),
         });
         if (session.role !== 'CEO') {
             // a API também recusaria (403): aqui só se evita guardar um token que não serve para esta página
-            throw new Error('Esta conta é da equipe da prefeitura. O painel é só da conta do CEO.');
+            throw new Error('Esta conta não é a do CEO. O painel é só da conta do CEO.');
         }
-        loginForm.reset();
+        loginCodeForm.reset();
         saveSession(session);
     } catch (error) {
-        loginMessage.className = 'message error';
-        loginMessage.textContent = error.message;
+        setLoginMessage(error.message, 'error');
     } finally {
         submit.disabled = false;
     }
+});
+
+document.getElementById('login-change-email').addEventListener('click', () => {
+    loginCodeForm.hidden = true;
+    loginEmailForm.hidden = false;
+    setLoginMessage('');
 });
 
 document.getElementById('logout').addEventListener('click', () => saveSession(null));
-
-const passwordForm = document.getElementById('password-form');
-const passwordMessage = document.getElementById('password-message');
-passwordForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const data = new FormData(passwordForm);
-    if (data.get('newPassword') !== data.get('confirmPassword')) {
-        passwordMessage.className = 'message error';
-        passwordMessage.textContent = 'A senha nova e a repetição não são iguais.';
-        return;
-    }
-    const submit = passwordForm.querySelector('[type="submit"]');
-    submit.disabled = true;
-    try {
-        const session = await api('/auth/password', {
-            method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({currentPassword: data.get('currentPassword'), newPassword: data.get('newPassword')}),
-        });
-        passwordForm.reset();
-        state.session = session; // o token antigo deixou de valer: segue com o novo
-        try {
-            sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-        } catch {
-            // sem storage: segue só na memória
-        }
-        passwordMessage.className = 'message success';
-        passwordMessage.textContent = 'Senha trocada. As outras sessões foram encerradas.';
-    } catch (error) {
-        passwordMessage.className = 'message error';
-        passwordMessage.textContent = error.message;
-    } finally {
-        submit.disabled = false;
-    }
-});
 
 // --- Painel ---
 
@@ -276,6 +280,7 @@ function renderDashboard(data) {
         tile('Tempo até resolver', durationLabel(product.medianResolutionHours30d), 'mediana, do 1º relato à resolução'),
         tile('Esperando moderação', numberFormat.format(product.moderationPending),
             `${numberFormat.format(product.rejected30d)} rejeitado(s) em 30 dias`),
+        tile('Contas de cidadão', numberFormat.format(product.citizenAccounts), 'pessoas que já entraram com o e-mail'),
         tile('Avisos no celular', numberFormat.format(product.pushSubscriptions), 'aparelhos inscritos'),
     ].join('');
     renderDailyChart(product.reportsByDay);

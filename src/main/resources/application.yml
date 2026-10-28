@@ -109,16 +109,22 @@ app:
   security:
     jwt-secret: ${JWT_SECRET} # no mínimo 32 bytes; gere com: openssl rand -base64 48
     token-ttl: 8h
-    # Primeiro operador do órgão público, criado na subida se ainda não existir
+    # Primeiro usuário do órgão público (o administrador), criado na subida se ainda não existir. Sem senha: ele
+    # entra com o código que chega no e-mail
     bootstrap-operator:
       email: ${OPERATOR_EMAIL:}
-      password: ${OPERATOR_PASSWORD:}
       name: ${OPERATOR_NAME:Operador}
     # Conta do CEO, a única que abre o painel de métricas e saúde em /ceo
     bootstrap-ceo:
       email: ${CEO_EMAIL:}
-      password: ${CEO_PASSWORD:}
       name: ${CEO_NAME:CEO}
+  # Código de acesso por e-mail (Brevo). Sem chave, ninguém entra, a não ser com MAIL_LOG_CODES=true no
+  # desenvolvimento, que escreve o código no log
+  mail:
+    brevo-api-key: ${BREVO_API_KEY:}
+    from: ${MAIL_FROM:}
+    from-name: ${MAIL_FROM_NAME:SP Bem-Estar}
+    log-codes: ${MAIL_LOG_CODES:false}
   # Usuário do Prometheus no /actuator/prometheus (HTTP Basic); vazio = ninguém lê as métricas
   metrics:
     username: ${METRICS_USER:}
@@ -127,25 +133,20 @@ app:
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     rules:
-      - name: login # força bruta de senha
+      - name: login-code # cada pedido manda um e-mail: sem limite, a API vira um disparador de spam
         method: POST
-        path: /api/v1/auth/login
-        capacity: 5
-        period: 1m
-      - name: password # troca de senha confere a senha atual: com um token roubado, seria outra força bruta
-        method: PUT
-        path: /api/v1/auth/password
-        capacity: 5
+        path: /api/v1/auth/code
+        capacity: 10
+        period: 15m
+      - name: login-verify # tentar códigos em vários e-mails; cada código já aceita só 5 tentativas
+        method: POST
+        path: /api/v1/auth/verify
+        capacity: 20
         period: 15m
       - name: reports # cada relato grava foto e passa pelo classificador
         method: POST
         path: /api/v1/reports
         capacity: 20
-        period: 1h
-      - name: reporter-register # cada identidade nova escapa de um bloqueio: emitir é caro
-        method: POST
-        path: /api/v1/reporters
-        capacity: 10
         period: 1h
       - name: reporter-refresh # um cidadão renova no máximo a cada 15 min
         method: POST

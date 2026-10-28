@@ -34,7 +34,7 @@ import java.util.List;
 
 /**
  * Limita quantas requisições cada IP faz por regra, com um token bucket por par (regra, IP). Roda
- * antes do Spring Security, para que uma força bruta no login seja barrada sem nem conferir a senha.
+ * antes do Spring Security, para que quem tenta códigos de acesso em série seja barrado sem nem chegar ao banco.
  * <p>
  * O IP é o {@code remoteAddr} da conexão. Atrás de um proxy reverso, ele só reflete o cliente se a
  * aplicação confiar no {@code X-Forwarded-For} desse proxy ({@code server.forward-headers-strategy});

@@ -1,5 +1,7 @@
 package com.br.spbemestar.observability;
 
+import com.br.spbemestar.TestLogin;
+import com.br.spbemestar.TestMailbox;
 import com.br.spbemestar.TestOperators;
 import com.br.spbemestar.TestPhotos;
 import com.br.spbemestar.TestReporters;
@@ -33,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class BusinessMetricsTests {
 
     @Autowired MockMvcTester mvc;
+    @Autowired TestMailbox mailbox;
     @Autowired MeterRegistry meters;
     @Autowired PrometheusMeterRegistry prometheus;
     @Autowired ReportService reportService;
@@ -72,19 +75,17 @@ class BusinessMetricsTests {
         double failures = count("spbemestar.auth.logins", "result", "failure");
         double successes = count("spbemestar.auth.logins", "result", "success");
 
-        assertThat(login(TestOperators.EMAIL, "senha-errada-999")).hasStatus(HttpStatus.UNAUTHORIZED);
-        assertThat(login(TestOperators.EMAIL, TestOperators.PASSWORD)).hasStatusOk();
+        assertThat(TestLogin.requestCode(mvc, TestOperators.EMAIL)).hasStatus(HttpStatus.ACCEPTED);
+        String code = mailbox.code(TestOperators.EMAIL);
+        String wrong = code.equals("000000") ? "111111" : "000000";
+        assertThat(TestLogin.verify(mvc, TestOperators.EMAIL, wrong)).hasStatus(HttpStatus.UNAUTHORIZED);
+        assertThat(TestLogin.verify(mvc, TestOperators.EMAIL, code)).hasStatusOk();
 
         assertThat(count("spbemestar.auth.logins", "result", "failure")).isEqualTo(failures + 1);
         assertThat(count("spbemestar.auth.logins", "result", "success")).isEqualTo(successes + 1);
         // o e-mail é dado pessoal: numa força bruta, a lista de tentativas no log vazaria quem tem conta
-        assertThat(output.getOut()).contains("Login recusado").doesNotContain(TestOperators.EMAIL)
-                .doesNotContain("senha-errada-999");
-    }
-
-    private MvcTestResult login(String email, String password) {
-        return mvc.post().uri("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\": \"%s\", \"password\": \"%s\"}".formatted(email, password)).exchange();
+        assertThat(output.getOut()).contains("Código de acesso recusado").doesNotContain(TestOperators.EMAIL)
+                .doesNotContain(code);
     }
 
     private double count(String name, String tag, String value) {

@@ -66,7 +66,8 @@ public class DashboardService {
                     AS moderation_pending,
                 (SELECT count(*) FROM report
                  WHERE moderation_status = 'REJECTED' AND moderated_at > now() - interval '30 days') AS rejected_30d,
-                (SELECT count(*) FROM push_subscription) AS push_subscriptions
+                (SELECT count(*) FROM push_subscription) AS push_subscriptions,
+                (SELECT count(*) FROM citizen_account) AS citizen_accounts
             """;
 
     private final JdbcTemplate jdbc;
@@ -143,7 +144,7 @@ public class DashboardService {
                         GROUP BY n.id, n.name ORDER BY total DESC, n.name LIMIT 5
                         """),
                 number(row, "moderation_pending"), number(row, "rejected_30d"), photoChecks,
-                number(row, "push_subscriptions"));
+                number(row, "push_subscriptions"), number(row, "citizen_accounts"));
     }
 
     private List<DashboardResponse.Ranked> ranked(String sql) {
