@@ -60,6 +60,7 @@ O mapa foi pensado primeiro para o celular e funciona como um app de navegação
 - Para o operador logado, o histórico mostra quem fez cada mudança de status (o mapa público mostra o histórico sem nomes)
 
 **Órgão público**
+- Quem é da equipe entra e vê só a área da prefeitura: as abas do cidadão (Mapa com o relatar, Meus relatos e Mais) somem, e o mapa fica ao fundo para abrir os chamados da fila
 - Ranking de bairros por problemas a cada 10 mil habitantes
 - Fila de atendimento: chamados em aberto do mais urgente para o menos, com filtro por categoria, status e bairro
 - Resolver com foto e nota: ao marcar um chamado como resolvido, o operador pode anexar a foto do conserto (sem EXIF, como as dos relatos) e uma nota de até 500 caracteres, que vão para o mapa e para o aviso de quem relatou

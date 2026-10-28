@@ -194,13 +194,20 @@ function setSheet(size) {
     document.body.dataset.sheet = size;
 }
 
+// Quem é da prefeitura vê só a área da prefeitura: as telas do cidadão (mapa com o relatar, meus relatos, mais,
+// entrar) levam de volta a ela. O chamado aberto no celular continua valendo, para a equipe agir nele
+const CITIZEN_VIEWS = new Set(['explore', 'report', 'sent', 'mine', 'more', 'login']);
+
 function showView(name) {
+    if (state.session && CITIZEN_VIEWS.has(name)) {
+        name = 'operator';
+    }
     document.querySelectorAll('[data-view]').forEach((view) => {
         view.hidden = view.dataset.view !== name;
     });
     document.querySelectorAll('.tab').forEach((tab) => {
         const current = tab.dataset.goto === name
-            || ((name === 'report' || name === 'issue') && tab.dataset.goto === 'explore')
+            || ((name === 'report' || name === 'issue') && tab.dataset.goto === (state.session ? 'operator' : 'explore'))
             || (name === 'sent' && tab.dataset.goto === 'mine')
             || (name === 'login' && tab.dataset.goto === 'more');
         tab.toggleAttribute('aria-current', current);
@@ -262,6 +269,15 @@ new ResizeObserver(() => {
 }).observe(panel);
 
 document.getElementById('menu-button').addEventListener('click', () => {
+    if (state.session) {
+        // a equipe só tem a área da prefeitura: o menu abre ou recolhe a gaveta com ela
+        if (panel.dataset.current === 'operator' && panel.dataset.size === 'full') {
+            setSheet('peek');
+        } else {
+            showView('operator');
+        }
+        return;
+    }
     if (state.report.active) {
         resetReport();
     }
@@ -1569,7 +1585,12 @@ function sameKey(buffer, key) {
 }
 
 async function setupPush() {
-    push.config = await api('/reporters/push/config');
+    // sem token: a rota é pública, e o token da equipe nas rotas do cidadão volta 401 e derrubaria a sessão dela
+    const response = await fetch(`${API}/reporters/push/config`);
+    if (!response.ok) {
+        throw new Error(`Erro ${response.status}`);
+    }
+    push.config = await response.json();
     if (!push.config.enabled || !pushSupported) {
         renderPush();
         return;
@@ -1801,6 +1822,9 @@ async function focusIssue(item) {
 function renderSession() {
     const session = state.session;
     document.getElementById('operator-tab').hidden = !session;
+    // com a equipe conectada, só a aba Prefeitura: as do cidadão somem
+    document.querySelectorAll('.tab[data-goto="explore"], .tab[data-goto="mine"], .tab[data-goto="more"]')
+        .forEach((tab) => { tab.hidden = Boolean(session); });
     renderAccount();
     document.getElementById('operator-name').textContent = session
         ? `Conectado como ${session.name}. Toque num chamado da fila para abri-lo no mapa e alterar o status.` : '';
@@ -1812,7 +1836,7 @@ function renderSession() {
             loadTeam().catch((error) => setTeamMessage(error.message, 'error'));
         }
     } else if (!document.querySelector('[data-view="operator"]').hidden) {
-        showView('more');
+        showView('explore');
     }
 }
 
@@ -2228,6 +2252,8 @@ function renderAccount() {
         status.textContent = 'Entre com o seu e-mail para relatar e acompanhar os seus relatos. Sem senha: chega um código.';
     }
     const signed = Boolean(state.session || reporter?.email);
+    document.getElementById('menu-button').setAttribute('aria-label', state.session
+        ? 'Abrir ou recolher a área da prefeitura' : 'Menu: sua conta, relatos e privacidade');
     document.getElementById('account-login').hidden = signed;
     document.getElementById('account-logout').hidden = !signed;
 
@@ -2240,9 +2266,11 @@ function renderAccount() {
 }
 
 document.getElementById('account-login').addEventListener('click', () => openLogin());
-// conectado, a inicial abre Mais, onde ficam a conta e o Sair
+// conectado, a inicial abre a conta: a área da prefeitura para a equipe (com o Sair no alto) e Mais para o cidadão
 document.getElementById('account-chip').addEventListener('click', () => {
-    if (state.session || citizenSignedIn()) {
+    if (state.session) {
+        showView('operator');
+    } else if (citizenSignedIn()) {
         showView('more');
     } else if (panel.dataset.current !== 'login') {
         openLogin();
