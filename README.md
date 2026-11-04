@@ -189,8 +189,8 @@ Os chamados também saem no **Open311 GeoReport v2**, padrão aberto adotado por
 
 - **Filtros de `requests.json`:** `service_code`, `status` (`open`, `closed` ou os dois), `start_date` e `end_date` (ISO 8601 ou só a data) e `service_request_id` (vários, separados por vírgula). Sem datas, vêm os últimos 90 dias; no máximo 1000 chamados, do mais novo para o mais antigo. `jurisdiction_id` é aceito e ignorado, porque há uma só.
 - **Nada de quem relatou:** nem e-mail, nem identificador, nem relatos rejeitados, como na planilha.
-- **Para outros sites:** as respostas trazem `Access-Control-Allow-Origin: *` e `Cache-Control: max-age=60`, e há uma regra própria no rate limit (60 por minuto por IP).
-- **Erros no formato do padrão:** `[{"code": 400, "description": "..."}]`.
+- **Para outros sites:** CORS liberado só para `GET`, com a pré-verificação (`OPTIONS`) respondida, e `Cache-Control: max-age=60`. Há uma regra própria no rate limit (60 por minuto por IP).
+- **Erros no formato do padrão**, `[{"code": 400, "description": "..."}]`, em todo o `/open311`: parâmetro inválido (400), chamado ou rota que não existe (404), `.xml` em vez de `.json` (400), outro método além de `GET` (405, só leitura) e excesso de requisições (429, com `Retry-After`).
 
 ### Login por código enviado por e-mail
 Cidadão, equipe da prefeitura e CEO entram do mesmo jeito, sem senha: `POST /api/v1/auth/code` com o e-mail manda um código de 6 números, e `POST /api/v1/auth/verify` com o e-mail e o código devolve o acesso. **Quem entrou é decidido pelo e-mail**: o cadastrado na equipe pelo administrador entra como `OPERATOR` ou `ADMIN` (ou `CEO`), e recebe um **JWT** assinado pela própria API (HS256, 8 h); qualquer outro e-mail entra como `CITIZEN` e recebe o par de tokens do [cidadão](#identidade-do-cidadão). O `role` da resposta diz qual dos dois, e o mapa leva cada um ao lugar certo.

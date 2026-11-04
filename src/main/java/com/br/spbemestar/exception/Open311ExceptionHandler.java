@@ -4,7 +4,6 @@ import com.br.spbemestar.controller.Open311Controller;
 import com.br.spbemestar.dto.open311.Open311Error;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -33,8 +32,6 @@ public class Open311ExceptionHandler {
     }
 
     private static ResponseEntity<List<Open311Error>> error(HttpStatus status, String description) {
-        return ResponseEntity.status(status)
-                .header(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-                .body(List.of(new Open311Error(status.value(), description)));
+        return ResponseEntity.status(status).body(List.of(new Open311Error(status.value(), description)));
     }
 }

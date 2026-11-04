@@ -166,7 +166,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/ceo/**").hasRole("CEO")
                         .requestMatchers(HttpMethod.POST, "/api/v1/auth/code", "/api/v1/auth/verify").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/open311/**").permitAll()
+                        .requestMatchers("/open311/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/", "/index.html", "/privacidade.html", "/termos.html", "/*.js", "/*.css",
                                 "/favicon.ico", "/fonts/**", "/vendor/**",
                                 "/manifest.webmanifest", "/icons/**", "/offline.html").permitAll()
