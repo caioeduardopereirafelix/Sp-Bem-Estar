@@ -56,10 +56,6 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Do status alterado pelo operador até o navegador: outbox, RabbitMQ, listener, criptografia e VAPID. Um
- * servidor HTTP local faz o papel do serviço de push e este teste, o do navegador, que decifra a mensagem.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -82,7 +78,6 @@ class PushNotificationTests {
             exchange.getRequestHeaders().forEach((k, v) -> headers.put(k.toLowerCase(), v.getFirst()));
             received.add(new Received(exchange.getRequestURI().getPath(), headers,
                     exchange.getRequestBody().readAllBytes()));
-            // "/gone/...": o navegador cancelou a inscrição
             exchange.sendResponseHeaders(exchange.getRequestURI().getPath().startsWith("/gone/") ? 410 : 201, -1);
             exchange.close();
         });
@@ -130,7 +125,6 @@ class PushNotificationTests {
         String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         assertThat(browser.subscribe(token)).hasStatus(HttpStatus.NO_CONTENT);
         Long issueId = reportService.create(subject(token), "POTHOLE", -26.10, -48.10, TestPhotos.jpeg()).issueId();
-        // outro cidadão inscrito, sem relato neste chamado
         Browser stranger = new Browser("/push/" + UUID.randomUUID());
         stranger.subscribe(reporterTokens.issueFor(UUID.randomUUID()).accessToken());
 
@@ -146,7 +140,6 @@ class PushNotificationTests {
         assertThat(message.path("body").asString()).contains("#" + issueId);
         assertThat(message.path("issueId").asLong()).isEqualTo(issueId);
 
-        // RFC 8292: JWT assinado com a chave VAPID, para a origem do serviço de push
         String authorization = push.headers().get("authorization");
         assertThat(authorization).startsWith("vapid t=").contains("k=" + VAPID.publicKey());
         SignedJWT jwt = SignedJWT.parse(authorization.substring("vapid t=".length(), authorization.indexOf(',')));
@@ -198,7 +191,6 @@ class PushNotificationTests {
         String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         Browser browser = new Browser("/push/x");
 
-        // o endpoint vem do navegador: sem a lista, a API faria requisições para a rede interna
         assertThat(subscribe(token, "https://169.254.169.254/latest/meta-data", browser.p256dh(), browser.auth()))
                 .hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(subscribe(token, "http://user@localhost:" + pushService.getAddress().getPort() + "/x",
@@ -259,7 +251,6 @@ class PushNotificationTests {
         return users.findByEmail(TestOperators.EMAIL).orElseThrow().getId();
     }
 
-    /** O navegador: gera as chaves da inscrição e decifra a mensagem como manda a RFC 8291. */
     class Browser {
 
         final String path;
@@ -291,7 +282,7 @@ class PushNotificationTests {
             ByteBuffer buffer = ByteBuffer.wrap(message);
             byte[] salt = new byte[16];
             buffer.get(salt);
-            buffer.getInt(); // tamanho do registro
+            buffer.getInt();
             byte[] asPublic = new byte[buffer.get()];
             buffer.get(asPublic);
             byte[] ciphertext = new byte[buffer.remaining()];

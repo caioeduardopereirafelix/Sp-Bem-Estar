@@ -12,8 +12,6 @@ public class OpenApiConfig {
     public static final String BEARER = "bearer";
     public static final String REPORTER = "reporter";
 
-    // Botão "Authorize" do Swagger UI: o operador cola o accessToken de POST /api/v1/auth/login,
-    // o cidadão o que POST /api/v1/auth/verify devolve com role CITIZEN
     @Bean
     OpenAPI openApi() {
         return new OpenAPI().components(new Components()

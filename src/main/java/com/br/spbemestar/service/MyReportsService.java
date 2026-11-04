@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-/** O que o cidadão vê dos próprios relatos: em que chamado entraram e como o atendimento andou. */
 @Service
 @RequiredArgsConstructor
 public class MyReportsService {
@@ -33,7 +32,6 @@ public class MyReportsService {
     public PageResponse<MyReportItem> list(UUID reporterId, int page, int size) {
         Page<Report> result = reports.findByReporter(hasher.reporterHash(reporterId), PageRequest.of(page, size));
         List<Long> issueIds = result.getContent().stream().map(r -> r.getIssue().getId()).distinct().toList();
-        // sem o nome do operador: o cidadão vê o que mudou e quando, não quem mudou
         Map<Long, List<IssueDetailResponse.StatusChange>> changes = issueIds.isEmpty() ? Map.of()
                 : history.findByIssueIdInOrderByChangedAt(issueIds).stream().collect(Collectors.groupingBy(
                         h -> h.getIssue().getId(), Collectors.mapping(MyReportsService::change, Collectors.toList())));
@@ -55,7 +53,6 @@ public class MyReportsService {
                 issue.getLocation().getX(),
                 changes,
                 IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()),
-                // depois da decisão da moderação, o palpite do modelo não conta mais
                 report.getModerationStatus() != null ? null : new MyReportItem.PhotoCheck(
                         report.getClassificationStatus().name(), report.getPredictedCategory()));
     }

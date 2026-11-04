@@ -1,4 +1,3 @@
-// Preenche o responsável e o contato do encarregado, que mudam a cada instalação (PRIVACY_CONTROLLER e PRIVACY_CONTACT)
 fetch('/api/v1/privacy')
     .then((response) => (response.ok ? response.json() : null))
     .then((privacy) => {
@@ -10,7 +9,6 @@ fetch('/api/v1/privacy')
             const target = document.querySelector('[data-contact]');
             const link = document.createElement('a');
             const isEmail = /^[^\s@]+@[^\s@]+$/.test(contact);
-            // só e-mail ou https: um valor configurado errado não vira um link javascript:
             if (isEmail || /^https:\/\//.test(contact)) {
                 link.href = isEmail ? `mailto:${contact}` : contact;
                 link.textContent = contact;
@@ -21,5 +19,4 @@ fetch('/api/v1/privacy')
         }
     })
     .catch(() => {
-        // sem a API, a página continua legível com o texto padrão
     });

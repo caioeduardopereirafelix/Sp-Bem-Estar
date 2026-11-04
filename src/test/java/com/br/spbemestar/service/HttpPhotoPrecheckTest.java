@@ -25,7 +25,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class HttpPhotoPrecheckTest {
 
-    // a senha é gerada a cada execução: nada de segredo fixo no repositório
     private final String password = UUID.randomUUID().toString();
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final RestClient.Builder builder = RestClient.builder();

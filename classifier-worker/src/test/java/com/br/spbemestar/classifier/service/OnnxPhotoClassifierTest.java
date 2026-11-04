@@ -16,10 +16,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-/**
- * Usa o modelo de teste gerado por {@code scripts/make_test_model.py}, que decide pela cor média:
- * vermelho = POTHOLE, verde = TRASH, azul = OTHER.
- */
 class OnnxPhotoClassifierTest {
 
     private static final List<String> LABELS = List.of("POTHOLE", "TRASH", "OTHER");
@@ -47,10 +43,8 @@ class OnnxPhotoClassifierTest {
     @Test
     void reportsTheProbabilityOfTheChosenLabel() {
         Classification red = classifier.classify(TestImages.jpeg(Color.RED));
-        // softmax de (10, 0, 0)
         assertThat(red.confidence()).isCloseTo(Math.exp(10) / (Math.exp(10) + 2), within(0.001));
 
-        // cinza neutro: as três classes empatam
         Classification gray = classifier.classify(TestImages.jpeg(Color.GRAY));
         assertThat(gray.confidence()).isCloseTo(1 / 3.0, within(0.01));
     }

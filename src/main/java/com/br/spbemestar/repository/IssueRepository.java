@@ -15,13 +15,6 @@ import java.util.Optional;
 
 public interface IssueRepository extends JpaRepository<Issue, Long> {
 
-    /*
-     * prioridade = peso da categoria × ln(1 + pessoas) × (1 + dias em aberto / 30)
-     *
-     * "Pessoas" são os autores distintos dos relatos não rejeitados: reportar o mesmo problema várias vezes
-     * não sobe a prioridade. Relatos sem reporter_hash (anteriores à identidade anônima) contam um cada.
-     * O texto é montado em partes para a versão de um chamado só filtrar também a contagem.
-     */
     String COUNT_REPORTERS = """
             WITH reporters AS (
                 SELECT r.issue_id, count(DISTINCT coalesce(r.reporter_hash, 'relato-' || r.id)) AS total
@@ -57,7 +50,6 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
                                     @Param("radius") double radiusMeters,
                                     @Param("since") Instant since);
 
-    /** Fila de atendimento: mais urgente primeiro; no empate, o mais antigo. */
     @Query(value = """
             SELECT i FROM Issue i JOIN FETCH i.category LEFT JOIN FETCH i.neighborhood
             WHERE i.status IN :statuses
@@ -86,6 +78,5 @@ public interface IssueRepository extends JpaRepository<Issue, Long> {
     @Query("SELECT c.name FROM Issue i JOIN i.category c WHERE i.id = :id")
     Optional<String> findCategoryNameById(@Param("id") Long id);
 
-    /** Se o aviso de "resolvido" pode chamar para ver a foto do conserto. */
     boolean existsByIdAndResolutionPhotoIdIsNotNull(Long id);
 }

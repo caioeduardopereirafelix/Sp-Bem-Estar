@@ -17,11 +17,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-/**
- * Mesma topologia declarada pela API ({@code com.br.spbemestar.config.RabbitConfig}). Declarar nos dois
- * lados deixa o worker e a API subirem em qualquer ordem sem perder mensagens; os argumentos precisam
- * ser idênticos, senão o RabbitMQ recusa a declaração.
- */
 @Configuration
 @EnableConfigurationProperties(ClassifierProperties.class)
 public class RabbitConfig {
@@ -37,14 +32,9 @@ public class RabbitConfig {
     public static final String RESULT_QUEUE = "report.classification.result";
     public static final String RESULT_DLQ = "report.classification.result.dlq";
 
-    /**
-     * Roda uma vez por mensagem, quando o listener desiste (direto, ou depois das novas tentativas) e a
-     * mensagem vai para a DLQ. Contar aqui, e não no listener, evita contar cada tentativa.
-     */
     @Bean
     MessageRecoverer deadLetterRecoverer(MeterRegistry meters) {
         RejectAndDontRequeueRecoverer reject = new RejectAndDontRequeueRecoverer();
-        // com zero desde a subida: sem isso, o increase() do Prometheus perde a primeira rejeição de cada motivo
         for (String reason : List.of("invalid_message", "photo_missing", "photo_unreadable", "error")) {
             meters.counter("classifier.reports", "outcome", reason, "label", "none");
         }
@@ -60,7 +50,7 @@ public class RabbitConfig {
                 return rejected.reason();
             }
         }
-        return "error"; // falha transitória que esgotou as tentativas
+        return "error";
     }
 
     @Bean

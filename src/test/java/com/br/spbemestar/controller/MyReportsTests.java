@@ -50,7 +50,6 @@ class MyReportsTests {
         Long first = reportService.create(me, "POTHOLE", -25.10, -47.10, TestPhotos.jpeg()).issueId();
         Long second = reportService.create(me, "TRASH", -25.20, -47.20, TestPhotos.jpeg()).issueId();
         statusService.change(first, IssueStatus.IN_PROGRESS, operatorId());
-        // de outro cidadão: não aparece
         reportService.create(subject(reporterTokens.issueFor(UUID.randomUUID()).accessToken()), "POTHOLE", -25.30, -47.30, TestPhotos.jpeg());
 
         MvcTestResult result = myReports("Bearer " + token);
@@ -62,7 +61,6 @@ class MyReportsTests {
         assertThat(result).bodyJson().extractingPath("$.items[0].categoryName").isEqualTo("Descarte irregular de lixo ou entulho");
         assertThat(result).bodyJson().extractingPath("$.items[1].issueStatus").isEqualTo("IN_PROGRESS");
         assertThat(result).bodyJson().extractingPath("$.items[1].history[0].to").isEqualTo("IN_PROGRESS");
-        // o cidadão vê o que mudou, não quem mudou
         assertThat(result).bodyJson().extractingPath("$.items[1].history[0].changedBy").isNull();
         assertThat(result).bodyJson().extractingPath("$.items[1].rejected").isEqualTo(false);
     }
@@ -72,17 +70,14 @@ class MyReportsTests {
         String token = reporterTokens.issueFor(UUID.randomUUID()).accessToken();
         Long reportId = reportService.create(subject(token), "POTHOLE", -25.40, -47.40, TestPhotos.jpeg()).reportId();
 
-        // logo depois do envio: o classificador ainda não respondeu
         assertThat(myReports("Bearer " + token)).bodyJson().extractingPath("$.items[0].photoCheck.status")
                 .isEqualTo("PENDING");
 
-        // o modelo não viu um buraco na foto, e sim nenhum problema
         classification.apply(reportId, "OTHER", 0.93);
         MvcTestResult checked = myReports("Bearer " + token);
         assertThat(checked).bodyJson().extractingPath("$.items[0].photoCheck.status").isEqualTo("MISMATCH");
         assertThat(checked).bodyJson().extractingPath("$.items[0].photoCheck.predictedCategory").isEqualTo("OTHER");
 
-        // a moderação aprovou: o palpite do modelo deixa de valer para o cidadão
         jdbc.update("UPDATE report SET moderation_status = 'APPROVED', moderated_at = now(), moderated_by = ? WHERE id = ?",
                 operatorId(), reportId);
         assertThat(myReports("Bearer " + token)).bodyJson().extractingPath("$.items[0].photoCheck").isNull();

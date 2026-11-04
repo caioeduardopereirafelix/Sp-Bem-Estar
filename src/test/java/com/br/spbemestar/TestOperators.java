@@ -12,7 +12,6 @@ public final class TestOperators {
     private TestOperators() {
     }
 
-    /** Header {@code Authorization} de um operador ativo, criado na primeira chamada. */
     public static String bearer(AuthService auth, AppUserRepository users) {
         AppUser operator = users.findByEmail(EMAIL)
                 .orElseGet(() -> auth.createUser(EMAIL, "Operador de teste", UserRole.OPERATOR));

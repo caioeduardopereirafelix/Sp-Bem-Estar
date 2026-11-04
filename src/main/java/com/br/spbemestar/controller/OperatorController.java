@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-/** Equipe do órgão público: só o administrador lista, cadastra, desativa e reativa operadores. */
 @SecurityRequirement(name = OpenApiConfig.BEARER)
 @RestController
 @RequestMapping("/api/v1/operators")
@@ -42,7 +41,6 @@ public class OperatorController {
         return operators.create(Long.valueOf(admin.getSubject()), request);
     }
 
-    /** {@code active: false} corta o acesso na hora, mesmo com um token ainda dentro da validade. */
     @PatchMapping("/{id}")
     public OperatorItem update(@AuthenticationPrincipal Jwt admin, @PathVariable Long id,
                                @Valid @RequestBody UpdateOperatorRequest request) {

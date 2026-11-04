@@ -6,7 +6,6 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.interfaces.ECPublicKey;
 import java.util.Base64;
 
-/** Par VAPID novo a cada execução, no formato das variáveis PUSH_VAPID_*: nenhuma chave fica no repositório. */
 public record TestVapidKeys(String publicKey, String privateKey) {
 
     private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
@@ -17,7 +16,6 @@ public record TestVapidKeys(String publicKey, String privateKey) {
                 B64.encodeToString(unsigned32(((ECPrivateKey) pair.getPrivate()).getS())));
     }
 
-    /** Chaves de inscrição de um navegador ({@code p256dh} e {@code auth}), também aleatórias. */
     public static String[] browserKeys() {
         byte[] auth = new byte[16];
         new java.security.SecureRandom().nextBytes(auth);

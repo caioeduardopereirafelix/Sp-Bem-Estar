@@ -25,7 +25,6 @@ public class PhotoController {
     @GetMapping("/{id}")
     public ResponseEntity<InputStreamResource> photo(@PathVariable String id) {
         StoredPhoto photo = photoStorage.load(id).orElseThrow(() -> new ResourceNotFoundException("Foto", id));
-        // A foto de um relato nunca muda: pode ficar em cache por muito tempo
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(photo.contentType()))
                 .contentLength(photo.size())

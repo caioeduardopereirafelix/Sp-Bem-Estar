@@ -56,14 +56,9 @@ public class ReportService {
         return create(reporterId, categoryCode, latitude, longitude, photo, false);
     }
 
-    /**
-     * @param reporterId      {@code sub} do token do cidadão; só o HMAC dele é gravado no relato
-     * @param confirmCategory a pessoa viu que o classificador discordou do tipo e quer enviar assim mesmo; o relato
-     *                        é aceito e a classificação pela fila o leva para a moderação
-     */
     public ReportResult create(UUID reporterId, String categoryCode, double latitude, double longitude,
                                byte[] photo, boolean confirmCategory) {
-        GeoPoints.of(latitude, longitude); // valida as coordenadas antes de qualquer gravação
+        GeoPoints.of(latitude, longitude);
         String reporterHash = reporterHasher.reporterHash(reporterId);
         if (blockedReporters.existsById(reporterHash)) {
             throw new ReporterBlockedException();
@@ -91,10 +86,6 @@ public class ReportService {
         }
     }
 
-    /**
-     * Recusa antes de gravar qualquer coisa quando o modelo vê, com confiança alta, outro tipo de problema ou
-     * nenhum problema de rua. Um tipo que o modelo conhece mas a prefeitura não usa (inativo) não recusa nada.
-     */
     private void precheck(String categoryCode, ExifStripper.SanitizedPhoto sanitized) {
         Optional<PhotoPrecheck.Prediction> prediction = photoPrecheck.classify(sanitized.content(), sanitized.contentType());
         if (prediction.isEmpty()) {

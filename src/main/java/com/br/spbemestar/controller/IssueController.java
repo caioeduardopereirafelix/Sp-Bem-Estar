@@ -56,9 +56,6 @@ public class IssueController {
     private final OperatorQueueService operatorQueue;
     private final IssueExportService issueExport;
 
-    /**
-     * Sem {@code status}, devolve apenas chamados não resolvidos.
-     */
     @GetMapping
     public GeoJsonFeatureCollection search(@RequestParam(required = false) String bbox,
                                            @RequestParam(required = false) String category,
@@ -68,10 +65,6 @@ public class IssueController {
         return issueQueryService.search(box, category, status, limit);
     }
 
-    /**
-     * Fila de atendimento do operador: sem {@code status}, os chamados abertos, confirmados e em andamento,
-     * do maior {@code priorityScore} para o menor.
-     */
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @GetMapping("/queue")
     public PageResponse<QueueItem> queue(@RequestParam(required = false) IssueStatus status,
@@ -82,10 +75,6 @@ public class IssueController {
         return operatorQueue.queue(status, category, neighborhoodId, page, size);
     }
 
-    /**
-     * Planilha dos chamados (CSV para o Excel em português), para a prefeitura levar ao sistema dela. Sem
-     * {@code status}, todos menos os descartados; {@code from} e {@code to} filtram pela data do primeiro relato.
-     */
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @GetMapping(value = "/export", produces = "text/csv")
     public void export(@RequestParam(required = false) IssueStatus status,
@@ -107,7 +96,6 @@ public class IssueController {
                 Long.valueOf(operator.getSubject()));
     }
 
-    /** O nome de quem mudou cada status só aparece para operadores; o mapa público vê o histórico sem nomes. */
     @GetMapping("/{id}")
     public IssueDetailResponse detail(@PathVariable Long id, @AuthenticationPrincipal Jwt viewer) {
         List<String> roles = viewer == null ? null : viewer.getClaimAsStringList(SecurityConfig.ROLES_CLAIM);
@@ -121,10 +109,6 @@ public class IssueController {
         return issueStatusService.change(id, request.status(), Long.valueOf(operator.getSubject()));
     }
 
-    /**
-     * Resolve o chamado mostrando o que foi feito: a foto do conserto ({@code photo}, JPEG ou PNG) e uma nota curta
-     * ({@code note}, até 500 caracteres), as duas opcionais e públicas no mapa.
-     */
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @PostMapping(value = "/{id}/resolution", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public StatusChangeResponse resolve(@PathVariable Long id,

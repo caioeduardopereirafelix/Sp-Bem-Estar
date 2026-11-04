@@ -51,7 +51,6 @@ public class ReporterRefreshToken {
         return new ReporterRefreshToken(reporterId, tokenHash, issuedAt, expiresAt);
     }
 
-    /** Já trocado ou revogado: aparecer de novo indica que o token foi copiado por outra pessoa. */
     public boolean isSpent() {
         return usedAt != null || revokedAt != null;
     }

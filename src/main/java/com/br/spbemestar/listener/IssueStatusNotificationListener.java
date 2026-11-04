@@ -12,10 +12,6 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Recebe da outbox cada mudança de status e avisa por push quem relatou o problema. Uma notificação que
- * o serviço de push recusa não volta para a fila: reenviar faria os outros navegadores receberem duas vezes.
- */
 @Component
 @RequiredArgsConstructor
 public class IssueStatusNotificationListener {

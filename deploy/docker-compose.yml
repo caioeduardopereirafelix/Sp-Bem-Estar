@@ -1,10 +1,6 @@
-# Produção num VPS: cd deploy && docker compose up -d --build
-# Só o Caddy publica portas (80 e 443). API, worker, PostgreSQL, RabbitMQ e MongoDB ficam na rede interna
-# do Docker, sem acesso de fora. As variáveis vêm de deploy/.env (gerado por ./init-env.sh).
-name: spbemestar-prod # outro nome que o do compose de desenvolvimento: volumes separados
+name: spbemestar-prod
 
 x-healthcheck-http: &health-api
-  # o JRE não traz curl: o bash abre a conexão sozinho e confere o status 200 do health
   test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
   interval: 15s
   timeout: 5s
@@ -18,13 +14,13 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" # HTTP/3
+      - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?defina DOMAIN no deploy/.env}
       ACME_EMAIL: ${ACME_EMAIL:?defina ACME_EMAIL no deploy/.env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data # certificados: sem o volume, cada reinício pediria um novo ao Let's Encrypt
+      - caddy_data:/data
       - caddy_config:/config
     depends_on:
       api:
@@ -44,15 +40,11 @@ services:
       RABBITMQ_PORT: "5672"
       MONGO_HOST: mongo
       MONGO_PORT: "27017"
-      # atrás do Caddy: o IP do cliente vem do X-Forwarded-For, aceito só de IPs da rede interna
       SERVER_FORWARD_HEADERS_STRATEGY: native
       RATE_LIMIT_ENABLED: "true"
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
-      # importa (ou atualiza) os distritos de São Paulo a cada subida; a importação é idempotente
       APP_NEIGHBORHOODS_IMPORTFILE: /app/data/sp-distritos.geojson
       APP_NEIGHBORHOODS_CITY: São Paulo
-      # confere a foto no worker antes de aceitar o relato; sem o perfil classifier, o worker não responde e o
-      # relato segue sem a conferência (CLASSIFIER_API_USER e CLASSIFIER_API_PASSWORD vêm do .env)
       CLASSIFIER_URL: http://worker:8081
     healthcheck: *health-api
     depends_on:
@@ -63,8 +55,6 @@ services:
       mongo:
         condition: service_healthy
 
-  # Liga com: docker compose --profile classifier up -d (precisa do modelo em deploy/models/classifier.onnx).
-  # Sem o worker, os relatos ficam sem classificação automática e nada mais muda.
   worker:
     profiles: ["classifier"]
     build:
@@ -104,21 +94,19 @@ services:
 
   rabbitmq:
     image: rabbitmq:4-management
-    # o RabbitMQ guarda os dados pelo nome do nó, que vem do hostname: fixo, as filas sobrevivem a recriar o contêiner
     hostname: rabbitmq
     restart: unless-stopped
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
-      - rabbitdata:/var/lib/rabbitmq/mnesia # filas duráveis sobrevivem a recriar o contêiner
+      - rabbitdata:/var/lib/rabbitmq/mnesia
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  # MongoDB 7: a 8.x não sobe em kernels Linux 6.19 a 7.0.13 (SERVER-121912)
   mongo:
     image: mongo:7
     restart: unless-stopped

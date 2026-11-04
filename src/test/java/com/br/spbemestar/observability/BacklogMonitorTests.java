@@ -18,7 +18,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Publicador parado (mesmo contexto do OutboxPublisherTests): o evento antigo do teste fica pendente
 @SpringBootTest(properties = "app.outbox.publish-interval-ms=3600000")
 @Import(TestcontainersConfiguration.class)
 class BacklogMonitorTests {
@@ -50,7 +49,6 @@ class BacklogMonitorTests {
 
         assertThat(gauge("spbemestar.outbox.pending")).isGreaterThanOrEqualTo(1);
         assertThat(gauge("spbemestar.outbox.oldest.age")).isGreaterThanOrEqualTo(600);
-        // a API continua atendendo, mas os relatos não chegam ao classificador
         assertThat(monitor.health().getStatus()).isEqualTo(BacklogMonitor.DEGRADED);
     }
 

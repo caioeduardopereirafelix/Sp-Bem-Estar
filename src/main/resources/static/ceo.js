@@ -1,4 +1,3 @@
-// Painel do CEO: uso do produto, saúde de cada parte e os erros mais recentes. Só a conta com o papel CEO entra
 const API = '/api/v1';
 const SESSION_KEY = 'ceo';
 const REFRESH_MS = 60_000;
@@ -38,8 +37,6 @@ const PRECHECK = {
     unavailable: 'Conferência fora do ar (aceitas)',
 };
 
-// --- Sessão e login ---
-
 function readSession() {
     try {
         return JSON.parse(sessionStorage.getItem(SESSION_KEY));
@@ -57,7 +54,6 @@ function saveSession(session) {
             sessionStorage.removeItem(SESSION_KEY);
         }
     } catch {
-        // sem storage (aba anônima, bloqueio): a sessão vale até recarregar a página
     }
     render();
 }
@@ -94,7 +90,6 @@ function render() {
     syncRefresh();
 }
 
-// Login por código, o mesmo do app: o e-mail recebe 6 números, sem senha
 const loginEmailForm = document.getElementById('login-email-form');
 const loginCodeForm = document.getElementById('login-code-form');
 const loginMessage = document.getElementById('login-message');
@@ -140,7 +135,6 @@ loginCodeForm.addEventListener('submit', async (event) => {
             body: JSON.stringify({email: loginEmail, code: loginCodeForm.elements.code.value.trim()}),
         });
         if (session.role !== 'CEO') {
-            // a API também recusaria (403): aqui só se evita guardar um token que não serve para esta página
             throw new Error('Esta conta não é a do CEO. O painel é só da conta do CEO.');
         }
         loginCodeForm.reset();
@@ -159,8 +153,6 @@ document.getElementById('login-change-email').addEventListener('click', () => {
 });
 
 document.getElementById('logout').addEventListener('click', () => saveSession(null));
-
-// --- Painel ---
 
 function healthOf(status) {
     return HEALTH[status] ?? {tone: 'warning', label: status ? `Status ${status}` : 'Desconhecido'};
@@ -197,14 +189,12 @@ function countList(entries, empty) {
         : entries.map(([label, count]) => `<li><span>${label}</span><strong>${numberFormat.format(count)}</strong></li>`).join('');
 }
 
-// A CSP não aceita style="" no HTML: o tamanho de cada barra vai pelo CSSOM, que ela permite
 function sizeBars(root, property) {
     root.querySelectorAll('[data-size]').forEach((bar) => {
         bar.style[property] = `${bar.dataset.size}%`;
     });
 }
 
-// Lista com uma barra fina proporcional ao primeiro (o maior); o número fica sempre escrito ao lado
 function rankedList(items) {
     if (items.length === 0) return '<li class="hint">Nenhum chamado em aberto.</li>';
     const max = items[0].count || 1;
@@ -212,7 +202,6 @@ function rankedList(items) {
         <span class="dash-bar" data-size="${Math.max(4, (item.count / max) * 100)}"></span></li>`).join('');
 }
 
-// Colunas em HTML (e não um SVG esticado): o texto fica nítido em qualquer largura
 function renderDailyChart(days) {
     const plot = document.getElementById('dash-chart');
     const max = Math.max(...days.map((d) => d.count), 0);
@@ -356,7 +345,6 @@ async function loadDashboard() {
     }
 }
 
-// Só atualiza sozinho com a aba à vista: escondida, não gasta requisições
 function syncRefresh() {
     clearInterval(state.timer);
     state.timer = null;

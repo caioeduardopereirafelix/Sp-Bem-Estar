@@ -9,7 +9,6 @@ public enum IssueStatus {
     CONFIRMED,
     IN_PROGRESS,
     RESOLVED,
-    /** Todos os relatos foram rejeitados pela moderação; só a moderação leva a este status. */
     DISCARDED;
 
     public Set<IssueStatus> allowedTransitions() {

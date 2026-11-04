@@ -13,14 +13,9 @@ import java.io.IOException;
 import java.util.Iterator;
 import java.util.Locale;
 
-
 @Component
 public class ExifStripper {
 
-    /**
-     * Teto de pixels antes de decodificar. Um PNG de poucos KB pode declarar 50 000 x 50 000 pixels e
-     * ocupar gigabytes de memória ao ser aberto; 40 MP cobre com folga a câmera de um celular.
-     */
     static final long MAX_PIXELS = 40_000_000;
 
     public SanitizedPhoto strip(byte[] original) {
@@ -35,8 +30,7 @@ public class ExifStripper {
             ImageReader reader = readers.next();
             try {
                 PhotoFormat format = PhotoFormat.fromReaderName(reader.getFormatName());
-                reader.setInput(input, true, true); // ignoreMetadata: o EXIF nem é carregado
-                // as dimensões vêm do cabeçalho, sem decodificar a imagem
+                reader.setInput(input, true, true);
                 long width = reader.getWidth(0);
                 long height = reader.getHeight(0);
                 if (width * height > MAX_PIXELS) {

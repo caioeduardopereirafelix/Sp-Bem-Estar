@@ -39,7 +39,6 @@ public class OutboxEvent {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    /** {@code traceparent} W3C de quem criou o evento; a publicação continua esse trace. */
     @Column(name = "trace_parent")
     private String traceParent;
 

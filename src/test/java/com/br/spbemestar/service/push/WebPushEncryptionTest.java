@@ -12,7 +12,6 @@ class WebPushEncryptionTest {
 
     private static final Base64.Decoder B64 = Base64.getUrlDecoder();
 
-    /** Exemplo do apêndice A da RFC 8291, com o sal e as chaves do servidor fixos. */
     @Test
     void matchesTheRfc8291Example() throws Exception {
         byte[] plaintext = "When I grow up, I want to be a watermelon".getBytes(StandardCharsets.UTF_8);

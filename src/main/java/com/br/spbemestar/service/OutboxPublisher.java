@@ -26,12 +26,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-/**
- * Publica no RabbitMQ os eventos gravados na outbox. Um evento só é marcado como publicado
- * depois da confirmação do broker; se a confirmação não vier, ele é reenviado no próximo ciclo.
- * A entrega é "pelo menos uma vez": os consumidores usam o {@code messageId} (id do evento)
- * para descartar duplicatas.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -50,8 +44,6 @@ public class OutboxPublisher {
         List<OutboxEvent> batch = outbox.lockUnpublished(properties.batchSize());
         int published = 0;
         for (OutboxEvent event : batch) {
-            // Para no primeiro erro para não publicar fora de ordem; o restante fica para o próximo ciclo
-            // continua o trace do pedido que criou o evento: o mesmo traceId chega ao worker
             if (!traceContext.continueTrace(event.getTraceParent(), "outbox " + event.getType(), () -> send(event))) {
                 break;
             }

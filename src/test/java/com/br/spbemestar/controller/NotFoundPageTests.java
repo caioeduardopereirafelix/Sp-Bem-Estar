@@ -56,9 +56,7 @@ class NotFoundPageTests {
         assertThat(mvc.get().uri("/api/v1/ceo/dashboard").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(mvc.get().uri("/actuator/env").header(HttpHeaders.ACCEPT, BROWSER).exchange())
                 .hasStatus(HttpStatus.UNAUTHORIZED);
-        // só GET: um envio para um endereço que não existe continua pedindo login
         assertThat(mvc.post().uri("/pagina-que-nao-existe").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
-        // e o operador continua precisando do token para a fila, mesmo pelo navegador
         assertThat(mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.ACCEPT, BROWSER)
                 .header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users)).exchange()).hasStatusOk();
     }

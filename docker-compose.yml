@@ -1,7 +1,5 @@
 name: spbemestar
 
-# Portas publicadas só em 127.0.0.1: sem isso o Docker as abre para a rede inteira, inclusive
-# passando por cima do firewall do host (ufw), e os bancos ficariam acessíveis de fora.
 services:
   postgres:
     image: postgis/postgis:16-3.4
@@ -26,15 +24,13 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
       - "127.0.0.1:${RABBITMQ_PORT}:5672"
-      - "127.0.0.1:15672:15672" # painel: http://localhost:15672
+      - "127.0.0.1:15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  # Fotos dos relatos (GridFS). Fica na 7.0: o TCMalloc da 8.x se recusa a subir em kernels
-  # Linux 6.19 a 7.0.13 (SERVER-121912), o que derruba o CI e máquinas com kernel novo.
   mongo:
     image: mongo:7
     environment:
@@ -50,9 +46,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # --- Observabilidade: docker compose --profile observability up -d ---
-  # Grafana em http://localhost:3000, Prometheus em http://localhost:9090. A API e o worker continuam
-  # rodando no host; o Prometheus os lê por host.docker.internal e o Alloy lê os logs de ./logs.
   prometheus:
     image: prom/prometheus:v3.15.0
     profiles: ["observability"]
@@ -85,7 +78,7 @@ services:
     volumes:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - ./logs:/logs:ro
-      - alloydata:/var/lib/alloy/data # posição de leitura de cada arquivo, para não reenviar logs
+      - alloydata:/var/lib/alloy/data
     depends_on:
       - loki
 
@@ -93,7 +86,7 @@ services:
     image: grafana/grafana:13.2.3
     profiles: ["observability"]
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin} # com admin, o Grafana pede a troca no primeiro login
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/spbemestar.json
@@ -107,7 +100,6 @@ services:
       - prometheus
       - loki
 
-# O Prometheus lê as credenciais das métricas como arquivos, sem gravá-las na configuração
 secrets:
   metrics_user:
     environment: METRICS_USER

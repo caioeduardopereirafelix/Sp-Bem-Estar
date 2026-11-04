@@ -12,9 +12,6 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-# Os testes de integração sobem PostGIS, RabbitMQ e MongoDB com Testcontainers, que já
-# sobrescrevem host, porta e credenciais. Estes valores só preenchem os placeholders do
-# application.yml, que sem eles impedem a aplicação de subir.
 env:
   POSTGRES_HOST: localhost
   POSTGRES_PORT: "5432"

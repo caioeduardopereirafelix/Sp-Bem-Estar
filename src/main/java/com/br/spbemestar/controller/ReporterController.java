@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-/** O cidadão depois do login por código: renovação do token, os relatos dele e os avisos por push. */
 @RestController
 @RequestMapping("/api/v1/reporters")
 @RequiredArgsConstructor
@@ -47,7 +46,6 @@ public class ReporterController {
         return reporterTokens.refresh(request.refreshToken());
     }
 
-    /** Os relatos enviados com esta identidade, do mais novo para o mais antigo, com o andamento de cada chamado. */
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @GetMapping("/me/reports")
     public PageResponse<MyReportItem> myReports(@AuthenticationPrincipal Jwt reporter,
@@ -56,16 +54,11 @@ public class ReporterController {
         return myReports.list(UUID.fromString(reporter.getSubject()), page, size);
     }
 
-    /** Se o servidor envia notificações push e a chave VAPID que o navegador usa para se inscrever. */
     @GetMapping("/push/config")
     public PushConfigResponse pushConfig() {
         return new PushConfigResponse(pushSender.enabled(), pushSender.publicKey());
     }
 
-    /**
-     * Inscreve este navegador para ser avisado quando um chamado em que o cidadão relatou mudar de status.
-     * Inscrever de novo o mesmo endpoint atualiza as chaves e a identidade ligada a ele.
-     */
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @PutMapping("/me/push-subscription")
     @ResponseStatus(HttpStatus.NO_CONTENT)

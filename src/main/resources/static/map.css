@@ -1,5 +1,3 @@
-/* Atkinson Hyperlegible: desenhada pelo Braille Institute para ser lida por qualquer pessoa, inclusive com
-   baixa visão. Servida pela própria API (a CSP não carrega fontes de outros domínios); licença em fonts/OFL.txt */
 @font-face {
     font-family: "Atkinson Hyperlegible";
     font-style: normal;
@@ -31,7 +29,6 @@
     --danger-text: #b42f2f;
     --success-text: #006300;
     --shadow: 0 8px 28px rgba(27, 33, 48, 0.18);
-    /* cores de status: as mesmas dos marcadores, sempre com forma e texto junto */
     --status-open: #d03b3b;
     --status-confirmed: #ec835a;
     --status-progress: #fab219;
@@ -104,8 +101,6 @@ a {
     color: var(--accent);
 }
 
-/* --- Mapa em tela cheia, com o painel por cima --- */
-
 .map {
     position: fixed;
     inset: 0;
@@ -127,8 +122,6 @@ a {
     transition: max-height 0.25s ease;
 }
 
-/* Tamanhos da gaveta no celular: baixa para escolher o ponto no mapa, alta para listas e formulários */
-/* recolhida, como no app de navegação: só as abas, o botão de relatar e os filtros */
 .panel[data-size="peek"] {
     max-height: min(34dvh, calc(228px + env(safe-area-inset-bottom)));
 }
@@ -210,7 +203,6 @@ a {
     margin: 0 0 0 -4px;
 }
 
-/* Entrar sempre à vista: a pílula de destaque para quem não entrou; a inicial, em círculo, para quem já entrou */
 .account-chip {
     flex: none;
     display: inline-flex;
@@ -338,8 +330,6 @@ a {
     gap: 8px;
 }
 
-/* --- Botões --- */
-
 .cta {
     display: inline-flex;
     align-items: center;
@@ -406,8 +396,6 @@ a {
     justify-self: start;
 }
 
-/* --- A ação principal da gaveta, no lugar da busca dos apps de navegação --- */
-
 .report-pill {
     display: flex;
     align-items: center;
@@ -467,8 +455,6 @@ a {
     clip-path: inset(50%);
     white-space: nowrap;
 }
-
-/* --- Filtros do mapa --- */
 
 .chips {
     display: flex;
@@ -560,8 +546,6 @@ a {
     font-weight: 700;
 }
 
-/* --- Novo relato --- */
-
 .steps {
     list-style: none;
     margin: 0;
@@ -595,7 +579,6 @@ a {
     z-index: 1;
 }
 
-/* linha entre as etapas */
 .steps li + li::after {
     content: "";
     position: absolute;
@@ -749,8 +732,6 @@ a {
     color: var(--text-secondary);
 }
 
-/* --- Enviado --- */
-
 .sent {
     justify-items: start;
 }
@@ -790,8 +771,6 @@ a {
     margin: 0;
     font-size: 15px;
 }
-
-/* --- Meus relatos: a trilha do chamado --- */
 
 .tracks {
     list-style: none;
@@ -899,7 +878,6 @@ a {
     background: var(--accent);
 }
 
-/* a etapa atual leva a cor do status, a mesma do marcador no mapa */
 .track-line li.current {
     color: var(--text-primary);
     font-weight: 700;
@@ -919,8 +897,6 @@ a {
     font-size: 14px;
     color: var(--text-secondary);
 }
-
-/* --- Mais --- */
 
 .switch {
     display: flex;
@@ -966,8 +942,6 @@ a {
     color: var(--text-muted);
 }
 
-/* --- Formulários --- */
-
 form, .filters {
     display: grid;
     gap: 10px;
@@ -982,7 +956,7 @@ label {
 
 select, input[type="text"], input[type="email"], input[type="password"], input[type="date"] {
     font: inherit;
-    font-size: 16px; /* abaixo de 16px, o iPhone dá zoom ao focar */
+    font-size: 16px;
     color: var(--text-primary);
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1007,8 +981,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 .subform form {
     margin-top: 8px;
 }
-
-/* --- Prefeitura --- */
 
 .subtabs {
     display: flex;
@@ -1118,7 +1090,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     overflow-wrap: anywhere;
 }
 
-/* o botão e o rótulo "Você" não encolhem: sem isso, "Você" quebrava em duas linhas */
 .team-item > .button, .team-item > .queue-meta {
     flex-shrink: 0;
     overflow-wrap: normal;
@@ -1156,13 +1127,10 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     font-size: 14px;
 }
 
-/* --- Controles e pop-ups do mapa --- */
-
 .leaflet-container {
     font-family: var(--font);
 }
 
-/* Sem WebGL, os tiles do OpenStreetMap escurecidos por filtro, para combinar com o tema */
 .raster-dark .leaflet-tile-pane {
     filter: invert(1) hue-rotate(200deg) brightness(0.85) contrast(0.9) saturate(0.6);
 }
@@ -1180,7 +1148,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     color: var(--text-secondary);
 }
 
-/* os controles do topo ficam abaixo da barra de status do celular */
 .leaflet-top {
     top: env(safe-area-inset-top);
 }
@@ -1190,8 +1157,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     color: var(--text-primary);
     border-bottom-color: var(--hairline);
 }
-
-/* --- Botões flutuantes sobre o mapa --- */
 
 .fab {
     position: fixed;
@@ -1236,7 +1201,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     stroke: none;
 }
 
-/* seguindo você: o ícone fica na cor da seta do mapa */
 .fab-locate[aria-pressed="true"] {
     color: var(--user-color);
 }
@@ -1250,7 +1214,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     stroke: currentColor;
 }
 
-/* convite para corrigir a posição aproximada: acima do botão de centralizar */
 .locate-fix {
     position: fixed;
     z-index: 1002;
@@ -1277,7 +1240,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     gap: 8px;
 }
 
-/* marcando a posição: o cursor de mira mostra que o próximo toque no mapa vale */
 .fixing-location .leaflet-container {
     cursor: crosshair;
 }
@@ -1296,8 +1258,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     box-shadow: var(--shadow);
     font-size: 15px;
 }
-
-/* --- Você no mapa: a seta azul, virada para onde você vai --- */
 
 :root {
     --user-color: #33c3f0;
@@ -1342,7 +1302,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     border: 3px solid #ffffff;
 }
 
-/* sem rumo (parado e sem bússola) a seta mentiria a direção: vira um ponto */
 .user-marker.no-heading .user-arrow {
     display: none;
 }
@@ -1433,7 +1392,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     background: var(--page);
 }
 
-/* antes e depois, lado a lado: a foto do relato e a do conserto */
 .popup-hero.before-after {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1490,7 +1448,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     resize: vertical;
 }
 
-/* a foto recusada: o tipo que o classificador viu, com as saídas (tipo certo, outra foto, enviar assim mesmo) */
 .suggestion {
     display: grid;
     gap: 10px;
@@ -1511,7 +1468,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     color: var(--text-secondary);
 }
 
-/* o resultado da conferência da foto, logo depois do envio */
 .photo-check {
     margin: 0;
     padding: 12px 14px;
@@ -1642,14 +1598,12 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     font-weight: 700;
 }
 
-/* o chamado aberto: o marcador cresce e ganha um anel, para achar no mapa qual está na gaveta */
 .selected svg {
     transform: scale(1.35);
     filter: drop-shadow(0 0 0 #ffffff) drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
     transition: transform 0.15s ease;
 }
 
-/* o chamado na gaveta do celular: o mesmo conteúdo do pop-up, sem as margens dele */
 .views .issue-popup {
     padding-bottom: 0;
 }
@@ -1675,9 +1629,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     font-size: 15px;
 }
 
-/* Durante o relato, no celular, as abas saem para o passo caber sem o mapa sumir */
 @media (max-width: 899px) {
-    /* a legenda dos distritos fica pequena no canto: no tamanho do computador ela cobria o mapa */
     .legend {
         max-width: 150px;
         padding: 8px 10px;
@@ -1698,24 +1650,20 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
         margin-top: 4px;
     }
 
-    /* os créditos do mapa no topo, sem passar por baixo do botão de menu */
     .leaflet-control-attribution {
         max-width: calc(100vw - 104px);
         font-size: 10px;
         line-height: 1.4;
     }
 
-    /* no celular o mapa se mexe com os dedos; os botões de zoom só ocupariam espaço */
     .leaflet-control-zoom {
         display: none;
     }
 
-    /* com a gaveta aberta por inteiro, o botão de centralizar ficaria no meio da lista */
     body[data-sheet="full"] .fab-locate {
         visibility: hidden;
     }
 
-    /* a marca sai da gaveta: o mapa é a tela, como no app de navegação */
     .brand {
         display: none;
     }
@@ -1727,7 +1675,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     .views {
         padding-top: 8px;
     }
-
 
     .panel[data-current="report"] .tabs {
         display: none;
@@ -1741,8 +1688,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
         padding-top: 4px;
     }
 }
-
-/* --- Computador: painel fixo à esquerda, mapa ao lado --- */
 
 @media (min-width: 900px) {
     .panel, .panel[data-size] {
@@ -1759,7 +1704,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
         display: none;
     }
 
-    /* o painel fica sempre aberto à esquerda: o menu flutuante seria repetido */
     .fab-menu {
         display: none;
     }
@@ -1810,9 +1754,6 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     }
 }
 
-/* --- Página de texto (privacidade): rola a página inteira, sem o mapa --- */
-
-/* sem internet e página não encontrada: a mensagem no meio da tela, com o ícone do app */
 .doc.offline, .doc.not-found {
     text-align: center;
     padding-top: 18vh;
@@ -1874,13 +1815,10 @@ body.doc-page {
     margin-top: 6px;
 }
 
-/* cor da etapa atual da trilha, igual à do marcador daquele status */
 .track-line li.current[data-status="OPEN"] { --step-color: var(--status-open); }
 .track-line li.current[data-status="CONFIRMED"] { --step-color: var(--status-confirmed); }
 .track-line li.current[data-status="IN_PROGRESS"] { --step-color: var(--status-progress); }
 .track-line li.current[data-status="RESOLVED"] { --step-color: var(--status-resolved); }
-
-/* --- Entrar: o código de 6 números, grande e espaçado, fácil de conferir com o e-mail --- */
 
 .code-input {
     font-size: 26px !important;

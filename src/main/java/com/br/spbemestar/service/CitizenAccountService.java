@@ -17,7 +17,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Contas de cidadão: o e-mail confirmado por código e o id que assina os relatos dele. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,12 +26,6 @@ public class CitizenAccountService {
     private final ReporterTokenService reporterTokens;
     private final Clock clock;
 
-    /**
-     * Entra com um e-mail já confirmado, criando a conta no primeiro acesso.
-     *
-     * @param previousReporterId a identidade anônima que o navegador já usava: no primeiro acesso, ela vira a da
-     *                           conta, e os relatos de antes aparecem em "Meus relatos"
-     */
     @Transactional
     public ReporterTokenResponse signIn(String email, Optional<UUID> previousReporterId) {
         Instant now = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
@@ -49,7 +42,6 @@ public class CitizenAccountService {
         return reporterTokens.issueFor(account.getReporterId());
     }
 
-    /** Relatar exige o e-mail confirmado: um token de identidade anônima, de antes do login, não basta. */
     @Transactional(readOnly = true)
     public void requireAccount(UUID reporterId) {
         if (!accounts.existsByReporterId(reporterId)) {

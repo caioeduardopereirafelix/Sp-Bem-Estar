@@ -15,15 +15,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Conferência da foto na hora do envio: a API manda a foto (já sem EXIF) e recebe o que o modelo vê nela, antes
- * de aceitar o relato. Só a API chama, com o usuário de {@code app.classify-api}; o worker não fica na internet.
- */
 @RestController
 @RequiredArgsConstructor
 public class ClassifyController {
 
-    /** A API só manda fotos que já passaram pelo limite dela; acima disto, não é uma foto de relato. */
     static final int MAX_BYTES = 20 * 1024 * 1024;
 
     private final PhotoClassifier classifier;

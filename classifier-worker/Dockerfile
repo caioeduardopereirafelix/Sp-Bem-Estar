@@ -1,5 +1,3 @@
-# Imagem do worker de classificação. Construída a partir da raiz do repositório, que tem o Maven Wrapper:
-# docker build -f classifier-worker/Dockerfile -t spbemestar-worker .
 FROM eclipse-temurin:21.0.12_8-jdk-noble AS build
 WORKDIR /src
 COPY .mvn .mvn
@@ -16,7 +14,6 @@ ENV LANG=C.UTF-8 \
 RUN useradd --system --uid 10001 --home-dir /app app
 WORKDIR /app
 COPY --from=build /app.jar app.jar
-# o modelo treinado não vai na imagem: é montado em /app/models (ver deploy/docker-compose.yml)
 USER app
 EXPOSE 8081
 ENTRYPOINT ["java", "-jar", "app.jar"]

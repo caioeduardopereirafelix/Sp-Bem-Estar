@@ -19,10 +19,6 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-/**
- * Equipe do órgão público, gerida pelo administrador. Ninguém é apagado: desativar preserva o histórico. A conta
- * do CEO não é da equipe: o administrador não a vê, não cria outra nem a desativa.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -49,7 +45,6 @@ public class OperatorService {
             throw new OperatorAlreadyExistsException(email);
         }
         AppUser user = auth.createUser(email, request.name().strip(), request.role());
-        // sem o e-mail no log, como no login: o id basta para a auditoria
         log.info("Administrador {} cadastrou o usuário {} ({})", adminId, user.getId(), user.getRole());
         return OperatorItem.from(user);
     }
@@ -57,7 +52,6 @@ public class OperatorService {
     @Transactional
     public OperatorItem setActive(Long adminId, Long userId, boolean active) {
         if (adminId.equals(userId) && !active) {
-            // também garante que sempre sobra um administrador ativo: quem desativa continua ativo
             throw new OperatorChangeNotAllowedException("Você não pode desativar o próprio usuário.");
         }
         AppUser user = users.findById(userId).filter(u -> u.getRole() != UserRole.CEO)

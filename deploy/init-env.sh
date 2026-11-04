@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# Gera o deploy/.env de produção com segredos aleatórios.
-# Uso: ./init-env.sh <domínio> <e-mail do responsável> <e-mail do administrador> ["Nome do órgão"]
-# Ex.: ./init-env.sh zeladoria.prefeitura.sp.gov.br ti@prefeitura.sp.gov.br marina@prefeitura.sp.gov.br "Prefeitura de São Paulo"
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,7 +17,6 @@ secret() { openssl rand -base64 48 | tr -d '\n'; }
 password() { openssl rand -base64 24 | tr -d '/+=\n' | cut -c1-24; }
 b64url() { base64 | tr -d '\n=' | tr '/+' '_-'; }
 
-# Par VAPID P-256: a privada são os 32 bytes do escalar; a pública, o ponto não comprimido (65 bytes)
 key=$(mktemp)
 trap 'rm -f "$key"' EXIT
 openssl ecparam -name prime256v1 -genkey -noout -out "$key" 2>/dev/null

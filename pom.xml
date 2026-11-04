@@ -6,7 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>4.1.1</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
 	<groupId>com.br.spbemestar</groupId>
 	<artifactId>demo</artifactId>
@@ -30,8 +30,6 @@
         <java.version>21</java.version>
         <springdoc.version>3.1.1</springdoc.version>
         <bucket4j.version>8.21.0</bucket4j.version>
-        <!-- Correções de segurança acima das versões do Spring Boot 4.1.1; remover quando o Boot
-             trouxer versões iguais ou mais novas. Conferido no OSV (osv.dev). -->
         <tomcat.version>11.0.27</tomcat.version>
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
@@ -85,13 +83,11 @@
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
 
-        <!-- Storage de fotos (MongoDB GridFS) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
         </dependency>
 
-        <!-- Autenticação do órgão público: login gera um JWT assinado pela própria API -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
@@ -101,7 +97,6 @@
             <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
         </dependency>
 
-        <!-- Rate limit por IP: um token bucket por cliente, guardado em memória -->
         <dependency>
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-core</artifactId>
@@ -112,7 +107,6 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
-        <!-- Observabilidade -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -122,21 +116,17 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- traceId em cada log, propagado por HTTP e RabbitMQ (W3C traceparent); spans só são exportados
-             se MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT for configurado -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
 
-        <!-- Documentação da API (Swagger UI) -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
 
-        <!-- Testes -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -180,7 +170,6 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
 				<configuration>
-					<!-- A partir do JDK 23, processadores de anotação não rodam sem declaração explícita -->
 					<annotationProcessorPaths>
 						<path>
 							<groupId>org.projectlombok</groupId>

@@ -18,14 +18,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Tamanho das filas de trabalho, medido a cada 30 s: chamados em aberto por status, relatos esperando
- * moderação, eventos parados na outbox e mensagens nas DLQs. Os valores ficam em memória, então um
- * scrape do Prometheus não consulta o banco.
- * <p>
- * Também é o health check {@code outbox}: se o evento pendente mais antigo passa do limite, o status vira
- * {@code DEGRADED} (a API continua atendendo, mas os relatos não chegam ao classificador).
- */
 @Slf4j
 @Component("outbox")
 public class BacklogMonitor implements HealthIndicator {
@@ -92,7 +84,6 @@ public class BacklogMonitor implements HealthIndicator {
                 value.set(info == null ? 0 : info.getMessageCount());
             });
         } catch (RuntimeException e) {
-            // banco ou broker fora do ar: os health checks deles já acusam; mantém os últimos valores
             log.warn("Não foi possível medir as filas de trabalho: {}", e.getMessage());
         }
     }

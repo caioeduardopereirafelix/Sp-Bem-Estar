@@ -18,7 +18,6 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Cada teste usa IPs próprios, porque os contadores duram o contexto inteiro. */
 @SpringBootTest(properties = {
         "app.rate-limit.enabled=true",
         "app.rate-limit.rules[0].name=login-code",
@@ -45,7 +44,6 @@ class RateLimitTests {
 
         assertThat(requestCode(ip, "um@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
         assertThat(requestCode(ip, "dois@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
-        // cada pedido é um e-mail enviado: um IP não manda códigos para uma lista inteira
         MvcTestResult blocked = requestCode(ip, "tres@teste.com.br");
 
         assertThat(blocked).hasStatus(HttpStatus.TOO_MANY_REQUESTS)

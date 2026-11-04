@@ -1,5 +1,3 @@
-# Cada alerta diz o que o operador vê e por onde começar. Sem Alertmanager configurado, eles
-# aparecem em http://localhost:9090/alerts e no painel do Grafana.
 groups:
   - name: disponibilidade
     rules:
@@ -82,7 +80,6 @@ groups:
           description: "{{ $value | humanize }} relatos foram para a DLQ nos últimos 15 minutos."
 
       - alert: ConfiancaBaixa
-        # le="0.6" é o limite da API: abaixo dele o relato vai para moderação
         expr: |
           sum(rate(classifier_confidence_bucket{le="0.6"}[1h])) / sum(rate(classifier_confidence_count[1h])) > 0.5
           and sum(increase(classifier_confidence_count[1h])) > 20

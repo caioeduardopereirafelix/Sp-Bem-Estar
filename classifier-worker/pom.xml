@@ -6,7 +6,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.1</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
     <groupId>com.br.spbemestar</groupId>
     <artifactId>classifier-worker</artifactId>
@@ -17,8 +17,6 @@
     <properties>
         <java.version>21</java.version>
         <onnxruntime.version>1.22.0</onnxruntime.version>
-        <!-- Correções de segurança acima das versões do Spring Boot 4.1.1; remover quando o Boot
-             trouxer versões iguais ou mais novas. Conferido no OSV (osv.dev). -->
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <rabbit-amqp-client.version>5.37.0</rabbit-amqp-client.version>
     </properties>
@@ -28,7 +26,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
-        <!-- Leitura das fotos (MongoDB GridFS) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-mongodb</artifactId>
@@ -43,14 +40,12 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Inferência do modelo, sem Python em tempo de execução -->
         <dependency>
             <groupId>com.microsoft.onnxruntime</groupId>
             <artifactId>onnxruntime</artifactId>
             <version>${onnxruntime.version}</version>
         </dependency>
 
-        <!-- Observabilidade: health check e métricas em /actuator, na porta 8081 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -68,14 +63,11 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
             <scope>runtime</scope>
         </dependency>
-        <!-- traceId em cada log, propagado por HTTP e RabbitMQ (W3C traceparent); spans só são exportados
-             se MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT for configurado -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-opentelemetry</artifactId>
         </dependency>
 
-        <!-- Testes -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -114,7 +106,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <!-- A partir do JDK 23, processadores de anotação não rodam sem declaração explícita -->
                     <annotationProcessorPaths>
                         <path>
                             <groupId>org.projectlombok</groupId>

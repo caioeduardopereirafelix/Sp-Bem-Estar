@@ -1,7 +1,3 @@
-// Gera data/sp-distritos.geojson com os 96 distritos de São Paulo e a população do Censo 2022.
-// Limites: GeoSampa (Prefeitura de São Paulo). População: IBGE/SIDRA, tabela 9923.
-// Uso: node scripts/build-sp-distritos.mjs
-
 import { mkdir, writeFile } from 'node:fs/promises';
 
 const GEOSAMPA = 'https://wfs.geosampa.prefeitura.sp.gov.br/geoserver/geoportal/wfs'

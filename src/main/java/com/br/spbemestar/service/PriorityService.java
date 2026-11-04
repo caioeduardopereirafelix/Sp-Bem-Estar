@@ -23,7 +23,6 @@ public class PriorityService {
         issues.recalculatePriority(issueId, Instant.now(clock));
     }
 
-    // A idade do chamado entra na fórmula, então a prioridade sobe mesmo sem relatos novos
     @Scheduled(cron = "${app.priority.recalculate-cron:0 0 * * * *}")
     @Transactional
     public int recalculateOpenIssues() {

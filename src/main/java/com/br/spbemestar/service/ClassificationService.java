@@ -21,12 +21,6 @@ public class ClassificationService {
     private final ClassificationProperties properties;
     private final MeterRegistry meters;
 
-    /**
-     * Grava o resultado do modelo no relato. Só o primeiro resultado vale: uma reentrega da mesma
-     * mensagem encontra o relato já classificado e é ignorada.
-     *
-     * @return o status resultante, ou {@code null} se o relato já tinha sido classificado
-     */
     @Transactional
     public ClassificationStatus apply(Long reportId, String predictedCategory, double confidence) {
         Report report = reports.findById(reportId)

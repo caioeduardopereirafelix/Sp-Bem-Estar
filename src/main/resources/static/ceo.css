@@ -1,5 +1,3 @@
-/* Painel do CEO: usa as fontes, as cores e os formulários do map.css e acrescenta só o que é do painel */
-
 :root {
     --warning-text: #8a5300;
 }
@@ -52,7 +50,6 @@
     color: var(--text-secondary);
 }
 
-/* a cor do status vem com o nome escrito ao lado, nunca sozinha */
 .dash-status {
     display: inline-flex;
     align-items: center;
@@ -233,7 +230,6 @@
 .dash-tooltip {
     position: absolute;
     top: 0;
-    /* acima do gráfico, para não cobrir o número escrito na coluna */
     transform: translate(-50%, -100%);
     display: grid;
     gap: 2px;

@@ -13,7 +13,6 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> 
 
     List<OutboxEvent> findByPublishedAtIsNullOrderByCreatedAt(Limit limit);
 
-    // SKIP LOCKED: com mais de uma instância, cada uma pega um lote diferente em vez de esperar a outra
     @Query(value = """
             SELECT * FROM outbox_event
             WHERE published_at IS NULL

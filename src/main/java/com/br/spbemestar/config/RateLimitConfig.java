@@ -21,7 +21,6 @@ public class RateLimitConfig {
                                                             JsonMapper json, MeterRegistry meters) {
         FilterRegistrationBean<RateLimitFilter> registration =
                 new FilterRegistrationBean<>(new RateLimitFilter(properties, clock, json, meters));
-        // antes do Spring Security, e depois do filtro que aplica o X-Forwarded-For quando ele é confiável
         registration.setOrder(SecurityFilterProperties.DEFAULT_FILTER_ORDER - 10);
         return registration;
     }

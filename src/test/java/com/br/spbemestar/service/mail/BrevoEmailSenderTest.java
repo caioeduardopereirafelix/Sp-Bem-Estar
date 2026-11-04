@@ -18,7 +18,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class BrevoEmailSenderTest {
 
-    // gerada a cada execução: nenhuma chave de verdade nos testes
     final String apiKey = "xkeysib-" + UUID.randomUUID();
     final AtomicReference<String> body = new AtomicReference<>();
     final AtomicReference<String> keyHeader = new AtomicReference<>();

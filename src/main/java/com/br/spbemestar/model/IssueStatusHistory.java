@@ -42,7 +42,6 @@ public class IssueStatusHistory {
     @Column(name = "changed_at", nullable = false)
     private Instant changedAt;
 
-    /** Operador que fez a mudança; vazio nas mudanças anteriores ao registro do autor. */
     @Column(name = "changed_by")
     private Long changedBy;
 
