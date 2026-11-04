@@ -1812,17 +1812,17 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 
 /* --- Página de texto (privacidade): rola a página inteira, sem o mapa --- */
 
-/* sem internet: a mensagem no meio da tela, com o ícone do app */
-.doc.offline {
+/* sem internet e página não encontrada: a mensagem no meio da tela, com o ícone do app */
+.doc.offline, .doc.not-found {
     text-align: center;
     padding-top: 18vh;
 }
 
-.offline img {
+.offline img, .not-found img {
     border-radius: 22px;
 }
 
-.offline .cta {
+.offline .cta, .not-found .cta {
     display: inline-flex;
     width: auto;
     text-decoration: none;

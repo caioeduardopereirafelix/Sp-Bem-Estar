@@ -1,6 +1,7 @@
 package com.br.spbemestar.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.br.spbemestar.repository.AppUserRepository;
 import org.springframework.beans.factory.ObjectProvider;
@@ -203,6 +204,9 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         // a página do CEO é pública; os dados dela vêm de /api/v1/ceo/**, só com a conta do CEO
                         .requestMatchers(HttpMethod.GET, "/ceo", "/ceo.html").permitAll()
+                        // qualquer outra página do site é pública: um endereço que não existe responde 404 com a
+                        // página "não encontrada", e não "faça login". A API e o actuator seguem fechados por padrão
+                        .requestMatchers(SecurityConfig::isSitePage).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))
@@ -234,6 +238,14 @@ public class SecurityConfig {
                 new JwtTimestampValidator(), new JwtIssuerValidator(properties.issuer()),
                 new OperatorTokenValidator(users)));
         return decoder;
+    }
+
+    /** GET de uma página do site, fora da API e do actuator, que seguem exigindo login no que não for listado. */
+    static boolean isSitePage(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return HttpMethod.GET.matches(request.getMethod())
+                && !path.startsWith("/api/") && !path.equals("/api")
+                && !path.startsWith("/actuator");
     }
 
     public static SecretKey secretKey(SecurityProperties properties) {
