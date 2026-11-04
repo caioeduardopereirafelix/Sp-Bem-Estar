@@ -1,5 +1,6 @@
 package com.br.spbemestar.config;
 
+import com.br.spbemestar.dto.open311.Open311Error;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -81,11 +82,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
         meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()).increment();
         log.debug("Rate limit '{}' atingido por {} em {} {}", rule.name(), client,
                 request.getMethod(), request.getRequestURI());
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS,
-                "Você fez requisições demais em pouco tempo. Tente de novo em %d s.".formatted(retryAfter));
-        problem.setTitle("Muitas requisições");
+        String detail = "Você fez requisições demais em pouco tempo. Tente de novo em %d s.".formatted(retryAfter);
         response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
         response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter));
+        if (request.getRequestURI().startsWith(request.getContextPath() + "/open311/")) {
+            if (request.getHeader(HttpHeaders.ORIGIN) != null) {
+                response.setHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+            }
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            json.writeValue(response.getOutputStream(), List.of(new Open311Error(429, detail)));
+            return;
+        }
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, detail);
+        problem.setTitle("Muitas requisições");
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         json.writeValue(response.getOutputStream(), problem);
     }

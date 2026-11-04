@@ -51,7 +51,8 @@ class Open311Tests {
     void aRequestFollowsTheGeoReportFormat() {
         Long id = newIssue("POTHOLE", -28.10);
 
-        MvcTestResult result = mvc.get().uri("/open311/v2/requests/{id}.json", id).exchange();
+        MvcTestResult result = mvc.get().uri("/open311/v2/requests/{id}.json", id)
+                .header(HttpHeaders.ORIGIN, "https://dados-abertos.exemplo.org").exchange();
 
         assertThat(result).hasStatusOk()
                 .hasHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
@@ -139,6 +140,43 @@ class Open311Tests {
                     .bodyJson().extractingPath("$[0].code").isEqualTo(400);
         }
         assertThat(mvc.get().uri("/open311/v2/requests/abc.json").exchange()).hasStatus(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void otherRoutesAndMethodsAnswerInTheOpen311Format() {
+        assertThat(mvc.get().uri("/open311/v2/rota-que-nao-existe.json").exchange())
+                .hasStatus(HttpStatus.NOT_FOUND).hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .bodyJson().extractingPath("$[0].code").isEqualTo(404);
+        assertThat(mvc.get().uri("/open311/v2/requests.xml").exchange())
+                .hasStatus(HttpStatus.BAD_REQUEST)
+                .bodyJson().extractingPath("$[0].description").asString().contains(".json");
+        assertThat(mvc.post().uri("/open311/v2/requests.json").exchange())
+                .hasStatus(HttpStatus.METHOD_NOT_ALLOWED)
+                .hasHeader(HttpHeaders.ALLOW, "GET")
+                .bodyJson().extractingPath("$[0].code").isEqualTo(405);
+        assertThat(mvc.delete().uri("/open311/v2/requests/1.json").exchange())
+                .hasStatus(HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    @Test
+    void otherSitesCanCallItFromTheBrowser() {
+        MvcTestResult preflight = mvc.options().uri("/open311/v2/requests.json")
+                .header(HttpHeaders.ORIGIN, "https://dados-abertos.exemplo.org")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "GET")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS, "Accept, X-Requested-With")
+                .exchange();
+        assertThat(preflight).hasStatusOk().hasHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        assertThat(preflight.getResponse().getHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_METHODS)).contains("GET");
+
+        MvcTestResult error = mvc.get().uri("/open311/v2/requests/999999.json")
+                .header(HttpHeaders.ORIGIN, "https://dados-abertos.exemplo.org").exchange();
+        assertThat(error).hasStatus(HttpStatus.NOT_FOUND).hasHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+        assertThat(error.getResponse().getHeaders(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN)).hasSize(1);
+
+        assertThat(mvc.options().uri("/open311/v2/requests.json")
+                .header(HttpHeaders.ORIGIN, "https://dados-abertos.exemplo.org")
+                .header(HttpHeaders.ACCESS_CONTROL_REQUEST_METHOD, "POST").exchange())
+                .hasStatus(HttpStatus.FORBIDDEN);
     }
 
     private List<Long> ids(String uri) {

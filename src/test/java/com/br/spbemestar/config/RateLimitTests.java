@@ -29,6 +29,11 @@ import static org.assertj.core.api.Assertions.assertThat;
         "app.rate-limit.rules[1].path=/api/**",
         "app.rate-limit.rules[1].capacity=3",
         "app.rate-limit.rules[1].period=1h",
+        "app.rate-limit.rules[2].name=open311",
+        "app.rate-limit.rules[2].method=GET",
+        "app.rate-limit.rules[2].path=/open311/**",
+        "app.rate-limit.rules[2].capacity=2",
+        "app.rate-limit.rules[2].period=1h",
 })
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -74,6 +79,23 @@ class RateLimitTests {
         }
         assertThat(categories(ip)).hasStatus(HttpStatus.TOO_MANY_REQUESTS);
         assertThat(requestCode(ip, "quatro@teste.com.br")).hasStatus(HttpStatus.ACCEPTED);
+    }
+
+    @Test
+    void open311LimitAnswersInTheOpen311Format() {
+        String ip = "203.0.113.50";
+        for (int i = 0; i < 2; i++) {
+            assertThat(get(ip, "/open311/v2/services.json")).hasStatusOk();
+        }
+
+        MvcTestResult blocked = mvc.get().uri("/open311/v2/services.json").with(from(ip))
+                .header(HttpHeaders.ORIGIN, "https://dados-abertos.exemplo.org").exchange();
+
+        assertThat(blocked).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .hasHeader(HttpHeaders.ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .bodyJson().extractingPath("$[0].code").isEqualTo(429);
+        assertThat(Long.parseLong(blocked.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isPositive();
     }
 
     @Test
