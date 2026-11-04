@@ -37,6 +37,12 @@ spring:
     mongodb:
       gridfs:
         bucket: report-photos
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 300ms
+      connect-timeout: 300ms
 
   servlet:
     multipart:
@@ -57,6 +63,9 @@ management:
         order: DOWN, OUT_OF_SERVICE, DEGRADED, UNKNOWN, UP
         http-mapping:
           DEGRADED: 200
+  health:
+    redis:
+      enabled: false
   metrics:
     distribution:
       percentiles-histogram:

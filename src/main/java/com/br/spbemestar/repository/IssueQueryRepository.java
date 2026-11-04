@@ -41,15 +41,16 @@ public class IssueQueryRepository {
                        i.priority_score, i.first_reported_at, i.last_reported_at,
                        n.name AS neighborhood_name,
                        ST_Y(i.location::geometry) AS latitude, ST_X(i.location::geometry) AS longitude
-                FROM issue i
-                JOIN category c ON c.code = i.category_code
-                LEFT JOIN neighborhood n ON n.id = i.neighborhood_id
-                WHERE 1 = 1
+                FROM (
+                    SELECT i.id, i.category_code, i.neighborhood_id, i.status, i.report_count, i.reporter_count,
+                           i.priority_score, i.first_reported_at, i.last_reported_at, i.location
+                    FROM issue i
+                    WHERE 1 = 1
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource("limit", limit);
 
         if (bbox != null) {
-            sql.append(" AND ST_Intersects(i.location, ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326)::geography)");
+            sql.append(" AND i.location::geometry && ST_MakeEnvelope(:minLon, :minLat, :maxLon, :maxLat, 4326)");
             params.addValue("minLon", bbox.minLon())
                     .addValue("minLat", bbox.minLat())
                     .addValue("maxLon", bbox.maxLon())
@@ -66,7 +67,13 @@ public class IssueQueryRepository {
             sql.append(" AND i.status <> 'RESOLVED'");
         }
         sql.append(" AND i.status <> 'DISCARDED'");
-        sql.append(" ORDER BY i.priority_score DESC, i.last_reported_at DESC LIMIT :limit");
+        sql.append("""
+                     ORDER BY i.priority_score DESC, i.last_reported_at DESC LIMIT :limit
+                ) i
+                JOIN category c ON c.code = i.category_code
+                LEFT JOIN neighborhood n ON n.id = i.neighborhood_id
+                ORDER BY i.priority_score DESC, i.last_reported_at DESC
+                """);
 
         return jdbc.query(sql.toString(), params, ROW_MAPPER);
     }

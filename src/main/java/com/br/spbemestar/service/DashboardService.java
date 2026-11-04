@@ -3,6 +3,7 @@ package com.br.spbemestar.service;
 import com.br.spbemestar.config.PhotoPrecheckProperties;
 import com.br.spbemestar.dto.DashboardResponse;
 import com.br.spbemestar.observability.RecentErrors;
+import com.br.spbemestar.service.cache.JsonCache;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -38,7 +39,10 @@ public class DashboardService {
             "mongo", "Fotos (MongoDB)",
             "rabbit", "Filas (RabbitMQ)",
             "outbox", "Envio para o classificador (outbox)",
-            "diskSpace", "Disco do servidor");
+            "diskSpace", "Disco do servidor",
+            "cache", "Cache (Redis)");
+
+    static final Duration CACHE_TTL = Duration.ofSeconds(15);
 
     private static final String PRODUCT = """
             SELECT
@@ -72,15 +76,17 @@ public class DashboardService {
     private final PhotoPrecheckProperties worker;
     private final RestClient workerClient;
     private final Clock clock;
+    private final JsonCache cache;
 
     public DashboardService(JdbcTemplate jdbc, MeterRegistry meters, ObjectProvider<HealthEndpoint> healthEndpoint,
-                            RecentErrors recentErrors, PhotoPrecheckProperties worker, Clock clock) {
+                            RecentErrors recentErrors, PhotoPrecheckProperties worker, Clock clock, JsonCache cache) {
         this.jdbc = jdbc;
         this.meters = meters;
         this.healthEndpoint = healthEndpoint;
         this.recentErrors = recentErrors;
         this.worker = worker;
         this.clock = clock;
+        this.cache = cache;
         Duration timeout = Duration.ofSeconds(2);
         JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1).connectTimeout(timeout).build());
@@ -88,8 +94,12 @@ public class DashboardService {
         this.workerClient = RestClient.builder().requestFactory(requests).build();
     }
 
-    @Transactional(readOnly = true)
     public DashboardResponse dashboard() {
+        return cache.get("ceo-dashboard", "geral", CACHE_TTL, DashboardResponse.class, this::build);
+    }
+
+    @Transactional(readOnly = true)
+    DashboardResponse build() {
         List<DashboardResponse.RecentError> errors = recentErrors.latest(20).stream()
                 .map(e -> new DashboardResponse.RecentError(e.at(), e.method(), e.path(), e.error(), e.message(),
                         e.traceId()))

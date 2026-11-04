@@ -1,6 +1,7 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.exception.InvalidNeighborhoodFileException;
+import com.br.spbemestar.service.cache.JsonCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -38,6 +39,7 @@ public class NeighborhoodImportService {
 
     private final NamedParameterJdbcTemplate jdbc;
     private final JsonMapper json;
+    private final JsonCache cache;
 
     @Transactional
     public ImportResult importGeoJson(InputStream content, ImportOptions options) {
@@ -82,6 +84,7 @@ public class NeighborhoodImportService {
         }
 
         int issuesAssigned = jdbc.update(ASSIGN_ISSUES, new MapSqlParameterSource("city", options.city()));
+        cache.evictAfterCommit(NeighborhoodStatsService.GEOMETRY_CACHE);
         return new ImportResult(imported, issuesAssigned);
     }
 

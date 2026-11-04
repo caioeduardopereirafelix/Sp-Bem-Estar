@@ -7,3 +7,5 @@ app:
   login:
     resend-interval: 0s
     max-codes-per-hour: 1000
+  cache:
+    enabled: false

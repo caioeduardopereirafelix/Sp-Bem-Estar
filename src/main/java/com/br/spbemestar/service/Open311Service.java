@@ -8,9 +8,12 @@ import com.br.spbemestar.exception.ResourceNotFoundException;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.Open311Repository;
+import com.br.spbemestar.service.cache.JsonCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.JavaType;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -33,6 +36,8 @@ public class Open311Service {
 
     public static final int MAX_RESULTS = 1000;
     static final Duration DEFAULT_WINDOW = Duration.ofDays(90);
+    static final String REQUESTS_CACHE = "open311-requests";
+    static final Duration CACHE_TTL = Duration.ofSeconds(60);
 
     private static final Set<IssueStatus> OPEN = EnumSet.of(IssueStatus.OPEN, IssueStatus.CONFIRMED,
             IssueStatus.IN_PROGRESS);
@@ -44,6 +49,8 @@ public class Open311Service {
     private final Open311Repository issues;
     private final PrivacyProperties privacy;
     private final Clock clock;
+    private final JsonCache cache;
+    private final JsonMapper json;
 
     @Transactional(readOnly = true)
     public List<ServiceDefinition> services() {
@@ -56,16 +63,26 @@ public class Open311Service {
     @Transactional(readOnly = true)
     public List<ServiceRequest> requests(String ids, String serviceCode, String startDate, String endDate,
                                          String status, String baseUrl) {
+        String key = String.join("|", String.valueOf(ids), String.valueOf(serviceCode), String.valueOf(startDate),
+                String.valueOf(endDate), String.valueOf(status), baseUrl);
         if (ids != null && !ids.isBlank()) {
-            return issues.byIds(parseIds(ids)).stream().map(row -> toRequest(row, baseUrl)).toList();
+            Set<Long> parsed = parseIds(ids);
+            return cache.get(REQUESTS_CACHE, key, CACHE_TTL, requestList(),
+                    () -> issues.byIds(parsed).stream().map(row -> toRequest(row, baseUrl)).toList());
         }
         Instant end = endDate == null ? Instant.now(clock) : parseDate("end_date", endDate);
         Instant start = startDate == null ? end.minus(DEFAULT_WINDOW) : parseDate("start_date", startDate);
         if (start.isAfter(end)) {
             throw new Open311BadRequestException("start_date precisa ser anterior a end_date.");
         }
-        return issues.search(blankToNull(serviceCode), parseStatus(status), start, end, MAX_RESULTS).stream()
-                .map(row -> toRequest(row, baseUrl)).toList();
+        Set<IssueStatus> statuses = parseStatus(status);
+        return cache.get(REQUESTS_CACHE, key, CACHE_TTL, requestList(),
+                () -> issues.search(blankToNull(serviceCode), statuses, start, end, MAX_RESULTS).stream()
+                        .map(row -> toRequest(row, baseUrl)).toList());
+    }
+
+    private JavaType requestList() {
+        return json.getTypeFactory().constructCollectionType(List.class, ServiceRequest.class);
     }
 
     @Transactional(readOnly = true)
