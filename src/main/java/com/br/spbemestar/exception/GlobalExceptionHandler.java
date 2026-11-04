@@ -6,9 +6,11 @@ import com.br.spbemestar.service.mail.EmailDeliveryException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -16,9 +18,14 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,6 +33,8 @@ import java.util.Map;
 @RestControllerAdvice
 @RequiredArgsConstructor
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    private static final String NOT_FOUND_PAGE = loadNotFoundPage();
 
     private final TraceContext traceContext;
     private final RecentErrors recentErrors;
@@ -124,6 +133,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ReportAlreadyModeratedException.class)
     ProblemDetail handleAlreadyModerated(ReportAlreadyModeratedException e) {
         return problem(HttpStatus.CONFLICT, "Relato já moderado", e.getMessage());
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException e, HttpHeaders headers,
+                                                                    HttpStatusCode status, WebRequest request) {
+        if (request instanceof ServletWebRequest servlet && wantsPage(servlet.getRequest())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+                    .body(NOT_FOUND_PAGE);
+        }
+        return super.handleNoResourceFoundException(e, headers, status, request);
+    }
+
+    private static boolean wantsPage(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String accept = request.getHeader(HttpHeaders.ACCEPT);
+        return !path.startsWith("/api/") && accept != null && accept.contains(MediaType.TEXT_HTML_VALUE);
+    }
+
+    private static String loadNotFoundPage() {
+        try (var page = new ClassPathResource("static/404.html").getInputStream()) {
+            return new String(page.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new UncheckedIOException("static/404.html não encontrado", e);
+        }
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

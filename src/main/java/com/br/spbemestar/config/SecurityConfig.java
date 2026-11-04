@@ -1,6 +1,7 @@
 package com.br.spbemestar.config;
 
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import com.br.spbemestar.repository.AppUserRepository;
 import org.springframework.beans.factory.ObjectProvider;
@@ -172,6 +173,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/ceo", "/ceo.html").permitAll()
+                        .requestMatchers(SecurityConfig::isSitePage).permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))
@@ -203,6 +205,13 @@ public class SecurityConfig {
                 new JwtTimestampValidator(), new JwtIssuerValidator(properties.issuer()),
                 new OperatorTokenValidator(users)));
         return decoder;
+    }
+
+    static boolean isSitePage(HttpServletRequest request) {
+        String path = request.getRequestURI().substring(request.getContextPath().length());
+        return HttpMethod.GET.matches(request.getMethod())
+                && !path.startsWith("/api/") && !path.equals("/api")
+                && !path.startsWith("/actuator");
     }
 
     public static SecretKey secretKey(SecurityProperties properties) {
