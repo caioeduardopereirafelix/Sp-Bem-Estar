@@ -8,10 +8,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * Devolve o {@code traceId} em toda resposta, inclusive 401 e 429. Quem relata um problema informa esse
- * código, e ele leva direto aos logs daquela requisição.
- */
 public class TraceIdResponseFilter extends OncePerRequestFilter {
 
     public static final String HEADER = "X-Trace-Id";

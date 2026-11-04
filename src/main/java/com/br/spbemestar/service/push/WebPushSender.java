@@ -30,22 +30,17 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.Locale;
 
-/**
- * Entrega uma notificação a um navegador: cifra o corpo (RFC 8291), assina o pedido com a chave VAPID
- * (RFC 8292) e faz o POST no endpoint do serviço de push.
- */
 @Slf4j
 @Component
 public class WebPushSender {
 
     public enum Result {
         DELIVERED,
-        /** O navegador cancelou a inscrição ou ela venceu: o endpoint não volta a funcionar. */
         EXPIRED,
         FAILED
     }
 
-    private static final Duration JWT_VALIDITY = Duration.ofHours(12); // a RFC 8292 aceita até 24 h
+    private static final Duration JWT_VALIDITY = Duration.ofHours(12);
 
     private final PushProperties properties;
     private final Clock clock;
@@ -58,7 +53,6 @@ public class WebPushSender {
         this.properties = properties;
         this.clock = clock;
         this.meters = meters;
-        // sem seguir redirecionamentos: o endpoint conferido na lista é o único destino
         this.http = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(5))
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -76,12 +70,10 @@ public class WebPushSender {
         return privateKey != null;
     }
 
-    /** Chave que o navegador passa ao {@code pushManager.subscribe()}. */
     public String publicKey() {
         return publicKey;
     }
 
-    /** Só serviços de push conhecidos: o endpoint vem do navegador e poderia apontar para a rede interna. */
     public boolean allowedEndpoint(String endpoint) {
         URI uri;
         try {
@@ -134,7 +126,6 @@ public class WebPushSender {
             if (status == 404 || status == 410) {
                 return Result.EXPIRED;
             }
-            // o endpoint identifica o navegador: no log, só o serviço de push
             log.warn("Serviço de push {} recusou a notificação da inscrição {}: HTTP {}", endpoint.getHost(),
                     subscription.getId(), status);
             return Result.FAILED;
@@ -148,7 +139,6 @@ public class WebPushSender {
         }
     }
 
-    /** JWT da RFC 8292: o {@code aud} é a origem do serviço de push, e o {@code sub}, o contato do responsável. */
     private String vapidToken(URI endpoint) throws JOSEException {
         String audience = endpoint.getScheme() + "://" + endpoint.getRawAuthority();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -161,7 +151,6 @@ public class WebPushSender {
         return jwt.serialize();
     }
 
-    /** Falha na subida se as chaves não forem um par P-256 ou faltar o contato: melhor que notificações perdidas. */
     private static ECPrivateKey loadKeys(PushProperties properties) {
         String subject = properties.subject();
         if (!StringUtils.hasText(subject) || !(subject.startsWith("mailto:") || subject.startsWith("https://"))) {

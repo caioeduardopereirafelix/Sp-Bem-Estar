@@ -14,10 +14,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * A conta do cidadão: o e-mail confirmado por código e o id que assina os relatos dele. Os relatos guardam só o
- * HMAC desse id, então a equipe da prefeitura não liga um relato ao e-mail de quem o enviou.
- */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity

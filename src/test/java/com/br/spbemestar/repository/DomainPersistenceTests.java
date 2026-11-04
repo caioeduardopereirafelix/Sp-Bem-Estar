@@ -33,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Transactional
 class DomainPersistenceTests {
 
-    // Esquina da Av. Paulista com a R. Augusta
     static final double LAT = -23.5614;
     static final double LON = -46.6544;
 
@@ -72,7 +71,6 @@ class DomainPersistenceTests {
         Issue issue = issues.save(Issue.open(pothole, GeoPoints.of(LAT, LON), null, Instant.now()));
         flushAndClear();
 
-        // ~11 m ao sul: dentro de 15 m, fora de 5 m
         Object[] distances = (Object[]) em.createNativeQuery("""
                 SELECT ST_DWithin(location, ST_MakePoint(:lon, :lat)::geography, 15),
                        ST_DWithin(location, ST_MakePoint(:lon, :lat)::geography, 5)
@@ -132,7 +130,6 @@ class DomainPersistenceTests {
 
     @Test
     void findsNeighborhoodContainingPoint() throws ParseException {
-        // Quadrado simples em volta do ponto de teste
         MultiPolygon area = (MultiPolygon) new WKTReader(GeoPoints.factory()).read("""
                 MULTIPOLYGON(((-46.66 -23.57, -46.65 -23.57, -46.65 -23.55, -46.66 -23.55, -46.66 -23.57)))
                 """);
@@ -146,7 +143,6 @@ class DomainPersistenceTests {
 
     @Test
     void persistsOutboxEventWithJsonbPayload() {
-        // Data antiga: o evento fica à frente dos que outros testes deixaram pendentes no mesmo banco
         OutboxEvent event = outbox.save(OutboxEvent.of(
                 42L, "ReportCreated", "{\"reportId\": 42, \"photoId\": \"abc\"}", Instant.parse("2000-01-01T00:00:00Z"), null));
         flushAndClear();

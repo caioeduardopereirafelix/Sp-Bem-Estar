@@ -29,7 +29,6 @@ class PriorityServiceTests {
     @Test
     void priorityGrowsLogarithmicallyWithPeople() {
         Long issueId = report(UUID.randomUUID(), "POTHOLE", -21.00, -45.00);
-        // buraco: peso 1,5 × ln(1 + 1 pessoa)
         assertThat(priority(issueId)).isCloseTo(1.5 * Math.log(2), within(0.001));
 
         report(UUID.randomUUID(), "POTHOLE", -21.00, -45.00);
@@ -48,7 +47,6 @@ class PriorityServiceTests {
         assertThat(column(issueId, "reporter_count")).isOne();
         assertThat(priority(issueId)).isCloseTo(1.5 * Math.log(2), within(0.001));
 
-        // outra pessoa, sim, sobe
         report(UUID.randomUUID(), "POTHOLE", -21.30, -45.00);
         assertThat(column(issueId, "reporter_count")).isEqualTo(2);
         assertThat(priority(issueId)).isCloseTo(1.5 * Math.log(3), within(0.001));
@@ -59,7 +57,6 @@ class PriorityServiceTests {
         UUID someone = UUID.randomUUID();
         Long issueId = report(someone, "POTHOLE", -21.40, -45.00);
         report(someone, "POTHOLE", -21.40, -45.00);
-        // relatos anteriores à identidade anônima não têm autor: não dá para saber se são da mesma pessoa
         jdbc.update("UPDATE report SET reporter_hash = NULL WHERE issue_id = ?", issueId);
 
         priorityService.recalculateOpenIssues();
@@ -89,7 +86,6 @@ class PriorityServiceTests {
 
         priorityService.recalculateOpenIssues();
 
-        // lixo: peso 1,0 × ln(2) × (1 + 30 dias / 30)
         assertThat(priority(issueId)).isCloseTo(Math.log(2) * 2, within(0.001));
     }
 

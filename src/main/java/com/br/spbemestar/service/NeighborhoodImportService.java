@@ -17,7 +17,6 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class NeighborhoodImportService {
 
-    // Reprojeta para WGS84, corrige geometrias inválidas e garante MultiPolygon
     private static final String UPSERT = """
             INSERT INTO neighborhood (name, city, population, geom)
             VALUES (:name, :city, :population,
@@ -28,7 +27,6 @@ public class NeighborhoodImportService {
                     geom = EXCLUDED.geom
             """;
 
-    // Bumpa a versão para que uma atualização JPA concorrente não sobrescreva o bairro
     private static final String ASSIGN_ISSUES = """
             UPDATE issue i
             SET neighborhood_id = n.id, version = i.version + 1

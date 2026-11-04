@@ -15,7 +15,6 @@ import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Os limites de verdade, que a configuração dos outros testes afrouxa. */
 @SpringBootTest(properties = {"app.login.resend-interval=60s", "app.login.max-codes-per-hour=5"})
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -34,7 +33,6 @@ class LoginCodeLimitTests {
         assertThat(again).hasStatus(HttpStatus.TOO_MANY_REQUESTS)
                 .bodyJson().extractingPath("$.title").isEqualTo("Espere para pedir outro código");
         assertThat(Long.parseLong(again.getResponse().getHeader(HttpHeaders.RETRY_AFTER))).isBetween(1L, 61L);
-        // outro e-mail não espera
         assertThat(TestLogin.requestCode(mvc, TestReporters.email())).hasStatus(HttpStatus.ACCEPTED);
     }
 }

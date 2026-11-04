@@ -29,7 +29,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 class ReportControllerTests {
 
-    // Cada teste usa uma região própria (~1 km de distância) para não interferir nos outros
     static final double BASE_LAT = -23.5000;
     static final double BASE_LON = -46.6000;
     static final double TEN_METERS = 0.00009;
@@ -67,7 +66,6 @@ class ReportControllerTests {
         double lat = BASE_LAT - 0.02;
         ReportResponse first = createReport("POTHOLE", lat, BASE_LON);
 
-        // Buraco: raio de 15 m. Este ponto está a ~50 m
         ReportResponse far = createReport("POTHOLE", lat + 5 * TEN_METERS, BASE_LON);
 
         assertThat(far.newIssue()).isTrue();

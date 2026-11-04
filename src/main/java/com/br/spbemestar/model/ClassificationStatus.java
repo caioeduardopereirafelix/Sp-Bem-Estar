@@ -10,6 +10,5 @@ public enum ClassificationStatus {
     MISMATCH,
     LOW_CONFIDENCE;
 
-    /** O modelo discordou da categoria ou não teve confiança: um operador precisa olhar. */
     public static final Set<ClassificationStatus> NEEDS_REVIEW = EnumSet.of(MISMATCH, LOW_CONFIDENCE);
 }

@@ -45,7 +45,6 @@ class IssueExportTests {
     void exportsASpreadsheetThatExcelOpensInPortuguese() {
         Long open = newIssue("POTHOLE", -27.00);
         Long resolved = newIssue("TRASH", -27.01);
-        // uma nota maliciosa não pode virar fórmula na planilha, e o ";" não pode quebrar a coluna
         statusService.resolve(resolved, operatorId(), null, "=HYPERLINK(\"http://x\"); limpo");
 
         MvcTestResult result = export("");
@@ -60,13 +59,12 @@ class IssueExportTests {
 
         List<String> openRow = cells(line(body, open));
         assertThat(openRow.get(2)).isEqualTo("Aberto");
-        assertThat(openRow.get(4)).isEqualTo("-27,000000"); // vírgula decimal: o Excel lê como número
+        assertThat(openRow.get(4)).isEqualTo("-27,000000");
         assertThat(openRow.getLast()).isEqualTo("http://localhost/?issue=" + open);
 
         String resolvedLine = line(body, resolved);
         assertThat(cells(resolvedLine).get(2)).isEqualTo("Resolvido");
         assertThat(resolvedLine).contains("\"'=HYPERLINK(\"\"http://x\"\"); limpo\"");
-        // nada do cidadão vai para a planilha
         assertThat(body).doesNotContain(TestReporters.ID.toString());
     }
 
@@ -121,7 +119,6 @@ class IssueExportTests {
         return Arrays.stream(body.split("\r\n")).filter(l -> l.startsWith(id + ";")).findFirst().orElseThrow();
     }
 
-    // basta para as linhas sem aspas dos testes
     private static List<String> cells(String line) {
         return List.of(line.split(";", -1));
     }

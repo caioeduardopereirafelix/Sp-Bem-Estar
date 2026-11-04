@@ -13,12 +13,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Topologia do RabbitMQ. Os eventos da outbox saem pelo exchange {@value #EVENTS_EXCHANGE}
- * com o tipo do evento como routing key; cada consumidor tem sua fila e uma DLQ para as
- * mensagens rejeitadas. O classifier-worker declara a mesma topologia, com os mesmos argumentos,
- * para os dois poderem subir em qualquer ordem.
- */
 @Configuration
 @EnableConfigurationProperties({OutboxProperties.class, ClassificationProperties.class})
 public class RabbitConfig {
@@ -45,7 +39,6 @@ public class RabbitConfig {
         return ExchangeBuilder.directExchange(DEAD_LETTER_EXCHANGE).durable(true).build();
     }
 
-    // Relatos novos para o worker de classificação da foto
     @Bean
     Queue classificationQueue() {
         return QueueBuilder.durable(CLASSIFICATION_QUEUE)
@@ -59,7 +52,6 @@ public class RabbitConfig {
         return QueueBuilder.durable(CLASSIFICATION_DLQ).build();
     }
 
-    // Resultados do worker de classificação, consumidos pela própria API
     @Bean
     Queue resultQueue() {
         return QueueBuilder.durable(RESULT_QUEUE)
@@ -73,7 +65,6 @@ public class RabbitConfig {
         return QueueBuilder.durable(RESULT_DLQ).build();
     }
 
-    // Mudanças de status dos chamados, para avisar por push quem relatou
     @Bean
     Queue statusNotificationQueue() {
         return QueueBuilder.durable(STATUS_NOTIFICATION_QUEUE)

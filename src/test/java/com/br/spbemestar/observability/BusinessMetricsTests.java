@@ -53,14 +53,12 @@ class BusinessMetricsTests {
 
         assertThat(count("spbemestar.reports.received", "category", "SEWAGE")).isEqualTo(created + 1);
         assertThat(count("spbemestar.reports.classified", "status", "MISMATCH")).isEqualTo(mismatches + 1);
-        // nomes que o dashboard e os alertas consultam; o Prometheus remove sufixos reservados como _created
         assertThat(prometheus.scrape()).contains("spbemestar_reports_received_total{category=\"SEWAGE\"}",
                 "spbemestar_reports_classified_total{status=\"MISMATCH\"}");
     }
 
     @Test
     void rareEventsAreExportedFromStartup() {
-        // sem a série desde a subida, o Prometheus não vê o primeiro incremento e o alerta não dispara
         assertThat(prometheus.scrape()).contains(
                 "spbemestar_reporters_events_total{event=\"refresh_reused\"}",
                 "spbemestar_auth_logins_total{result=\"failure\"}",
@@ -83,7 +81,6 @@ class BusinessMetricsTests {
 
         assertThat(count("spbemestar.auth.logins", "result", "failure")).isEqualTo(failures + 1);
         assertThat(count("spbemestar.auth.logins", "result", "success")).isEqualTo(successes + 1);
-        // o e-mail é dado pessoal: numa força bruta, a lista de tentativas no log vazaria quem tem conta
         assertThat(output.getOut()).contains("Código de acesso recusado").doesNotContain(TestOperators.EMAIL)
                 .doesNotContain(code);
     }

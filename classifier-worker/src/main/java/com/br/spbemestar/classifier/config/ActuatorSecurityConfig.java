@@ -13,16 +13,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
-/**
- * O worker fala HTTP para ser monitorado e para a API conferir uma foto na hora do envio: o health check é público
- * (para o orquestrador saber se ele está de pé), as métricas exigem o usuário do Prometheus e a conferência, o
- * usuário da API. Qualquer outra rota é recusada.
- */
 @Configuration
 @EnableConfigurationProperties({MetricsProperties.class, ClassifyApiProperties.class})
 public class ActuatorSecurityConfig {
 
-    /** Sendo um bean, também impede o Spring Boot de criar um usuário padrão e imprimir a senha dele no log. */
     @Bean
     UserDetailsService workerUsers(MetricsProperties metrics, ClassifyApiProperties classifyApi) {
         PasswordEncoder passwordEncoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();

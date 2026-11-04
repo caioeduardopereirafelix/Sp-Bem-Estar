@@ -59,7 +59,6 @@ class ExifStripperTest {
 
     @Test
     void rejectsDecompressionBombBeforeDecoding() {
-        // 2,5 bilhões de pixels declarados em menos de 100 bytes: decodificar exigiria ~7 GB de memória
         byte[] bomb = pngHeader(50_000, 50_000);
 
         assertThatThrownBy(() -> stripper.strip(bomb))
@@ -75,18 +74,15 @@ class ExifStripperTest {
         return out.toByteArray();
     }
 
-    /**
-     * Insere um segmento APP1 (EXIF) logo após o marcador SOI do JPEG.
-     */
     private static byte[] injectExif(byte[] jpeg, String payload) {
         byte[] exifHeader = "Exif\0\0".getBytes(StandardCharsets.ISO_8859_1);
         byte[] data = payload.getBytes(StandardCharsets.ISO_8859_1);
         int segmentLength = 2 + exifHeader.length + data.length;
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        out.write(jpeg, 0, 2); // SOI
+        out.write(jpeg, 0, 2);
         out.write(0xFF);
-        out.write(0xE1);       // APP1
+        out.write(0xE1);
         out.write(segmentLength >> 8);
         out.write(segmentLength & 0xFF);
         out.writeBytes(exifHeader);
@@ -95,12 +91,11 @@ class ExifStripperTest {
         return out.toByteArray();
     }
 
-    /** PNG com só o cabeçalho IHDR e um IDAT vazio: as dimensões são declaradas, não reais. */
     private static byte[] pngHeader(int width, int height) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         out.writeBytes(new byte[]{(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n'});
         ByteBuffer ihdr = ByteBuffer.allocate(13).putInt(width).putInt(height)
-                .put((byte) 8).put((byte) 2).put((byte) 0).put((byte) 0).put((byte) 0); // 8 bits, RGB
+                .put((byte) 8).put((byte) 2).put((byte) 0).put((byte) 0).put((byte) 0);
         chunk(out, "IHDR", ihdr.array());
         chunk(out, "IDAT", new byte[0]);
         chunk(out, "IEND", new byte[0]);

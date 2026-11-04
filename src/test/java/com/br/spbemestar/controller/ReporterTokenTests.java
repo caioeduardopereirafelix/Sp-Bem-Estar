@@ -69,7 +69,6 @@ class ReporterTokenTests {
         String stored = jdbc.queryForObject("SELECT reporter_hash FROM report WHERE id = ?", String.class, reportId);
         assertThat(stored).hasSize(64).isEqualTo(hasher.reporterHash(UUID.fromString(reporterId)))
                 .doesNotContain(reporterId);
-        // o refresh token também não é gravado, só o SHA-256 dele
         assertThat(jdbc.queryForObject("SELECT count(*) FROM reporter_refresh_token WHERE token_hash = ?",
                 Integer.class, ReporterHasher.tokenHash(tokens.refreshToken()))).isOne();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM reporter_refresh_token WHERE token_hash = ?",
@@ -96,19 +95,15 @@ class ReporterTokenTests {
                 .bodyJson().extractingPath("$.title").isEqualTo("Não autenticado");
         assertThat(postReport("Bearer nao-e-um-jwt", -26.10)).hasStatus(HttpStatus.UNAUTHORIZED);
 
-        // o token do operador não serve para enviar relato
         assertThat(postReport(TestOperators.bearer(auth, users), -26.10)).hasStatus(HttpStatus.UNAUTHORIZED);
 
         Instant now = Instant.now();
         UUID someone = UUID.randomUUID();
-        // vencido
         assertThat(postReport(sign(reporterJwt.encoder(), someone, List.of(reporterProperties.audience()),
                 now.minus(Duration.ofHours(1)), now.minus(Duration.ofMinutes(30))), -26.10))
                 .hasStatus(HttpStatus.UNAUTHORIZED);
-        // assinado com a chave do operador, mesmo com o aud certo
         assertThat(postReport(sign(operatorEncoder, someone, List.of(reporterProperties.audience()),
                 now, now.plusSeconds(600)), -26.10)).hasStatus(HttpStatus.UNAUTHORIZED);
-        // chave certa, aud errado
         assertThat(postReport(sign(reporterJwt.encoder(), someone, List.of("outra-api"),
                 now, now.plusSeconds(600)), -26.10)).hasStatus(HttpStatus.UNAUTHORIZED);
     }
@@ -129,10 +124,8 @@ class ReporterTokenTests {
         ReporterTokenResponse first = register();
         ReporterTokenResponse second = refresh(first.refreshToken());
 
-        // o token já trocado aparece de novo: alguém tem uma cópia dele
         assertThat(postRefresh(first.refreshToken())).hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson().extractingPath("$.title").isEqualTo("Renovação recusada");
-        // o par emitido depois também deixa de valer, porque pode estar nas mãos de quem copiou
         assertThat(postRefresh(second.refreshToken())).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 
@@ -157,13 +150,11 @@ class ReporterTokenTests {
 
         assertThat(block(reportId, null)).hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(block(reportId, operator)).hasStatus(HttpStatus.NO_CONTENT);
-        assertThat(block(reportId, operator)).hasStatus(HttpStatus.NO_CONTENT); // de novo, sem erro
+        assertThat(block(reportId, operator)).hasStatus(HttpStatus.NO_CONTENT);
 
-        // o JWT ainda vale por alguns minutos, mas o relato já é recusado
         assertThat(postReport("Bearer " + spammer.accessToken(), -26.21)).hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.title").isEqualTo("Autor bloqueado");
         assertThat(postRefresh(spammer.refreshToken())).hasStatus(HttpStatus.FORBIDDEN);
-        // e quem não foi bloqueado continua enviando
         assertThat(postReport("Bearer " + register().accessToken(), -26.22)).hasStatus(HttpStatus.CREATED);
 
         assertThat(block(999_999L, operator)).hasStatus(HttpStatus.NOT_FOUND);
@@ -186,7 +177,6 @@ class ReporterTokenTests {
         assertThat(reporterJwt.decoder().decode(tokens.accessToken()).getClaims()).doesNotContainKey("roles");
     }
 
-    /** Um cidadão novo, entrando com um e-mail que nenhum outro teste usa. */
     private ReporterTokenResponse register() {
         MvcTestResult result = TestLogin.login(mvc, mailbox, TestReporters.email());
         assertThat(result).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("CITIZEN");

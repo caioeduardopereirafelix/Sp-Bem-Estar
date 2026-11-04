@@ -1,7 +1,6 @@
 const API = '/api/v1';
 const CITY = 'São Paulo';
 
-// Status é um estado: paleta de status + formato do marcador, para não depender só da cor
 const STATUS = {
     OPEN: {label: 'Aberto', track: 'Recebido', color: '#d03b3b', shape: 'circle'},
     CONFIRMED: {label: 'Confirmado', track: 'Confirmado', color: '#ec835a', shape: 'square'},
@@ -17,7 +16,6 @@ const TRANSITIONS = {
     RESOLVED: [],
 };
 
-// Nome curto e ícone de cada tipo de problema; o nome completo vem da API
 const ICON_PATHS = {
     POTHOLE: '<path d="M3 18h18M6 6l-3 12M18 6l3 12"/><ellipse cx="12" cy="13.5" rx="4.5" ry="2"/><path d="M12 6v2"/>',
     TRASH: '<path d="M5 8h14l-1.2 12H6.2z"/><path d="M9 8V5h6v3M3.5 8h17"/><path d="M10 12v5M14 12v5"/>',
@@ -45,7 +43,6 @@ function shortName(code, fallback) {
     return SHORT_NAMES[code] ?? fallback ?? code;
 }
 
-// Escala sequencial de um tom (azul), do claro ao escuro
 const RATE_COLORS = ['#dfe3ff', '#aab3f5', '#6f7ee6', '#3445d1', '#1f2a8a'];
 
 const numberFormat = new Intl.NumberFormat('pt-BR');
@@ -53,10 +50,8 @@ const rateFormat = new Intl.NumberFormat('pt-BR', {minimumFractionDigits: 2, max
 const dateFormat = new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'});
 const relativeFormat = new Intl.RelativeTimeFormat('pt-BR', {numeric: 'auto'});
 const isDesktop = () => window.matchMedia('(min-width: 900px)').matches;
-// tela de toque: as etiquetas de passar o mouse (tooltips) grudam no toque e cobrem o mapa
 const canHover = () => window.matchMedia('(hover: hover)').matches;
 
-// "há 3 horas", "ontem": mais fácil de ler que uma data
 function timeAgo(value) {
     const seconds = (new Date(value).getTime() - Date.now()) / 1000;
     const steps = [[60, 'second'], [60, 'minute'], [24, 'hour'], [30, 'day'], [12, 'month'], [Infinity, 'year']];
@@ -74,7 +69,6 @@ const state = {categories: [], rateBreaks: [], pickedLocation: null, pickMarker:
     session: loadSession(), reporter: null, markers: new Map(), userLocation: null,
     filters: {category: '', status: ''}, report: {step: 'where', category: null}};
 
-// Sessão do operador: o token fica só nesta aba e vence sozinho (expiresAt)
 function loadSession() {
     try {
         const session = JSON.parse(sessionStorage.getItem('operator') ?? 'null');
@@ -93,19 +87,14 @@ function saveSession(session) {
             sessionStorage.removeItem('operator');
         }
     } catch {
-        // sem storage (aba anônima, bloqueio): a sessão vale até recarregar a página
     }
     renderSession();
 }
 
 const map = L.map('map', {zoomControl: false}).setView([-23.55, -46.63], 12);
 L.control.zoom({position: 'topright'}).addTo(map);
-// no celular a gaveta cobre o pé do mapa: os créditos sobem para o canto de cima
 map.attributionControl.setPosition(isDesktop() ? 'bottomright' : 'topright');
 
-// Mapa vetorial escuro (estilo Fiord do OpenFreeMap, sem chave nem cadastro), com as cores puxadas para o
-// azul-marinho dos apps de navegação. Sem WebGL, ou se o estilo não carregar, ficam os tiles do OpenStreetMap
-// escurecidos por filtro
 const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/fiord';
 const BASE_COLORS = {
     background: {'background-color': '#222a38'},
@@ -118,7 +107,7 @@ const BASE_COLORS = {
     highway_major_inner: {'line-color': '#46556f'},
     highway_motorway_casing: {'line-color': '#5c6d8c'},
     highway_name_other: {'text-color': '#b7c3d9', 'text-halo-color': '#222a38'},
-    highway_path: {'line-opacity': 0.35}, // calçadas e trilhas tracejadas: discretas, para as ruas se destacarem
+    highway_path: {'line-opacity': 0.35},
 };
 
 function supportsWebGL() {
@@ -129,7 +118,6 @@ function supportsWebGL() {
     }
 }
 
-// os créditos (OpenFreeMap, OpenMapTiles, OpenStreetMap) vêm do próprio estilo, na barra do Leaflet
 async function addBaseMap() {
     if (window.maplibregl && L.maplibreGL && supportsWebGL()) {
         try {
@@ -144,7 +132,6 @@ async function addBaseMap() {
             L.maplibreGL({style}).addTo(map);
             return;
         } catch {
-            // segue para os tiles do OpenStreetMap
         }
     }
     map.getContainer().classList.add('raster-dark');
@@ -157,7 +144,6 @@ async function addBaseMap() {
 addBaseMap();
 
 map.createPane('districts').style.zIndex = 350;
-// os distritos coloridos ficam desligados por padrão: o mapa limpo deixa os problemas à vista
 const districtLayer = L.geoJSON(null, {pane: 'districts', style: districtStyle, onEachFeature: bindDistrict});
 const issueLayer = L.layerGroup().addTo(map);
 const legend = L.control({position: 'topright'});
@@ -183,8 +169,6 @@ async function api(path, options = {}) {
     return body;
 }
 
-// --- Painel: abas, tamanho da gaveta no celular ---
-
 const panel = document.getElementById('panel');
 const VIEW_SIZES = {explore: 'peek', issue: 'half', report: 'half', sent: 'full', mine: 'full', more: 'full', operator: 'full',
     login: 'full'};
@@ -194,8 +178,6 @@ function setSheet(size) {
     document.body.dataset.sheet = size;
 }
 
-// Quem é da prefeitura vê só a área da prefeitura: as telas do cidadão (mapa com o relatar, meus relatos, mais,
-// entrar) levam de volta a ela. O chamado aberto no celular continua valendo, para a equipe agir nele
 const CITIZEN_VIEWS = new Set(['explore', 'report', 'sent', 'mine', 'more', 'login']);
 
 function showView(name) {
@@ -230,7 +212,7 @@ document.addEventListener('click', (event) => {
         return;
     }
     if (target.dataset.goto === 'report-start') {
-        document.getElementById('report-begin').click(); // mesmo fluxo do botão principal, com o texto da permissão
+        document.getElementById('report-begin').click();
     } else {
         if (state.report.active && target.dataset.goto !== 'report') {
             resetReport();
@@ -239,7 +221,6 @@ document.addEventListener('click', (event) => {
     }
 });
 
-// A gaveta sobe e desce arrastando a alça, ou com um toque nela
 const SHEET_SIZES = ['peek', 'half', 'full'];
 const sheetHandle = document.getElementById('sheet-handle');
 let sheetDrag = null;
@@ -263,14 +244,12 @@ sheetHandle.addEventListener('click', () => {
     sheetDrag = null;
 });
 
-// Os botões sobre o mapa acompanham a altura da gaveta, como no app de navegação
 new ResizeObserver(() => {
     document.documentElement.style.setProperty('--sheet-height', `${panel.offsetHeight}px`);
 }).observe(panel);
 
 document.getElementById('menu-button').addEventListener('click', () => {
     if (state.session) {
-        // a equipe só tem a área da prefeitura: o menu abre ou recolhe a gaveta com ela
         if (panel.dataset.current === 'operator' && panel.dataset.size === 'full') {
             setSheet('peek');
         } else {
@@ -284,10 +263,6 @@ document.getElementById('menu-button').addEventListener('click', () => {
     showView(panel.dataset.current === 'more' && panel.dataset.size === 'full' ? 'explore' : 'more');
 });
 
-// O cidadão depois do login por código: um JWT de 15 min para enviar relatos, renovado com o refresh token.
-// O par fica neste navegador, com o e-mail, para a pessoa continuar conectada nas próximas visitas. Um par sem
-// e-mail é a identidade anônima de antes do login: ela não envia mais relatos, mas no primeiro login os relatos
-// feitos com ela passam para a conta.
 const REPORTER_KEY = 'reporter';
 let reporterRequest = null;
 
@@ -298,7 +273,6 @@ function loadReporter() {
             return JSON.parse(stored);
         }
     } catch {
-        // sem storage: usa o par guardado em memória
     }
     return state.reporter;
 }
@@ -312,7 +286,6 @@ function saveReporter(tokens) {
             localStorage.removeItem(REPORTER_KEY);
         }
     } catch {
-        // sem storage (aba anônima, bloqueio): a identidade vale até recarregar a página
     }
 }
 
@@ -333,20 +306,19 @@ async function postReporter(path, body) {
 }
 
 async function obtainReporterToken(forceRenew) {
-    const current = loadReporter(); // relê sempre: outra aba pode ter renovado o par
+    const current = loadReporter();
     if (!forceRenew && current && new Date(current.expiresAt).getTime() - 30_000 > Date.now()) {
         return current.accessToken;
     }
     if (current?.refreshToken && new Date(current.refreshTokenExpiresAt) > new Date()) {
         const {response, payload} = await postReporter('/reporters/refresh', {refreshToken: current.refreshToken});
         if (response.ok) {
-            saveReporter({...payload, email: current.email}); // o e-mail não vem na renovação
+            saveReporter({...payload, email: current.email});
             return payload.accessToken;
         }
         if (response.status === 403) {
             throw new Error(payload?.detail ?? 'Este autor foi bloqueado pela moderação.');
         }
-        // 401: vencido ou revogado
     }
     if (current?.email) {
         saveReporter(null);
@@ -355,8 +327,6 @@ async function obtainReporterToken(forceRenew) {
     throw loginRequired('Sua sessão terminou. Entre de novo com o seu e-mail.');
 }
 
-// Uma renovação por vez, também entre abas: duas com o mesmo refresh token parecem uma cópia roubada,
-// e a API revoga a identidade inteira
 function reporterToken(forceRenew = false) {
     reporterRequest ??= (navigator.locks
         ? navigator.locks.request('spbemestar-reporter', () => obtainReporterToken(forceRenew))
@@ -367,7 +337,6 @@ function reporterToken(forceRenew = false) {
     return reporterRequest;
 }
 
-// Requisição com o token do cidadão; se ele for recusado (vencido ou revogado), renova e tenta uma vez
 async function reporterFetch(path, options = {}) {
     for (const forceRenew of [false, true]) {
         const token = await reporterToken(forceRenew);
@@ -380,7 +349,6 @@ async function reporterFetch(path, options = {}) {
             throw loginRequired(body.detail);
         }
         if (!response.ok) {
-            // o corpo do erro vai junto: a recusa da foto traz o tipo que o classificador sugere
             throw Object.assign(new Error(body?.detail || body?.title || `Erro ${response.status}`),
                 {status: response.status, problem: body});
         }
@@ -392,12 +360,10 @@ function sendReport(data) {
     return reporterFetch('/reports', {method: 'POST', body: data});
 }
 
-// Localização do usuário em tempo real, como nos apps de navegação. A posição fica só neste aparelho: a API
-// recebe a área do mapa à vista, para buscar os problemas, e o ponto de um relato enviado.
 const LOW_ACCURACY_METERS = 50;
-const CORRECTABLE_METERS = 100; // acima disso, a posição é a da rede, não a do GPS, e a pessoa pode corrigi-la
+const CORRECTABLE_METERS = 100;
 const FOLLOW_ZOOM = 17;
-const MOVING_SPEED = 0.7; // m/s: abaixo disso o rumo do GPS é ruído, e vale a bússola
+const MOVING_SPEED = 0.7;
 const NO_GEOLOCATION = 'Este navegador não informa a localização aqui (é preciso HTTPS). Marque o ponto no mapa.';
 const GEOLOCATION_ERRORS = {
     1: 'Sem permissão para usar sua localização. Libere nas configurações do navegador ou marque o ponto no mapa.',
@@ -418,7 +384,6 @@ function currentPosition() {
             reject(new Error(NO_GEOLOCATION));
             return;
         }
-        // o acompanhamento em tempo real já tem uma posição recente: não precisa esperar o GPS de novo
         if (tracking.position && Date.now() - tracking.position.timestamp < 30_000) {
             resolve(tracking.position);
             return;
@@ -429,9 +394,6 @@ function currentPosition() {
     });
 }
 
-// Alta precisão é o GPS: no celular, a seta acompanha a rua; no computador, sem GPS, a resposta pode nunca vir.
-// Por isso uma posição aproximada (Wi-Fi, rede) chega logo, o GPS refina por cima, e se ele esgotar o tempo o
-// acompanhamento segue em precisão normal
 const HIGH_ACCURACY = {enableHighAccuracy: true, maximumAge: 5000, timeout: 20000};
 const NORMAL_ACCURACY = {enableHighAccuracy: false, maximumAge: 60_000, timeout: 30000};
 
@@ -445,7 +407,6 @@ function startTracking() {
             onPosition(position);
         }
     }, () => {
-        // sem a aproximada, os avisos vêm do acompanhamento
     }, {enableHighAccuracy: false, maximumAge: 600_000, timeout: 15000});
 }
 
@@ -466,16 +427,15 @@ function onPosition(position) {
     tracking.position = position;
     const precise = position.coords.accuracy <= CORRECTABLE_METERS;
     if (precise && tracking.manual) {
-        tracking.manual = null; // o aparelho achou você com precisão: ele vale mais que o ponto marcado à mão
+        tracking.manual = null;
         showToast('Sua localização ficou precisa: o ponto azul voltou a ser o do aparelho.');
     }
     const {heading, speed} = position.coords;
-    // parado, o GPS não sabe para onde você está virado: o rumo dele só vale em movimento
     tracking.gpsHeading = Number.isFinite(heading) && speed > MOVING_SPEED ? heading : null;
     drawUserMarker();
     locateButton.classList.remove('unavailable');
     if (first) {
-        toast.hidden = true; // o "Buscando sua localização…", ou um aviso de demora que a posição já respondeu
+        toast.hidden = true;
     }
     if (tracking.following) {
         followUser(first);
@@ -488,16 +448,14 @@ function onPosition(position) {
 function onPositionError(error) {
     if (error.code === 3 && tracking.highAccuracy) {
         stopTracking();
-        watchPosition(NORMAL_ACCURACY); // o GPS não respondeu: tenta pela rede antes de avisar
+        watchPosition(NORMAL_ACCURACY);
         return;
     }
     if (error.code === 1) {
-        stopTracking(); // negado: o navegador não volta a perguntar, e o botão tenta de novo se a pessoa liberar
+        stopTracking();
         setFollow(false);
         locateButton.classList.add('unavailable');
     }
-    // recusar o pedido já é a resposta da pessoa; as outras falhas (GPS ou localização do sistema desligados,
-    // demora) ficariam mudas sem o aviso. Um aviso por tentativa: o watchPosition repete o erro a cada 20 s
     if (tracking.position || tracking.warned || (error.code === 1 && !tracking.asked)) {
         return;
     }
@@ -511,7 +469,6 @@ function onPositionError(error) {
     showToast(text, 10000);
 }
 
-// O ponto marcado à mão, se a pessoa corrigiu a posição aproximada; senão, o do aparelho
 function userLatLng() {
     if (tracking.manual) {
         return tracking.manual;
@@ -524,7 +481,6 @@ function userAccuracy() {
     return tracking.manual ? 0 : tracking.position.coords.accuracy;
 }
 
-// A seta azul, virada para onde você vai (ou para onde o celular aponta); sem rumo, vira um ponto
 function drawUserMarker() {
     const latlng = userLatLng();
     const accuracy = userAccuracy();
@@ -542,7 +498,6 @@ function drawUserMarker() {
         tracking.marker.setLatLng(latlng);
         tracking.accuracy.setLatLng(latlng).setRadius(accuracy);
     }
-    // com GPS bom o círculo só polui; ele aparece quando a posição é aproximada
     tracking.accuracy.getElement()?.classList.toggle('visible', accuracy > LOW_ACCURACY_METERS);
     scheduleArrowUpdate();
 }
@@ -560,7 +515,6 @@ function scheduleArrowUpdate() {
     });
 }
 
-// Bússola do aparelho: no Android vem sem pedir; no iPhone, só depois de um toque e de a pessoa permitir
 function onOrientation(event) {
     let heading = null;
     if (typeof event.webkitCompassHeading === 'number') {
@@ -586,7 +540,7 @@ async function enableCompass() {
                 return;
             }
         } catch {
-            return; // fora de um toque o iPhone recusa; tenta de novo no próximo toque no botão
+            return;
         }
     }
     tracking.compassOn = true;
@@ -594,15 +548,12 @@ async function enableCompass() {
         onOrientation);
 }
 
-// O centro do mapa que deixa um ponto no meio da parte visível: no celular a gaveta cobre o pé da tela,
-// no computador o painel cobre a esquerda
 function centerShowing(latlng, zoom) {
     const offset = isDesktop() ? L.point(-panel.offsetWidth / 2 - 8, 0) : L.point(0, panel.offsetHeight / 2);
     return map.unproject(map.project(latlng, zoom).add(offset), zoom);
 }
 
 function followUser(jump = false) {
-    // com a posição aproximada (rede, Wi-Fi), o zoom de rua esconderia o círculo de precisão
     const accuracy = userAccuracy();
     const zoom = !jump ? map.getZoom() : accuracy > LOW_ACCURACY_METERS
         ? Math.min(FOLLOW_ZOOM, map.getBoundsZoom(userLatLng().toBounds(accuracy * 2.5)))
@@ -620,7 +571,6 @@ function setFollow(following) {
     locateButton.setAttribute('aria-pressed', String(following));
 }
 
-// Mostra a posição para escolher o ponto do relato; com precisão baixa, o círculo inteiro fica à vista
 function showUserLocation(position) {
     onPosition(position);
     const latlng = userLatLng();
@@ -630,7 +580,6 @@ function showUserLocation(position) {
     return latlng;
 }
 
-// No computador o painel cobre a esquerda do mapa: o que é centralizado deve ficar à direita dele
 function mapPadding() {
     return isDesktop() ? [440, 0] : [0, 0];
 }
@@ -641,7 +590,6 @@ locateButton.addEventListener('click', async () => {
         showToast(NO_GEOLOCATION);
         return;
     }
-    // bloqueado, o navegador nem pergunta de novo: o aviso diz onde liberar
     if (await geolocationPermission() === 'denied') {
         showToast('O acesso à localização está bloqueado para este site. Para liberar, toque no cadeado ao lado '
             + 'do endereço e permita a localização.');
@@ -653,7 +601,7 @@ locateButton.addEventListener('click', async () => {
     if (tracking.position) {
         followUser(true);
         if (!tracking.manual && tracking.position.coords.accuracy > CORRECTABLE_METERS) {
-            tracking.fixDismissed = false; // pediu a localização de novo: o convite para corrigir volta
+            tracking.fixDismissed = false;
             offerLocationFix();
         }
     } else {
@@ -661,8 +609,6 @@ locateButton.addEventListener('click', async () => {
     }
     startTracking();
 });
-
-// --- Corrigir a posição aproximada com um toque no mapa ---
 
 const locateFix = document.getElementById('locate-fix');
 
@@ -707,7 +653,6 @@ function setManualLocation(latlng) {
         + 'ficar precisa.');
 }
 
-// Arrastar o mapa é olhar outro lugar: o mapa para de seguir você até o toque no botão
 map.on('dragstart', () => setFollow(false));
 map.on('zoomend', () => {
     if (tracking.following && tracking.position) {
@@ -738,13 +683,11 @@ function shapeSvg(status, size = 18) {
         triangle: `<polygon points="${c},${c - r - 1} ${c + r + 1},${c + r} ${c - r - 1},${c + r}"/>`,
     };
     const mark = shapes[shape];
-    // Contorno escuro + anel branco: o marcador se destaca em qualquer cor de fundo
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
         <g fill="none" stroke="rgba(11,11,11,0.55)" stroke-width="4" stroke-linejoin="round">${mark}</g>
         <g fill="${color}" stroke="#ffffff" stroke-width="2" stroke-linejoin="round">${mark}</g></svg>`;
 }
 
-// "3 pessoas relataram": a prioridade conta pessoas, e quem reporta de novo não soma
 function peopleLabel(reporters) {
     return reporters === 1 ? '1 pessoa relatou' : `${numberFormat.format(reporters)} pessoas relataram`;
 }
@@ -759,7 +702,6 @@ function statusLabel(status) {
     return `<span class="status-label">${shapeSvg(status, 14)}${STATUS[status].label}</span>`;
 }
 
-// A trilha Recebido → Confirmado → Em andamento → Resolvido, como o rastreio de uma encomenda
 function trackLine(status) {
     const position = TRACK.indexOf(status);
     return `<ol class="track-line" aria-label="Andamento: ${STATUS[status]?.label ?? status}">${TRACK.map((step, i) => {
@@ -791,7 +733,6 @@ function districtStyle(feature) {
 function bindDistrict(feature, layer) {
     const p = feature.properties;
     if (!canHover()) {
-        // no toque, o resumo do distrito vem num aviso, que some sozinho
         layer.on('click', () => showToast(`${p.name}: ${numberFormat.format(p.openIssues)} problemas em aberto, `
             + `${rateFormat.format(p.openIssuesPer10k ?? 0)} a cada 10 mil moradores.`));
         return;
@@ -806,7 +747,6 @@ function bindDistrict(feature, layer) {
     });
 }
 
-// Faixas: zero, e o restante dividido em quatro intervalos iguais até o máximo
 function computeRateBreaks(features) {
     const max = Math.max(0, ...features.map((f) => Number(f.properties.openIssuesPer10k ?? 0)));
     if (max === 0) {
@@ -826,7 +766,6 @@ function renderLegend() {
         }).join('');
     const container = legend.getContainer();
     container.innerHTML = `<h3>Em aberto a cada 10 mil moradores</h3>${rows}`;
-    // a cor vai pelo DOM, não por atributo style: a CSP da página bloqueia estilos inline
     container.querySelectorAll('.swatch[data-color]').forEach((swatch) => {
         swatch.style.background = RATE_COLORS[swatch.dataset.color];
     });
@@ -861,15 +800,11 @@ document.getElementById('districts-toggle').addEventListener('change', (event) =
     }
 });
 
-// --- Problemas no mapa ---
-
 function scheduleIssueLoad() {
-    // o Leaflet desloca o mapa para o popup caber na tela; recarregar aqui recriaria o marcador e fecharia o popup
     if (state.autoPanning) {
         state.autoPanning = false;
         return;
     }
-    // seguindo você, o mapa anda a cada passo: dentro da área já carregada, basta recontar
     if (state.loaded?.zoom === map.getZoom() && state.loaded.bounds.contains(map.getBounds())) {
         renderIssueCount();
         return;
@@ -883,7 +818,6 @@ async function loadIssues() {
     if (visible.getWest() >= visible.getEast() || visible.getSouth() >= visible.getNorth()) {
         return;
     }
-    // busca uma margem além da tela, para pequenos deslocamentos não pedirem tudo de novo
     const padded = visible.pad(0.3);
     const bounds = L.latLngBounds([Math.max(padded.getSouth(), -90), Math.max(padded.getWest(), -180)],
         [Math.min(padded.getNorth(), 90), Math.min(padded.getEast(), 180)]);
@@ -915,7 +849,6 @@ async function loadIssues() {
     renderIssueCount();
 }
 
-// Conta só o que está na tela, não a margem carregada além dela
 function renderIssueCount() {
     const visible = map.getBounds();
     let count = 0;
@@ -930,12 +863,8 @@ function renderIssueCount() {
             ? ' (mostrando parte)' : ''}`;
 }
 
-// --- O chamado aberto: pop-up no computador, gaveta no celular ---
-
-// No celular um pop-up sobre o mapa briga com a gaveta e com os botões e não cabe na tela; ali o chamado
-// abre na própria gaveta, como nos apps de mapa
 function openIssue(id, marker) {
-    setFollow(false); // o mapa parado, para o chamado não sair da tela
+    setFollow(false);
     if (isDesktop()) {
         if (!marker.getPopup()) {
             marker.bindPopup('Carregando…', {maxWidth: 320, minWidth: 260, autoPanPaddingTopLeft: mapPadding()});
@@ -948,7 +877,6 @@ function openIssue(id, marker) {
     selectMarker(marker);
     issueDetail.innerHTML = '<p class="hint">Carregando…</p>';
     showView('issue');
-    // a gaveta sobe até a metade: o ponto vai para o meio do mapa que sobra à vista
     setTimeout(() => map.panTo(centerShowing(marker.getLatLng(), map.getZoom()), {animate: true}), 280);
     showIssue(id, sheetHost);
 }
@@ -991,7 +919,6 @@ async function showIssue(id, host) {
                 h.changedBy ? ` por ${escapeHtml(h.changedBy)}` : ''}</li>`).join('');
         const actions = state.session ? TRANSITIONS[issue.status].map((s) =>
             `<button type="button" class="button" data-status="${s}">${STATUS[s].label}</button>`).join('') : '';
-        // antes e depois: a foto do relato ao lado da foto do conserto, quando a equipe deixou uma
         const heroHtml = hero && after
             ? `<div class="popup-hero before-after">
                 <a href="${hero.photoUrl}" target="_blank" rel="noopener"><img src="${hero.photoUrl}" alt="Antes: foto do problema"><span>Antes</span></a>
@@ -1023,15 +950,12 @@ async function showIssue(id, host) {
                 <div class="popup-actions">${moderation}</div>` : ''}
         </div>`);
 
-        // só os botões: a linha de etapas (trackLine) também tem data-status, e um clique nela não muda nada
         host.element()?.querySelectorAll('.popup-actions button[data-status]').forEach((button) => {
             button.addEventListener('click', (event) => {
                 if (button.dataset.status !== 'RESOLVED') {
                     changeStatus(issue.id, button.dataset.status, host);
                     return;
                 }
-                // o botão sai da página com a troca pelo formulário, e o Leaflet tomaria o clique por um clique
-                // no mapa, que fecha o pop-up
                 event.stopPropagation();
                 showResolveForm(issue.id, host, button.closest('.popup-actions'));
             });
@@ -1072,7 +996,6 @@ async function changeStatus(id, status, host) {
     }
 }
 
-// Resolver mostrando o que foi feito: a foto do conserto e uma nota, para quem relatou ver o resultado
 function showResolveForm(id, host, actions) {
     const form = document.createElement('form');
     form.className = 'resolve-form';
@@ -1091,7 +1014,7 @@ function showResolveForm(id, host, actions) {
         <p class="message" aria-live="polite"></p>`;
     actions.replaceWith(form);
     form.querySelector('[data-cancel]').addEventListener('click', (event) => {
-        event.stopPropagation(); // pelo mesmo motivo do botão "Resolvido"
+        event.stopPropagation();
         form.replaceWith(actions);
     });
     form.addEventListener('submit', async (event) => {
@@ -1115,7 +1038,6 @@ function showResolveForm(id, host, actions) {
     });
 }
 
-// Filtros: chips de tipo e a situação (em aberto ou resolvidos)
 function renderCategoryChips() {
     const chips = [{code: '', name: 'Todos'}, ...state.categories];
     const container = document.getElementById('category-chips');
@@ -1141,8 +1063,6 @@ document.querySelectorAll('.segmented [data-status]').forEach((button) => {
     });
 });
 
-// --- Novo relato: local, tipo e foto ---
-
 const reportForm = document.getElementById('report-form');
 const reportMessage = document.getElementById('report-message');
 
@@ -1166,7 +1086,6 @@ function goToStep(step) {
             item.removeAttribute('aria-current');
         }
     });
-    // escolher o ponto precisa do mapa à vista; tipo e foto, de espaço no painel
     setSheet(step === 'where' ? 'half' : 'full');
     document.body.classList.toggle('picking', step === 'where');
     document.querySelector('.views').scrollTop = 0;
@@ -1174,8 +1093,8 @@ function goToStep(step) {
 
 function startReport() {
     resetReport();
-    stopLocationFix(); // o relato também usa o toque no mapa: os dois modos não convivem
-    setFollow(false); // o mapa fica parado enquanto a pessoa marca o ponto
+    stopLocationFix();
+    setFollow(false);
     state.report.active = true;
     map.closePopup();
     showView('report');
@@ -1203,7 +1122,6 @@ function resetReport() {
     setReportMessage('');
 }
 
-// Ponto do relato: o pino pode ser arrastado, e um toque no mapa o move
 function pickLocation(latlng) {
     state.pickedLocation = latlng;
     state.pickMarker?.remove();
@@ -1233,12 +1151,10 @@ async function locateForReport() {
             ? `Localização aproximada (cerca de ${numberFormat.format(accuracy)} m). Confira o pino antes de continuar.`
             : '');
     } catch (error) {
-        // sem localização, o relato continua: o ponto é escolhido no mapa
         startManualPick(error.message, 'error');
     }
 }
 
-// Estado da permissão sem disparar o pedido do navegador; sem a Permissions API (Safari antigo), "prompt"
 async function geolocationPermission() {
     if (!window.isSecureContext || !('geolocation' in navigator)) {
         return 'unsupported';
@@ -1250,7 +1166,6 @@ async function geolocationPermission() {
     }
 }
 
-// Antes do pedido do navegador, o próprio passo explica para que serve a localização
 const WHERE_TEXT = {
     prompt: 'Para marcar o lugar certo, usamos a localização do seu aparelho. Ela só marca o ponto do relato e '
         + 'não é guardada. O navegador vai pedir sua permissão.',
@@ -1267,7 +1182,7 @@ document.getElementById('report-begin').addEventListener('click', async () => {
     startReport();
     const permission = await geolocationPermission();
     if (permission === 'granted') {
-        await locateForReport(); // já permitido: vai direto para o ponto do GPS
+        await locateForReport();
         return;
     }
     document.getElementById('where-text').textContent = WHERE_TEXT[permission] ?? WHERE_TEXT.prompt;
@@ -1295,7 +1210,6 @@ map.on('click', (event) => {
         pickLocation(event.latlng);
         return;
     }
-    // no celular, tocar fora do chamado aberto na gaveta é voltar ao mapa, como fecharia um pop-up
     if (panel.dataset.current === 'issue') {
         showView('explore');
     }
@@ -1310,13 +1224,11 @@ function renderCategoryTiles() {
         tile.addEventListener('click', () => {
             chooseCategory(tile.dataset.category);
             hideSuggestion();
-            state.report.confirmCategory = false; // outro tipo: o classificador confere de novo
+            state.report.confirmCategory = false;
             goToStep('photo');
         });
     });
 }
-
-// --- O classificador recusou a foto: sugere o tipo certo, outra foto, ou enviar assim mesmo ---
 
 const suggestion = document.getElementById('category-suggestion');
 
@@ -1329,7 +1241,6 @@ function showSuggestion(problem) {
     const chosen = problem.chosenCategory;
     const predicted = problem.predictedCategory;
     const accept = document.getElementById('suggestion-accept');
-    // sem tipo para sugerir, a saída principal é outra foto
     document.getElementById('suggestion-photo').className = predicted === 'OTHER' ? 'cta' : 'button';
     if (predicted === 'OTHER') {
         document.getElementById('suggestion-text').textContent =
@@ -1368,14 +1279,14 @@ document.getElementById('suggestion-photo').addEventListener('click', () => {
     reportForm.elements.photo.click();
 });
 document.getElementById('suggestion-insist').addEventListener('click', () => {
-    state.report.confirmCategory = true; // vai como está, e a classificação pela fila leva para a moderação
+    state.report.confirmCategory = true;
     hideSuggestion();
     reportForm.requestSubmit();
 });
 
 reportForm.elements.photo.addEventListener('change', () => {
     hideSuggestion();
-    state.report.confirmCategory = false; // foto nova: o classificador confere de novo
+    state.report.confirmCategory = false;
     const file = reportForm.elements.photo.files[0];
     const preview = document.getElementById('photo-preview');
     if (state.photoUrl) {
@@ -1424,7 +1335,6 @@ reportForm.addEventListener('submit', async (event) => {
             return;
         }
         if (error.loginRequired) {
-            // a foto e o ponto continuam no formulário: depois do login, é só enviar de novo
             setReportMessage('');
             openLogin(`${error.message} O relato continua aqui, pronto para enviar.`, 'report-form');
             return;
@@ -1435,8 +1345,6 @@ reportForm.addEventListener('submit', async (event) => {
     }
 });
 
-// O classificador olha a foto segundos depois do envio (outbox → RabbitMQ → worker). O app espera a resposta e
-// conta o resultado na hora: quem errou o tipo entende o que houve, e quem mandou outra coisa vê que foi notado
 const PHOTO_CHECK_TRIES = 12;
 const PHOTO_CHECK_INTERVAL = 1500;
 
@@ -1471,7 +1379,7 @@ async function checkPhoto(reportId, chosen) {
     for (let attempt = 0; attempt < PHOTO_CHECK_TRIES; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, PHOTO_CHECK_INTERVAL));
         if (panel.dataset.current !== 'sent') {
-            return; // a pessoa saiu da tela: o resultado aparece em "Meus relatos"
+            return;
         }
         try {
             const page = await reporterFetch('/reporters/me/reports?page=0&size=10');
@@ -1483,15 +1391,12 @@ async function checkPhoto(reportId, chosen) {
                 return;
             }
         } catch {
-            break; // sem a lista agora: não insiste, e o relato já foi enviado
+            break;
         }
     }
-    // sem resposta do classificador (fora do ar ou atrasado): a moderação continua valendo
     box.className = 'photo-check';
     box.textContent = 'A conferência automática da foto ainda não terminou. Você vê o andamento em "Meus relatos".';
 }
-
-// --- Meus relatos ---
 
 const myReports = {page: 0, items: [], total: 0};
 const myReportsMessage = document.getElementById('my-reports-message');
@@ -1504,7 +1409,6 @@ function setMyReportsMessage(text, kind) {
 async function loadMyReports(append = false) {
     const list = document.getElementById('my-reports-list');
     if (!citizenSignedIn()) {
-        // sem login: nada a buscar
         myReports.items = [];
         myReports.total = 0;
         list.innerHTML = '';
@@ -1565,7 +1469,6 @@ document.getElementById('mine-login').addEventListener('click', () =>
 document.getElementById('my-reports-more').addEventListener('click', () =>
     loadMyReports(true).catch((error) => setMyReportsMessage(error.message, 'error')));
 
-// Avisos por push: o service worker recebe a mensagem cifrada mesmo com a página fechada
 const push = {config: null, registration: null, subscription: null};
 const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 
@@ -1584,7 +1487,6 @@ function sameKey(buffer, key) {
 }
 
 async function setupPush() {
-    // sem token: a rota é pública, e o token da equipe nas rotas do cidadão volta 401 e derrubaria a sessão dela
     const response = await fetch(`${API}/reporters/push/config`);
     if (!response.ok) {
         throw new Error(`Erro ${response.status}`);
@@ -1597,18 +1499,16 @@ async function setupPush() {
     push.registration = await navigator.serviceWorker.register('/sw.js');
     let subscription = await push.registration.pushManager.getSubscription();
     if (subscription && !sameKey(subscription.options.applicationServerKey, push.config.publicKey)) {
-        await subscription.unsubscribe(); // o servidor trocou as chaves VAPID: a inscrição antiga não recebe mais nada
+        await subscription.unsubscribe();
         subscription = null;
     }
     push.subscription = subscription;
     if (subscription && citizenSignedIn()) {
-        // liga o navegador à identidade atual, que pode ter sido trocada depois da inscrição
         await saveSubscription(subscription);
     }
     renderPush();
 }
 
-// A oferta de avisos aparece depois do envio e em Meus relatos, sempre com o mesmo estado
 function renderPush() {
     let text = '';
     let action = '';
@@ -1679,16 +1579,11 @@ document.querySelectorAll('[data-push-toggle]').forEach((toggle) => {
     toggle.addEventListener('click', () => togglePush(toggle));
 });
 
-// --- App instalável (PWA): ícone na tela de início, tela cheia e, no iPhone, as notificações ---
-
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-// o iPad se apresenta como Mac; a tela de toque denuncia
 const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let installPrompt = null;
 
-// Android e computador: o navegador oferece instalar, e o botão abre esse pedido. iPhone: não há pedido, só o
-// passo a passo pelo Compartilhar do Safari
 function renderInstall() {
     const box = document.getElementById('install-box');
     const button = document.getElementById('install-button');
@@ -1713,7 +1608,7 @@ function renderInstall() {
 }
 
 window.addEventListener('beforeinstallprompt', (event) => {
-    event.preventDefault(); // o pedido fica guardado para o botão, em vez de aparecer sozinho
+    event.preventDefault();
     installPrompt = event;
     renderInstall();
 });
@@ -1732,13 +1627,10 @@ document.getElementById('install-button').addEventListener('click', async () => 
     renderInstall();
 });
 
-// o service worker entra sempre (a tela de "sem internet" e a instalação dependem dele), não só com os avisos
 navigator.serviceWorker?.register('/sw.js').catch(() => {
-    // sem service worker o app funciona igual, só sem a tela de "sem internet"
 });
 renderInstall();
 
-// Atalhos do ícone do app (manifest.webmanifest): segurar o ícone mostra "Relatar um problema" e "Meus relatos"
 function openShortcut() {
     const params = new URLSearchParams(location.search);
     const action = params.get('acao');
@@ -1754,7 +1646,6 @@ function openShortcut() {
     }
 }
 
-// O service worker avisa a página aberta: a lista se atualiza e o clique na notificação abre o chamado
 navigator.serviceWorker?.addEventListener('message', (event) => {
     if (event.data?.type === 'issue-status') {
         loadMyReports().catch(() => {});
@@ -1776,7 +1667,6 @@ async function openIssueById(id) {
     }
 }
 
-// Link da notificação: /?issue=123 abre o chamado
 function openLinkedIssue() {
     const params = new URLSearchParams(location.search);
     const id = params.get('issue');
@@ -1786,10 +1676,8 @@ function openLinkedIssue() {
     }
 }
 
-// Leva o mapa até o chamado e abre o popup, onde ficam as ações de status e de moderação
 async function focusIssue(item) {
     setFollow(false);
-    // um chamado resolvido, ou de outro tipo, não estaria no mapa com os filtros atuais
     const resolved = item.status === 'RESOLVED';
     if (item.status && (state.filters.status === 'RESOLVED') !== resolved) {
         state.filters.status = resolved ? 'RESOLVED' : '';
@@ -1806,9 +1694,9 @@ async function focusIssue(item) {
     }
     map.setView([item.latitude, item.longitude], 18, {animate: false});
     if (isDesktop()) {
-        map.panBy([-210, 0], {animate: false}); // tira o ponto de baixo do painel
+        map.panBy([-210, 0], {animate: false});
     }
-    clearTimeout(state.loadTimer); // o moveend agendou um recarregamento que fecharia o popup
+    clearTimeout(state.loadTimer);
     await loadIssues();
     const marker = state.markers.get(item.id);
     if (marker) {
@@ -1816,12 +1704,9 @@ async function focusIssue(item) {
     }
 }
 
-// --- Prefeitura ---
-
 function renderSession() {
     const session = state.session;
     document.getElementById('operator-tab').hidden = !session;
-    // com a equipe conectada, só a aba Prefeitura: as do cidadão somem
     document.querySelectorAll('.tab[data-goto="explore"], .tab[data-goto="mine"], .tab[data-goto="more"]')
         .forEach((tab) => { tab.hidden = Boolean(session); });
     renderAccount();
@@ -1856,7 +1741,6 @@ document.querySelectorAll('.subtabs [data-subview]').forEach((button) => {
     button.addEventListener('click', () => showSubview(button.dataset.subview));
 });
 
-// Filas do operador: atendimento (por prioridade) e moderação (relatos marcados pelo classificador)
 const PAGE_SIZE = 20;
 const queue = {page: 0, items: []};
 const moderation = {page: 0, items: []};
@@ -1973,7 +1857,6 @@ document.getElementById('queue-category').addEventListener('change', () => loadQ
 document.getElementById('queue-status').addEventListener('change', () => loadQueue());
 document.getElementById('queue-more').addEventListener('click', () => loadQueue(true));
 
-// Planilha dos chamados: o arquivo vem com o token do operador, então o download passa por um blob
 document.getElementById('export-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.target;
@@ -2013,7 +1896,6 @@ document.getElementById('export-form').addEventListener('submit', async (event) 
 });
 document.getElementById('moderation-more').addEventListener('click', () => loadModeration(true));
 
-// Equipe (só o administrador) e troca da própria senha
 const teamMessage = document.getElementById('team-message');
 const ROLE_LABELS = {OPERATOR: 'Operador', ADMIN: 'Administrador'};
 
@@ -2022,7 +1904,6 @@ function setTeamMessage(text, kind) {
     teamMessage.className = `message ${kind ?? ''}`;
 }
 
-// id do operador logado, lido do próprio token: o administrador não pode desativar a si mesmo
 function sessionUserId() {
     try {
         const payload = state.session.accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
@@ -2096,21 +1977,14 @@ teamForm.addEventListener('submit', async (event) => {
     }
 });
 
-// --- Entrar: um login só, por código enviado por e-mail. Quem entra decide a API, pelo e-mail: a equipe da
-// prefeitura vai para a aba Prefeitura, o CEO para o painel dele, e qualquer outra pessoa entra como cidadão ---
-
 const login = {email: null, intent: null, back: 'more'};
 
-// O que fazer depois que o cidadão entra, pelo motivo de ter aberto o Entrar
 const LOGIN_INTENTS = {
     report: () => document.getElementById('report-begin').click(),
-    // a foto e o ponto ainda estão no formulário; se a página recarregou no meio, começa o relato de novo
     'report-form': () => (state.pickedLocation ? showView('report') : document.getElementById('report-begin').click()),
     mine: () => showView('mine'),
 };
 
-// O login em andamento fica guardado por alguns minutos: no celular, abrir o e-mail para ler o código costuma
-// recarregar a página, e sem isso a pessoa voltaria para o mapa e teria de pedir outro código
 const PENDING_LOGIN_KEY = 'login-pending';
 
 function savePendingLogin(pending) {
@@ -2121,7 +1995,6 @@ function savePendingLogin(pending) {
             localStorage.removeItem(PENDING_LOGIN_KEY);
         }
     } catch {
-        // sem storage: o login vale só enquanto a página estiver aberta
     }
 }
 
@@ -2142,9 +2015,6 @@ function setLoginMessage(text, kind) {
     loginMessage.className = `message ${kind ?? ''}`;
 }
 
-/**
- * Abre a tela de entrar; {@code intent} (uma chave de LOGIN_INTENTS) diz o que fazer depois que um cidadão entra.
- */
 function openLogin(reason, intent) {
     login.intent = intent ?? null;
     login.reason = reason ?? null;
@@ -2184,7 +2054,6 @@ function showCodeStep(email, expiresAt) {
     showLoginStep('code');
 }
 
-// A página recarregou com um código a caminho (a pessoa foi ler o e-mail): volta direto para o campo do código
 function resumePendingLogin() {
     const pending = loadPendingLogin();
     if (!pending || state.session || citizenSignedIn()) {
@@ -2242,7 +2111,6 @@ loginCodeForm.addEventListener('submit', async (event) => {
     submit.disabled = true;
     setLoginMessage('');
     try {
-        // a identidade anônima de antes do login, se houver: os relatos dela passam para a conta
         const previous = loadReporter()?.refreshToken && !citizenSignedIn()
             ? await reporterToken().catch(() => null) : null;
         const result = await api('/auth/verify', {
@@ -2265,11 +2133,9 @@ async function signedIn(result) {
     login.intent = null;
     savePendingLogin(null);
     if (result.role === 'CEO') {
-        // a conta do CEO não é da equipe da prefeitura: ela abre o painel próprio, já conectada
         try {
             sessionStorage.setItem('ceo', JSON.stringify(result));
         } catch {
-            // sem storage: o painel pede o login de novo
         }
         location.assign('/ceo.html');
         return;
@@ -2285,7 +2151,7 @@ async function signedIn(result) {
         refreshToken: result.refreshToken, refreshTokenExpiresAt: result.refreshTokenExpiresAt, email: result.email});
     renderAccount();
     if (push.subscription) {
-        saveSubscription(push.subscription).catch(() => {}); // os avisos deste aparelho passam para a conta
+        saveSubscription(push.subscription).catch(() => {});
     }
     loadMyReports().catch((error) => setMyReportsMessage(error.message, 'error'));
     if (then) {
@@ -2296,7 +2162,6 @@ async function signedIn(result) {
     }
 }
 
-// Mais › Sua conta: quem está conectado neste aparelho
 function renderAccount() {
     const reporter = loadReporter();
     const status = document.getElementById('account-status');
@@ -2322,7 +2187,6 @@ function renderAccount() {
 }
 
 document.getElementById('account-login').addEventListener('click', () => openLogin());
-// conectado, a inicial abre a conta: a área da prefeitura para a equipe (com o Sair no alto) e Mais para o cidadão
 document.getElementById('account-chip').addEventListener('click', () => {
     if (state.session) {
         showView('operator');
@@ -2338,7 +2202,6 @@ document.getElementById('account-logout').addEventListener('click', async () => 
         saveSession(null);
         return;
     }
-    // os avisos deste aparelho param de chegar: quem sai não deve receber notícias da conta
     if (push.subscription) {
         try {
             await reporterFetch('/reporters/me/push-subscription', {
@@ -2349,7 +2212,6 @@ document.getElementById('account-logout').addEventListener('click', async () => 
             await push.subscription.unsubscribe();
             push.subscription = null;
         } catch {
-            // sem rede: a inscrição fica, mas a sessão sai mesmo assim
         }
     }
     saveReporter(null);
@@ -2378,8 +2240,6 @@ map.whenReady(() => map.invalidateSize());
 renderSession();
 showView('explore');
 resumePendingLogin();
-// Ao abrir, o mapa vai até você e passa a seguir, como no app de navegação. Quem chega por um link de chamado
-// (a notificação) vê o chamado, e a seta aparece sem mover o mapa.
 if (geolocationAvailable()) {
     setFollow(!new URLSearchParams(location.search).has('issue'));
     geolocationPermission().then((permission) => {

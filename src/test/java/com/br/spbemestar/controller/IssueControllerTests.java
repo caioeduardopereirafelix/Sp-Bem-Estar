@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 class IssueControllerTests {
 
-    // Região própria (Rio de Janeiro), longe dos pontos usados nos outros testes
     static final double LAT = -22.9000;
     static final double LON = -43.2000;
 

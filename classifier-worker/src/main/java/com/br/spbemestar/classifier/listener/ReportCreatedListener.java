@@ -21,11 +21,6 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Consome os relatos novos, classifica a foto e publica o resultado. Mensagens que nunca vão dar
- * certo (JSON inválido, foto inexistente ou ilegível) vão direto para a DLQ; as demais falhas são
- * tentadas de novo conforme {@code spring.rabbitmq.listener.simple.retry}.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -67,7 +62,6 @@ public class ReportCreatedListener {
         publisher.publish(messageId, new ReportClassified(
                 event.reportId(), classification.label(), classification.confidence(), properties.modelVersion()));
         meters.counter("classifier.reports", "outcome", "classified", "label", classification.label()).increment();
-        // a distribuição da confiança mostra quando o modelo começa a errar (fotos diferentes das do treino)
         DistributionSummary.builder("classifier.confidence")
                 .description("Confiança do modelo na categoria prevista (0 a 1)")
                 .tag("model", properties.modelVersion())
@@ -91,7 +85,6 @@ public class ReportCreatedListener {
         return event;
     }
 
-    /** Falha definitiva: a mensagem vai para a DLQ, e a métrica (no RabbitConfig) diz por quê. */
     private RejectedReportException rejected(String reason, String message, Throwable cause) {
         return new RejectedReportException(reason, message, cause);
     }

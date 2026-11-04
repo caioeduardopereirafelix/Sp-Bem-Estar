@@ -7,13 +7,6 @@ import org.springframework.core.io.Resource;
 import java.time.Duration;
 import java.util.List;
 
-/**
- * @param model         arquivo ONNX do modelo (ex.: {@code file:models/classifier.onnx})
- * @param labels        rótulos na ordem das saídas; só para modelos sem o metadado {@code names} da Ultralytics
- * @param inputSize     lado da imagem de entrada, usado só quando o modelo não declara um tamanho fixo
- * @param modelVersion  versão do modelo, enviada junto com cada resultado
- * @param confirmTimeout espera máxima pelo ack do broker ao publicar o resultado
- */
 @ConfigurationProperties("classifier")
 public record ClassifierProperties(
         Resource model,

@@ -22,7 +22,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// a senha da API é gerada a cada execução: nada de segredo fixo no repositório
 @SpringBootTest(properties = {
         "classifier.model=classpath:models/color-test.onnx",
         "classifier.model-version=color-test",
@@ -43,7 +42,6 @@ class ClassifyControllerTests {
 
     @Test
     void classifiesThePhotoForTheApi() {
-        // o modelo de teste classifica pela cor: vermelho é POTHOLE, azul é OTHER
         MvcTestResult red = classify(TestImages.jpeg(Color.RED), apiAuth());
         assertThat(red).hasStatusOk().bodyJson().extractingPath("$.label").isEqualTo("POTHOLE");
         assertThat(red).bodyJson().extractingPath("$.modelVersion").isEqualTo("color-test");

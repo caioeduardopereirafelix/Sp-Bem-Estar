@@ -37,13 +37,10 @@ public class IssueQueryService {
         return GeoJsonFeatureCollection.of(issueQueries.search(bbox, category, status, limit));
     }
 
-    /**
-     * @param showOperators inclui o nome de quem mudou cada status (só para operadores)
-     */
     @Transactional(readOnly = true)
     public IssueDetailResponse detail(Long id, boolean showOperators) {
         Issue issue = issues.findById(id)
-                .filter(i -> i.getStatus() != IssueStatus.DISCARDED) // descartado pela moderação: some do mapa
+                .filter(i -> i.getStatus() != IssueStatus.DISCARDED)
                 .orElseThrow(() -> new ResourceNotFoundException("Chamado", id));
         Neighborhood neighborhood = issue.getNeighborhood();
 

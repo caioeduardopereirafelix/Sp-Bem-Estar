@@ -26,16 +26,13 @@ class RateLimitFilterTest {
     @Test
     void refillsGraduallyAndTellsWhenToComeBack() throws Exception {
         RateLimitFilter filter = filter(new RateLimitProperties.Rule("api", null, "/api/**", 2, Duration.ofMinutes(1)));
-        // existe com zero antes do primeiro 429, para o Prometheus enxergar esse primeiro aumento
         assertThat(meters.find("spbemestar.ratelimit.rejected").tag("rule", "api").counter()).isNotNull();
 
         assertThat(call(filter).getStatus()).isEqualTo(200);
         assertThat(call(filter).getStatus()).isEqualTo(200);
         MockHttpServletResponse blocked = call(filter);
         assertThat(blocked.getStatus()).isEqualTo(429);
-        // capacidade 2 por minuto: uma ficha volta a cada 30 s
         assertThat(blocked.getHeader(HttpHeaders.RETRY_AFTER)).isEqualTo("30");
-        // cada recusa vira métrica, por regra: um pico em "login" é tentativa de força bruta
         assertThat(meters.counter("spbemestar.ratelimit.rejected", "rule", "api").count()).isEqualTo(1);
 
         clock.advance(Duration.ofSeconds(29));

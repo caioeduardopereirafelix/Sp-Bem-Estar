@@ -54,7 +54,6 @@ class OperatorManagementTests {
 
         assertThat(created).hasStatus(HttpStatus.CREATED).bodyJson().extractingPath("$.active").isEqualTo(true);
         assertThat(created).bodyJson().extractingPath("$.role").isEqualTo("OPERATOR");
-        // sem senha: a pessoa entra com o código que chega no e-mail cadastrado
         assertThat(login(email)).hasStatusOk().bodyJson().extractingPath("$.role").isEqualTo("OPERATOR");
         assertThat(mvc.get().uri("/api/v1/operators").header(HttpHeaders.AUTHORIZATION, admin()).exchange())
                 .hasStatusOk().bodyJson().extractingPath("$[*].email").asArray().contains(email);
@@ -77,7 +76,6 @@ class OperatorManagementTests {
                 .hasStatus(HttpStatus.FORBIDDEN);
         assertThat(create(operator, unique("x"), "X", "ADMIN")).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(mvc.get().uri("/api/v1/operators").exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
-        // o administrador também é operador: muda status e modera
         assertThat(mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.AUTHORIZATION, admin()).exchange())
                 .hasStatusOk();
     }
@@ -91,9 +89,7 @@ class OperatorManagementTests {
 
         assertThat(setActive(id, false)).hasStatusOk().bodyJson().extractingPath("$.active").isEqualTo(false);
 
-        // o token ainda está dentro da validade, mas não vale mais
         assertThat(queue(token)).hasStatus(HttpStatus.UNAUTHORIZED);
-        // nem entrando de novo: o código confere, mas o acesso está desativado
         assertThat(login(email)).hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson().extractingPath("$.title").isEqualTo("Acesso desativado");
 
@@ -147,7 +143,6 @@ class OperatorManagementTests {
         return auth.createUser("admin@teste.sp.gov.br", "Administradora", UserRole.ADMIN);
     }
 
-    /** Token emitido antes da mudança: com o mesmo segundo do iat, a revogação não teria como separá-los. */
     private String bearer(AppUser user, Instant issuedAt) {
         JwtClaimsSet claims = JwtClaimsSet.builder()
                 .issuer(properties.issuer()).subject(String.valueOf(user.getId()))

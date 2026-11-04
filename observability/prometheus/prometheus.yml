@@ -1,7 +1,5 @@
-# API e worker rodam fora do compose (./mvnw spring-boot:run e java -jar), então o Prometheus os
-# alcança pelo host. Em produção, troque os alvos pelos endereços dos serviços.
 global:
-  scrape_interval: 15s # o rate limit do /actuator/prometheus aceita 30 por minuto
+  scrape_interval: 15s
   evaluation_interval: 15s
 
 rule_files:
@@ -11,7 +9,6 @@ scrape_configs:
   - job_name: spbemestar-api
     metrics_path: /actuator/prometheus
     basic_auth: &metrics-auth
-      # METRICS_USER e METRICS_PASSWORD do .env, entregues pelo compose como arquivos
       username_file: /run/secrets/metrics_user
       password_file: /run/secrets/metrics_password
     static_configs:

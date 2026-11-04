@@ -10,10 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 
-/**
- * O manifesto do app instalável (PWA). Vai por aqui, e não como arquivo estático, porque o navegador só o aceita
- * como {@code application/manifest+json}, e nem o Tomcat nem o Spring conhecem a extensão {@code .webmanifest}.
- */
 @RestController
 public class ManifestController {
 

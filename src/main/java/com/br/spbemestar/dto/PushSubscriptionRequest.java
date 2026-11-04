@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-/** O objeto que o navegador devolve em {@code PushSubscription.toJSON()}. */
 public record PushSubscriptionRequest(
         @NotBlank @Size(max = 1024) String endpoint,
         @NotNull @Valid Keys keys

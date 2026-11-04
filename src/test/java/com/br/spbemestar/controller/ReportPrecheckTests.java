@@ -31,7 +31,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/** A conferência da foto na hora do envio, com o classificador simulado (o HTTP dele tem teste próprio). */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -57,7 +56,6 @@ class ReportPrecheckTests {
         assertThat(result).bodyJson().extractingPath("$.predictedCategory").isEqualTo("TRASH");
         assertThat(result).bodyJson().extractingPath("$.predictedCategoryName")
                 .isEqualTo("Descarte irregular de lixo ou entulho");
-        // recusado antes de gravar: nem relato, nem foto
         assertThat(reportsAt(-28.00)).isZero();
         assertThat(storedPhotos()).isEqualTo(photosBefore);
     }
@@ -79,7 +77,6 @@ class ReportPrecheckTests {
         sees("POTHOLE", 0.95);
         assertThat(send("POTHOLE", -28.02, false)).hasStatus(HttpStatus.CREATED);
 
-        // com pouca confiança, quem decide é a moderação, não o envio
         sees("TRASH", 0.62);
         assertThat(send("POTHOLE", -28.03, false)).hasStatus(HttpStatus.CREATED);
     }

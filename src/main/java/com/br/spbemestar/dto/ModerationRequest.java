@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 
-/**
- * @param blockReporter além de rejeitar, bloqueia quem enviou o relato
- */
 public record ModerationRequest(@NotNull ModerationDecision decision, boolean blockReporter) {
 
     @JsonIgnore

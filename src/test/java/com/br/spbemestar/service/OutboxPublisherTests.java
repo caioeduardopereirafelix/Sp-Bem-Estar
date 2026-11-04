@@ -25,7 +25,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Intervalo longo para o agendamento não disputar os eventos com o teste
 @SpringBootTest(properties = "app.outbox.publish-interval-ms=3600000")
 @Import(TestcontainersConfiguration.class)
 class OutboxPublisherTests {
@@ -104,7 +103,6 @@ class OutboxPublisherTests {
 
         List<Message> messages = drain(RabbitConfig.CLASSIFICATION_QUEUE);
         assertThat(messages).hasSize(1);
-        // o worker recebe o mesmo traceId do pedido HTTP, mesmo publicado depois por um job
         assertThat((String) messages.getFirst().getMessageProperties().getHeader("traceparent"))
                 .startsWith("00-" + traceId + "-");
     }

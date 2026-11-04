@@ -8,10 +8,6 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 
-/**
- * Os últimos erros inesperados (os 500), para o painel do administrador. Ficam só na memória e somem quando a API
- * reinicia: o histórico completo está nos logs, e o {@code traceId} de cada um leva até eles.
- */
 @Component
 public class RecentErrors {
 
@@ -25,9 +21,6 @@ public class RecentErrors {
         this.clock = clock;
     }
 
-    /**
-     * @param path só o caminho, sem a query string: parâmetros podem trazer dados de quem fez a requisição
-     */
     public synchronized void record(String method, String path, Throwable error, String traceId) {
         if (entries.size() == CAPACITY) {
             entries.removeLast();
@@ -37,7 +30,6 @@ public class RecentErrors {
                 message.length() > MAX_MESSAGE ? message.substring(0, MAX_MESSAGE) + "…" : message, traceId));
     }
 
-    /** Do mais novo para o mais antigo. */
     public synchronized List<Entry> latest(int limit) {
         return entries.stream().limit(limit).toList();
     }

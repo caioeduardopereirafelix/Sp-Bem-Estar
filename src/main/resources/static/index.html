@@ -1,19 +1,16 @@
 <!doctype html>
-<!-- tema escuro, como nos apps de navegação: o mapa escuro cansa menos a vista e o que importa se destaca -->
 <html lang="pt-BR" data-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#1b1f29">
     <title>SP Bem-Estar · Relate problemas da sua rua</title>
-    <!-- instalável como app (PWA): ícone na tela de início, tela cheia e, no iPhone, as notificações -->
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/favicon-32.png" type="image/png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="SP Bem-Estar">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <!-- integrity: o navegador recusa o arquivo se o CDN entregar algo diferente desta versão -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
           integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
           crossorigin="anonymous" referrerpolicy="no-referrer">
@@ -26,7 +23,6 @@
 <body>
 <div id="map" class="map" aria-label="Mapa dos problemas relatados"></div>
 
-<!-- Botões por cima do mapa, como nos apps de navegação -->
 <button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: sua conta, relatos e privacidade">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
 </button>
@@ -39,7 +35,6 @@
     </svg>
 </button>
 <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>
-<!-- Posição aproximada (computador sem GPS, lugar fechado): a pessoa corrige com um toque no mapa -->
 <div class="locate-fix" id="locate-fix" role="dialog" aria-labelledby="locate-fix-text" hidden>
     <p id="locate-fix-text"></p>
     <div class="locate-fix-actions">
@@ -48,7 +43,6 @@
     </div>
 </div>
 
-<!-- No celular é uma gaveta que sobe de baixo; no computador, um painel à esquerda do mapa -->
 <aside class="panel" id="panel" data-size="peek" aria-label="SP Bem-Estar">
     <button type="button" class="sheet-handle" id="sheet-handle" aria-label="Expandir ou recolher o painel"></button>
 
@@ -67,7 +61,6 @@
                 <button type="button" class="tab" data-goto="operator" id="operator-tab" hidden>Prefeitura</button>
                 <button type="button" class="tab" data-goto="more">Mais</button>
             </nav>
-            <!-- sempre à vista, como nos apps: "Entrar" para quem não entrou, a inicial para quem já entrou -->
             <button type="button" class="account-chip" id="account-chip">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c1.2-3.4 3.8-5 7-5s5.8 1.6 7 5"/></svg>
                 <span id="account-chip-text">Entrar</span>
@@ -76,10 +69,8 @@
     </header>
 
     <div class="views">
-        <!-- Explorar: o que já foi relatado e o convite para relatar -->
         <section class="view" data-view="explore">
             <h1 class="visually-hidden">Viu um problema na rua? Avise a prefeitura.</h1>
-            <!-- o lugar da busca "Para onde?" dos apps de navegação: aqui, a ação principal -->
             <button type="button" class="report-pill" id="report-begin">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
                 <span>Relatar um problema</span>
@@ -98,7 +89,6 @@
             <p class="lede">Buraco, lixo, poste apagado: relate com uma foto e acompanhe até ser resolvido. Para entrar, só o e-mail.</p>
         </section>
 
-        <!-- Novo relato em três etapas: local, tipo e foto -->
         <section class="view" data-view="report" hidden>
             <div class="view-head">
                 <h1 class="view-title">Novo relato</h1>
@@ -143,7 +133,6 @@
                         Tirar ou escolher uma foto
                     </span>
                 </label>
-                <!-- o classificador viu outra coisa na foto: o envio volta com o tipo que ele sugere -->
                 <div class="suggestion" id="category-suggestion" role="alert" hidden>
                     <p id="suggestion-text"></p>
                     <div class="stack">
@@ -161,7 +150,6 @@
             <p class="message" id="report-message" aria-live="polite"></p>
         </section>
 
-        <!-- Chamado aberto no celular: na gaveta, como nos apps de mapa (no computador, um pop-up no mapa) -->
         <section class="view" data-view="issue" hidden>
             <div class="view-head">
                 <h1 class="visually-hidden">Chamado</h1>
@@ -170,12 +158,10 @@
             <div id="issue-detail" aria-live="polite"></div>
         </section>
 
-        <!-- Depois do envio -->
         <section class="view sent" data-view="sent" hidden>
             <svg class="sent-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22"/><path d="M14 24.5l7 7 13-14"/></svg>
             <h1 class="view-title" id="sent-title">Relato enviado</h1>
             <p class="lede" id="sent-text"></p>
-            <!-- o que o classificador achou da foto, segundos depois do envio -->
             <p class="photo-check" id="sent-check" role="status" hidden></p>
             <div class="push-box" hidden>
                 <p data-push-status></p>
@@ -187,7 +173,6 @@
             </div>
         </section>
 
-        <!-- Meus relatos: a trilha de cada chamado, como o rastreio de uma encomenda -->
         <section class="view" data-view="mine" hidden>
             <h1 class="view-title">Meus relatos</h1>
             <p class="lede" id="my-reports-hint">Os relatos que você enviar aparecem aqui, em qualquer aparelho em que entrar, com o andamento de cada um.</p>
@@ -202,7 +187,6 @@
             <p class="message" id="my-reports-message" aria-live="polite"></p>
         </section>
 
-        <!-- Entrar: o mesmo login para quem relata e para a equipe da prefeitura, com um código por e-mail -->
         <section class="view" data-view="login" hidden>
             <div class="view-head">
                 <h1 class="view-title">Entrar</h1>
@@ -231,7 +215,6 @@
                 <a href="privacidade.html" target="_blank" rel="noopener">Privacidade</a></p>
         </section>
 
-        <!-- Mais: a conta, privacidade, indicadores e o app -->
         <section class="view" data-view="more" hidden>
             <h1 class="view-title">Mais</h1>
 
@@ -255,7 +238,6 @@
                 <tbody id="ranking-body"></tbody>
             </table>
 
-            <!-- instalar como app: o botão do navegador (Android, computador) ou o passo a passo do iPhone -->
             <div class="install" id="install-box" hidden>
                 <h2 class="section-title">Instalar o app</h2>
                 <p class="hint" id="install-text">Com o app na tela de início, o mapa abre em tela cheia, como um
@@ -279,7 +261,6 @@
             </p>
         </section>
 
-        <!-- Prefeitura: só depois do login -->
         <section class="view" data-view="operator" hidden>
             <div class="view-head">
                 <h1 class="view-title">Prefeitura</h1>
@@ -387,7 +368,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
         integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<!-- MapLibre desenha o mapa vetorial (ruas nítidas em qualquer zoom); o plugin o encaixa como camada do Leaflet -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.24.0/maplibre-gl.js"
         integrity="sha512-rOFgoUgWaVi69JW1dzBu6PWF9xKW9rxYfY5u2SexFABHhWk0qUWkJoWNz4UuZRMvSXsNZG66+tU5B+HlwWF5kA=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>

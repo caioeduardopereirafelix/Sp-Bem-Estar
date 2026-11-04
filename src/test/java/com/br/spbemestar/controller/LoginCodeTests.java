@@ -59,7 +59,6 @@ class LoginCodeTests {
         assertThat(citizen).bodyJson().extractingPath("$.email").isEqualTo(citizenEmail);
         assertThat(citizen).bodyJson().extractingPath("$.refreshToken").isNotNull();
 
-        // o token da equipe abre a fila; o do cidadão envia relatos e não abre a fila
         String staffToken = "Bearer " + JsonPath.read(staff.getResponse().getContentAsString(), "$.accessToken");
         String citizenToken = "Bearer " + JsonPath.read(citizen.getResponse().getContentAsString(), "$.accessToken");
         assertThat(mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.AUTHORIZATION, staffToken).exchange())
@@ -67,7 +66,6 @@ class LoginCodeTests {
         assertThat(mvc.get().uri("/api/v1/issues/queue").header(HttpHeaders.AUTHORIZATION, citizenToken).exchange())
                 .hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(postReport(citizenToken, -27.40)).hasStatus(HttpStatus.CREATED);
-        // a equipe não vira conta de cidadão
         assertThat(citizens.findByEmail(TestOperators.EMAIL)).isEmpty();
     }
 
@@ -92,7 +90,6 @@ class LoginCodeTests {
         String second = JsonPath.read(TestLogin.login(mvc, mailbox, email.toUpperCase()).getResponse().getContentAsString(),
                 "$.accessToken");
 
-        // os relatos de um aparelho aparecem em "Meus relatos" no outro
         assertThat(subject(second)).isEqualTo(subject(first));
     }
 
@@ -131,7 +128,6 @@ class LoginCodeTests {
             assertThat(TestLogin.verify(mvc, email, wrong)).hasStatus(HttpStatus.UNAUTHORIZED)
                     .bodyJson().extractingPath("$.title").isEqualTo("Código inválido");
         }
-        // nem o certo vale depois de 5 erros: quem chutou precisa de um código novo, que vai para o e-mail
         assertThat(TestLogin.verify(mvc, email, code)).hasStatus(HttpStatus.UNAUTHORIZED);
     }
 
@@ -189,7 +185,6 @@ class LoginCodeTests {
         } finally {
             mailbox.failWith(null);
         }
-        // o código que não saiu não ficou valendo nem contou no limite
         assertThat(jdbc.queryForObject("SELECT count(*) FROM login_code WHERE email = ?", Integer.class, email)).isZero();
         assertThat(TestLogin.login(mvc, mailbox, email)).hasStatusOk();
     }

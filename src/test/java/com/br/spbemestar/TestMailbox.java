@@ -8,7 +8,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Caixa de entrada dos testes: guarda o último e-mail de cada destinatário, no lugar do Brevo. */
 public class TestMailbox implements EmailSender {
 
     private static final Pattern CODE = Pattern.compile("\\b(\\d{6})\\b");
@@ -24,7 +23,6 @@ public class TestMailbox implements EmailSender {
         inbox.put(email.to(), email);
     }
 
-    /** Até ser chamado com {@code null}, os envios passam por esse remetente, para simular o Brevo fora do ar. */
     public void failWith(EmailSender sender) {
         this.failure = sender;
     }
@@ -33,7 +31,6 @@ public class TestMailbox implements EmailSender {
         return Optional.ofNullable(inbox.get(to));
     }
 
-    /** O código de 6 números do último e-mail para esse endereço. */
     public String code(String to) {
         Email email = last(to).orElseThrow(() -> new AssertionError("nenhum e-mail para " + to));
         Matcher matcher = CODE.matcher(email.text());

@@ -27,7 +27,6 @@ class ImagePreprocessorTest {
 
     @Test
     void cropsTheCenterOfWideImages() {
-        // 300x100: quadrado vermelho no meio, faixas azuis nas laterais que o recorte deve descartar
         BufferedImage wide = TestImages.solid(Color.BLUE, 300, 100);
         Graphics2D g = wide.createGraphics();
         g.setColor(Color.RED);

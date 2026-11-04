@@ -13,12 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-/**
- * Registra com zero os contadores de negócio na subida. Um contador do Micrometer só aparece no
- * primeiro incremento, e o Prometheus não enxerga esse primeiro aumento: a série já nasce valendo 1,
- * então {@code increase()} dá 0 e um alerta como o de refresh reutilizado nunca dispararia na
- * primeira vez depois de um deploy.
- */
 @Component
 @RequiredArgsConstructor
 public class CounterWarmup {

@@ -23,11 +23,6 @@ public class ResultPublisher {
     private final JsonMapper json;
     private final ClassifierProperties properties;
 
-    /**
-     * Publica o resultado e espera o ack do broker; só então a mensagem de entrada é confirmada.
-     * O id do resultado deriva do id do evento de origem, então uma reentrega gera a mesma mensagem
-     * e a API consegue descartá-la.
-     */
     public void publish(String sourceMessageId, ReportClassified result) {
         String id = UUID.nameUUIDFromBytes((RabbitConfig.REPORT_CLASSIFIED + ":" + sourceMessageId)
                 .getBytes(StandardCharsets.UTF_8)).toString();

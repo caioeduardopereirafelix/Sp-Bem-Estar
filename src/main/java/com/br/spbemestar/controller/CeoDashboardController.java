@@ -13,10 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URI;
 
-/**
- * O painel do CEO: números do produto, saúde do sistema e erros recentes. Só a conta do CEO abre; a equipe da
- * prefeitura, administrador incluído, recebe 403.
- */
 @RestController
 @RequiredArgsConstructor
 public class CeoDashboardController {
@@ -29,7 +25,6 @@ public class CeoDashboardController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(dashboard.dashboard());
     }
 
-    /** O endereço curto da página: {@code /ceo} leva a {@code /ceo.html}. */
     @GetMapping("/ceo")
     public ResponseEntity<Void> page() {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create("/ceo.html")).build();
