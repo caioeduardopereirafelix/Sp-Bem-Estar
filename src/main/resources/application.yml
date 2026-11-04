@@ -153,6 +153,11 @@ app:
         path: /api/v1/reporters/refresh
         capacity: 60
         period: 1h
+      - name: open311
+        method: GET
+        path: /open311/**
+        capacity: 60
+        period: 1m
       - name: metrics # um scrape a cada 15 s são 4 por minuto; o limite barra força bruta na senha
         method: GET
         path: /actuator/prometheus
