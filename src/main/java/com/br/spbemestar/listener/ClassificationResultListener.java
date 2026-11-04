@@ -14,10 +14,6 @@ import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
-/**
- * Recebe o resultado do classifier-worker. Mensagem inválida ou de relato inexistente vai direto
- * para a DLQ; falhas transitórias (ex.: banco fora do ar) são tentadas de novo.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor

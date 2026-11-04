@@ -27,7 +27,6 @@ public record GeoJsonFeatureCollection(String type, List<Feature> features) {
         }
     }
 
-    // GeoJSON usa a ordem [longitude, latitude]
     public record Point(String type, double[] coordinates) {
 
         static Point of(double latitude, double longitude) {

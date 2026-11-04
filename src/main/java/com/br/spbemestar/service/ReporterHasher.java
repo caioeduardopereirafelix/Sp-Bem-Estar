@@ -12,10 +12,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.UUID;
 
-/**
- * {@code reporter_hash} = HMAC-SHA256 do id do cidadão. A chave ({@code REPORTER_HASH}) não fica no banco:
- * quem tem só o banco vê que dois relatos são da mesma pessoa, mas não liga os relatos aos tokens.
- */
 @Component
 public class ReporterHasher {
 
@@ -39,7 +35,6 @@ public class ReporterHasher {
         }
     }
 
-    /** O refresh token tem 256 bits aleatórios: um SHA-256 simples basta, sem hash lento como o de senha. */
     public static String tokenHash(String token) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")

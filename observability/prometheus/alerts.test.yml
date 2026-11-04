@@ -1,4 +1,3 @@
-# promtool test rules alerts.test.yml (roda no CI)
 rule_files:
   - alerts.yml
 
@@ -42,7 +41,6 @@ tests:
   - name: taxa de 5xx acima de 5%
     interval: 1m
     input_series:
-      # 10 requisições por minuto, 1 delas com erro: 10%
       - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="200"}'
         values: "0+9x15"
       - series: 'http_server_requests_seconds_count{job="spbemestar-api", status="500"}'

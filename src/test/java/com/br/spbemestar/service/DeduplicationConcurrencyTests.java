@@ -19,9 +19,6 @@ import java.util.function.IntFunction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Relatos simultâneos do mesmo problema não podem gerar chamados duplicados.
- */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class DeduplicationConcurrencyTests {
@@ -46,7 +43,6 @@ class DeduplicationConcurrencyTests {
     @Test
     void simultaneousReportsAcrossGeohashCellBorderCreateSingleIssue() throws Exception {
         double lat = -23.6100;
-        // Borda entre duas células de geohash de precisão 7 (largura de 360 / 2^18 graus em longitude)
         double cellWidth = 360.0 / (1 << 18);
         double border = -180 + Math.floor((-46.7100 + 180) / cellWidth) * cellWidth;
         double west = border - THREE_METERS;

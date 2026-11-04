@@ -10,11 +10,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-/**
- * Cria o primeiro usuário, como administrador, a partir de {@code app.security.bootstrap-operator}, para o
- * órgão público conseguir entrar logo após a instalação, e a conta do CEO, de {@code app.security.bootstrap-ceo}.
- * Nunca altera um usuário que já existe.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -26,7 +21,6 @@ public class OperatorBootstrapRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        // o primeiro usuário é o administrador: é ele quem cadastra o resto da equipe
         create(properties.bootstrapOperator(), UserRole.ADMIN, "Administrador inicial");
         create(properties.bootstrapCeo(), UserRole.CEO, "Conta do CEO");
     }

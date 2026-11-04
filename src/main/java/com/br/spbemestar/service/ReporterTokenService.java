@@ -33,12 +33,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Identidade do cidadão, emitida no login por código: um JWT de 15 minutos para enviar relatos e um refresh token de 90 dias
- * para renová-lo. O JWT não pode ser revogado, por isso é curto; o refresh token fica no banco (só o hash)
- * e é trocado a cada uso. Se um token já trocado aparece de novo, alguém o copiou: todos os tokens daquele
- * cidadão são revogados.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -56,14 +50,12 @@ public class ReporterTokenService {
     private final Clock clock;
     private final MeterRegistry meters;
 
-    /** Um par novo para o cidadão que acabou de confirmar o e-mail. */
     @Transactional
     public ReporterTokenResponse issueFor(UUID reporterId) {
         event("registered");
         return issue(reporterId, now());
     }
 
-    // As revogações precisam ficar gravadas mesmo quando a renovação é recusada
     @Transactional(noRollbackFor = {InvalidRefreshTokenException.class, ReporterBlockedException.class})
     public ReporterTokenResponse refresh(String refreshToken) {
         Instant now = now();
@@ -92,10 +84,6 @@ public class ReporterTokenService {
         return blockedReporters.existsById(hasher.reporterHash(reporterId));
     }
 
-    /**
-     * Bloqueia quem enviou o relato: novos relatos e renovações dele são recusados na hora, inclusive com um
-     * JWT ainda válido. Para voltar, precisaria de outro e-mail e de confirmá-lo.
-     */
     @Transactional
     public void blockAuthorOf(Long reportId, Long operatorId) {
         Report report = reports.findById(reportId).orElseThrow(() -> new ResourceNotFoundException("Relato", reportId));
@@ -142,7 +130,6 @@ public class ReporterTokenService {
         return new ReporterTokenResponse(accessToken, "Bearer", accessExpiresAt, refreshToken, refreshExpiresAt);
     }
 
-    /** Emissões, renovações, reusos e bloqueios: um pico de "registered" num IP indica alguém trocando de identidade. */
     private void event(String name) {
         meters.counter("spbemestar.reporters.events", "event", name).increment();
     }

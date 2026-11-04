@@ -13,9 +13,6 @@ public record BoundingBox(double minLon, double minLat, double maxLon, double ma
         }
     }
 
-    /**
-     * Formato: minLon,minLat,maxLon,maxLat (mesma ordem do GeoJSON e do OpenStreetMap).
-     */
     public static BoundingBox parse(String value) {
         String[] parts = value.split(",");
         if (parts.length != 4) {

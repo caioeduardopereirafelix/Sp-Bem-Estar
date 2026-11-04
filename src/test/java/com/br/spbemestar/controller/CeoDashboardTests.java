@@ -50,7 +50,6 @@ class CeoDashboardTests {
     void onlyTheCeoSeesTheDashboard() {
         assertThat(dashboard(null)).hasStatus(HttpStatus.UNAUTHORIZED);
         assertThat(dashboard(TestOperators.bearer(auth, users))).hasStatus(HttpStatus.FORBIDDEN);
-        // nem o administrador da prefeitura: o painel é do dono do produto
         assertThat(dashboard(bearer(ADMIN, UserRole.ADMIN))).hasStatus(HttpStatus.FORBIDDEN);
         assertThat(dashboard(bearer(CEO, UserRole.CEO))).hasStatusOk()
                 .headers().hasValue(HttpHeaders.CACHE_CONTROL, "no-store");
@@ -147,7 +146,6 @@ class CeoDashboardTests {
         body.extractingPath("$.product.topCategories[*].code").asArray().contains("POTHOLE");
         body.extractingPath("$.health.status").isEqualTo("UP");
         body.extractingPath("$.health.components[*].name").asArray().contains("db", "mongo", "rabbit");
-        // nos testes não há worker configurado: o painel diz isso em vez de esperar por ele
         body.extractingPath("$.health.worker.status").isEqualTo("NOT_CONFIGURED");
         body.extractingPath("$.health.runtime.uptimeSeconds").asNumber()
                 .satisfies(n -> assertThat(n.longValue()).isNotNegative());
@@ -167,7 +165,6 @@ class CeoDashboardTests {
         assertThat(result).bodyJson().extractingPath("$.recentErrors[0].method").isEqualTo("GET");
         assertThat(result).bodyJson().extractingPath("$.recentErrors[0].error").isEqualTo("IllegalStateException");
         assertThat(result).bodyJson().extractingPath("$.recentErrors[0].traceId").isEqualTo(traceId);
-        // a query string fica de fora: pode trazer dados de quem fez a requisição
         assertThat(result).bodyText().doesNotContain("alguem@exemplo.com");
     }
 

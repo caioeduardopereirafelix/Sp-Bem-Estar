@@ -9,10 +9,6 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.Optional;
 
-/**
- * Chama o {@code POST /api/classify} do worker. Uma falha (worker fora do ar, demora, resposta estranha) nunca
- * impede o relato: a conferência é um filtro a mais, e a classificação pela fila continua valendo.
- */
 @Slf4j
 public class HttpPhotoPrecheck implements PhotoPrecheck {
 

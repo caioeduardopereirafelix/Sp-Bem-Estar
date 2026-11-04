@@ -8,7 +8,6 @@ import org.springframework.core.Ordered;
 @Configuration
 public class ObservabilityConfig {
 
-    // logo depois do filtro que abre o span da requisição (ServerHttpObservationFilter, HIGHEST_PRECEDENCE + 1)
     @Bean
     FilterRegistrationBean<TraceIdResponseFilter> traceIdResponseFilter(TraceContext traceContext) {
         FilterRegistrationBean<TraceIdResponseFilter> registration =

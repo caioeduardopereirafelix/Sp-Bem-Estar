@@ -21,7 +21,6 @@ class IssueStatusTest {
             "RESOLVED, OPEN, false",
             "RESOLVED, IN_PROGRESS, false",
             "OPEN, OPEN, false",
-            // só a moderação descarta um chamado, e um chamado descartado não volta
             "OPEN, DISCARDED, false",
             "IN_PROGRESS, DISCARDED, false",
             "DISCARDED, OPEN, false",

@@ -23,9 +23,6 @@ public record IssueDetailResponse(
         Resolution resolution
 ) {
 
-    /**
-     * O que a equipe mostrou ao resolver; vazio se o chamado não foi resolvido ou se ninguém deixou foto nem nota.
-     */
     public record Resolution(String photoUrl, String note) {
 
         public static Resolution of(String photoId, String note) {
@@ -37,9 +34,6 @@ public record IssueDetailResponse(
     public record ReportItem(Long id, Instant createdAt, String photoUrl, String classificationStatus) {
     }
 
-    /**
-     * @param changedBy nome do operador que fez a mudança; só preenchido para quem está logado como operador
-     */
     public record StatusChange(String from, String to, Instant changedAt, String changedBy) {
     }
 }

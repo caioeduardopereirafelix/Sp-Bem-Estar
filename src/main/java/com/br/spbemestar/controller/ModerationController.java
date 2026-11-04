@@ -29,7 +29,6 @@ public class ModerationController {
 
     private final ModerationService moderation;
 
-    /** Relatos que o classificador marcou e ainda esperam decisão, do mais antigo para o mais novo. */
     @GetMapping
     public PageResponse<ModerationItem> pending(@RequestParam(defaultValue = "0") @Min(0) int page,
                                                 @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {

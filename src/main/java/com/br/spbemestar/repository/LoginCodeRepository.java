@@ -13,7 +13,6 @@ import java.util.Optional;
 
 public interface LoginCodeRepository extends JpaRepository<LoginCode, Long> {
 
-    // Trava a linha: duas tentativas ao mesmo tempo não podem passar do limite nem usar o código duas vezes
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<LoginCode> findFirstByEmailAndConsumedAtIsNullOrderByCreatedAtDesc(String email);
 
@@ -21,7 +20,6 @@ public interface LoginCodeRepository extends JpaRepository<LoginCode, Long> {
 
     long countByEmailAndCreatedAtAfter(String email, Instant since);
 
-    /** Um código novo invalida os anteriores: só o último e-mail recebido vale. */
     @Modifying
     @Query("UPDATE LoginCode c SET c.consumedAt = :now WHERE c.email = :email AND c.consumedAt IS NULL")
     int invalidatePending(@Param("email") String email, @Param("now") Instant now);

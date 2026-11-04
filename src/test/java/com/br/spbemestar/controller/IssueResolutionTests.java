@@ -55,12 +55,10 @@ class IssueResolutionTests {
         assertThat(result).bodyJson().extractingPath("$.resolvedAt").isNotNull();
         MvcTestResult detail = mvc.get().uri("/api/v1/issues/{id}", id).exchange();
         assertThat(detail).bodyJson().extractingPath("$.status").isEqualTo("RESOLVED");
-        // quebra de linha vira espaço, e as pontas saem
         assertThat(detail).bodyJson().extractingPath("$.resolution.note").isEqualTo("Buraco tapado com asfalto novo.");
         String photoUrl = jdbc.queryForObject("SELECT '/api/v1/photos/' || resolution_photo_id FROM issue WHERE id = ?",
                 String.class, id);
         assertThat(detail).bodyJson().extractingPath("$.resolution.photoUrl").isEqualTo(photoUrl);
-        // a foto do conserto é pública, como a dos relatos
         assertThat(mvc.get().uri(photoUrl).exchange()).hasStatusOk().hasContentType("image/jpeg");
         assertThat(jdbc.queryForObject("""
                 SELECT payload ->> 'to' FROM outbox_event WHERE aggregate_id = ? AND type = 'IssueStatusChanged'
@@ -110,7 +108,6 @@ class IssueResolutionTests {
 
         assertThat(resolve(id, photo(TestPhotos.jpeg()), "Segunda")).hasStatus(HttpStatus.CONFLICT);
 
-        // a foto gravada antes da transação é apagada quando a mudança de status falha
         assertThat(storedPhotos()).isEqualTo(photosBefore);
         assertThat(jdbc.queryForObject("SELECT resolution_note FROM issue WHERE id = ?", String.class, id))
                 .isEqualTo("Primeira resolução");

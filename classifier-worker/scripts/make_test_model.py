@@ -20,7 +20,6 @@ MODELS = Path(__file__).resolve().parents[1] / "src/test/resources/models"
 SIZE = 224
 CLASSES = 3
 
-# logits = 10 x média do canal: uma foto toda vermelha dá ~0,9999 para POTHOLE
 weights = helper.make_tensor("W", TensorProto.FLOAT, [CLASSES, CLASSES],
                              [10.0 if r == c else 0.0 for r in range(CLASSES) for c in range(CLASSES)])
 bias = helper.make_tensor("B", TensorProto.FLOAT, [CLASSES], [0.0] * CLASSES)
@@ -39,13 +38,12 @@ graph = helper.make_graph(
 )
 
 model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 13)], producer_name="spbemestar")
-model.ir_version = 8  # lido por qualquer ONNX Runtime a partir da 1.10
+model.ir_version = 8
 onnx.checker.check_model(model)
 
 MODELS.mkdir(parents=True, exist_ok=True)
 onnx.save(model, MODELS / "color-test-unlabeled.onnx")
 
-# Mesmo formato que a Ultralytics grava: str() de um dict {índice: nome}
 onnx.helper.set_model_props(model, {"names": str({0: "POTHOLE", 1: "TRASH", 2: "OTHER"})})
 onnx.save(model, MODELS / "color-test.onnx")
 print(f"Modelos salvos em {MODELS}")

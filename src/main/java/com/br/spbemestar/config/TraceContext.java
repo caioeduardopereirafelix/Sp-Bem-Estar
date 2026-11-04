@@ -10,10 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
 
-/**
- * Ponte entre o trace atual e o que precisa atravessar um intervalo: a outbox grava o {@code traceparent}
- * de quem criou o evento, e o publicador continua aquele trace ao enviar a mensagem.
- */
 @Component
 public class TraceContext {
 
@@ -27,13 +23,11 @@ public class TraceContext {
         this.propagator = propagator.getIfAvailable(() -> Propagator.NOOP);
     }
 
-    /** {@code traceId} atual, que vai no header {@code X-Trace-Id} e nas respostas de erro. */
     public String currentTraceId() {
         Span span = tracer.currentSpan();
         return span == null ? null : span.context().traceId();
     }
 
-    /** {@code traceparent} W3C do trace atual, ou {@code null} fora de um trace. */
     public String currentTraceParent() {
         Span span = tracer.currentSpan();
         if (span == null) {
@@ -44,7 +38,6 @@ public class TraceContext {
         return carrier.get(TRACE_PARENT);
     }
 
-    /** Roda a ação num span filho do {@code traceparent} gravado; sem ele, no trace atual. */
     public <T> T continueTrace(String traceParent, String spanName, Supplier<T> action) {
         if (traceParent == null) {
             return action.get();

@@ -6,10 +6,6 @@ import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.stereotype.Component;
 
-/**
- * O modelo é carregado na subida: se o worker está de pé, o modelo está em memória. O health check
- * diz qual versão e quantas categorias, para conferir num deploy se o modelo certo subiu.
- */
 @Component("classifier")
 @RequiredArgsConstructor
 public class ClassifierHealthIndicator implements HealthIndicator {

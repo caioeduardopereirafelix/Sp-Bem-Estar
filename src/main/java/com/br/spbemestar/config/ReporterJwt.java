@@ -20,13 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.Collection;
 
-/**
- * Encoder e decoder dos tokens de cidadão. A chave é derivada do {@code JWT_SECRET}, mas é outra:
- * um token de cidadão nunca passa na verificação de assinatura das rotas de operador, e vice-versa,
- * mesmo que uma regra de autorização seja configurada errado.
- * <p>
- * Não são beans {@code JwtEncoder}/{@code JwtDecoder} para não concorrer com os do operador.
- */
 @Component
 public class ReporterJwt {
 

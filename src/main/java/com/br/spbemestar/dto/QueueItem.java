@@ -3,12 +3,6 @@ package com.br.spbemestar.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-/**
- * Chamado na fila de atendimento.
- *
- * @param reporterCount     pessoas distintas que reportaram; é o que entra na prioridade
- * @param pendingModeration relatos deste chamado que o classificador marcou e ainda esperam moderação
- */
 public record QueueItem(
         Long id,
         String category,

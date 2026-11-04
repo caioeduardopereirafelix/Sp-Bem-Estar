@@ -57,7 +57,6 @@ class NeighborhoodImportServiceTests {
 
     @Test
     void reprojectsFromSirgasUtm23S() {
-        // Quadrado [-47.80, -15.60] a [-47.79, -15.59] em EPSG:31983, calculado pelo próprio PostGIS
         String utm = """
                 {"type": "Feature", "properties": {"name": "UTM"},
                  "geometry": {"type": "Polygon", "coordinates": [[[199731.94,8273335.39],[199717.38,8274442.63],

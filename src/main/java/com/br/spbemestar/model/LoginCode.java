@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Um código de acesso enviado por e-mail. Vale uma vez, por pouco tempo e por poucas tentativas. */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -57,7 +56,6 @@ public class LoginCode {
         return consumedAt == null && now.isBefore(expiresAt) && attempts < maxAttempts;
     }
 
-    /** Uma tentativa errada; na última, o código deixa de valer e a pessoa precisa pedir outro. */
     public void failedAttempt(Instant now, int maxAttempts) {
         attempts++;
         if (attempts >= maxAttempts) {

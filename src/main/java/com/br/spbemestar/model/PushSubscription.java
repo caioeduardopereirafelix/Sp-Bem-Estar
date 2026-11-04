@@ -13,7 +13,6 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Um navegador inscrito para receber os avisos dos relatos de um cidadão. */
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -52,10 +51,6 @@ public class PushSubscription {
         return new PushSubscription(reporterHash, endpoint, p256dh, auth, now);
     }
 
-    /**
-     * O mesmo navegador pode se inscrever de novo com outra identidade (o refresh token venceu e a API emitiu
-     * outra) ou com chaves novas: o endpoint passa a avisar sobre os relatos da identidade atual.
-     */
     public void update(String reporterHash, String p256dh, String auth, Instant now) {
         this.reporterHash = Objects.requireNonNull(reporterHash);
         this.p256dh = Objects.requireNonNull(p256dh);

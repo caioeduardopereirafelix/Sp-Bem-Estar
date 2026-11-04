@@ -19,7 +19,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-/** Usuários da equipe (e o CEO) e o token deles. Ninguém tem senha: a entrada é pelo código enviado por e-mail. */
 @Service
 @RequiredArgsConstructor
 public class AuthService {

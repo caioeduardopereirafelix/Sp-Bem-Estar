@@ -9,7 +9,6 @@ import org.springframework.web.client.RestClientException;
 
 import java.util.List;
 
-/** {@code POST /v3/smtp/email} da API transacional do Brevo. */
 @Slf4j
 public class BrevoEmailSender implements EmailSender {
 
@@ -35,7 +34,6 @@ public class BrevoEmailSender implements EmailSender {
                     .retrieve()
                     .toBodilessEntity();
         } catch (RestClientException e) {
-            // sem o destinatário no log: o e-mail é dado pessoal
             log.warn("O Brevo não aceitou o e-mail: {}", e.getMessage());
             throw new EmailDeliveryException("O Brevo não aceitou o e-mail", e);
         }
@@ -44,7 +42,6 @@ public class BrevoEmailSender implements EmailSender {
     record Request(Address sender, List<Address> to, String subject, String textContent, String htmlContent) {
     }
 
-    // sem "name": null no JSON: o destinatário vai só com o e-mail
     @JsonInclude(JsonInclude.Include.NON_NULL)
     record Address(String name, String email) {
     }

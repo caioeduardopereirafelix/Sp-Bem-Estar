@@ -14,7 +14,6 @@ import java.util.UUID;
 
 public interface ReporterRefreshTokenRepository extends JpaRepository<ReporterRefreshToken, UUID> {
 
-    // Trava a linha: duas renovações simultâneas com o mesmo token não podem ambas dar certo
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ReporterRefreshToken> findByTokenHash(String tokenHash);
 

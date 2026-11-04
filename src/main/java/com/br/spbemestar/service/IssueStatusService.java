@@ -43,7 +43,6 @@ public class IssueStatusService {
     private final TransactionTemplate transaction;
     private final Clock clock;
 
-    /** Nota da resolução: curta, para caber na notificação e no pop-up do mapa. */
     public static final int MAX_RESOLUTION_NOTE = 500;
 
     @Transactional
@@ -51,11 +50,6 @@ public class IssueStatusService {
         return apply(issueId, operatorId, (issue, now) -> issue.changeStatus(target, now, operatorId));
     }
 
-    /**
-     * Resolve o chamado com a foto do conserto e uma nota, os dois opcionais. A foto passa pelo mesmo tratamento
-     * das fotos dos relatos (EXIF fora, formato conferido) e é gravada antes da transação; se a mudança de status
-     * falhar, ela é apagada.
-     */
     public StatusChangeResponse resolve(Long issueId, Long operatorId, byte[] photo, String note) {
         String cleanNote = cleanNote(note);
         String photoId = null;
@@ -79,7 +73,6 @@ public class IssueStatusService {
         if (note == null) {
             return null;
         }
-        // quebras de linha viram espaço: a nota é uma frase, e caracteres de controle não têm o que fazer ali
         String clean = note.replaceAll("\\p{Cntrl}+", " ").strip();
         if (clean.length() > MAX_RESOLUTION_NOTE) {
             throw new InvalidResolutionException(

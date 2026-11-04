@@ -24,12 +24,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Planilha dos chamados para a prefeitura levar ao sistema dela (156, ordens de serviço) e a relatórios.
- *
- * <p>No formato que o Excel em português abre sem configurar nada: UTF-8 com BOM (os acentos), {@code ;} entre as
- * colunas e vírgula decimal. Só dados do chamado: nada do cidadão (nem o identificador anônimo dele) sai daqui.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -47,12 +41,6 @@ public class IssueExportService {
 
     private final IssueQueryRepository issueQueries;
 
-    /**
-     * @param from    primeiro dia, pela data do primeiro relato no horário de São Paulo
-     * @param to      último dia, inclusive
-     * @param baseUrl endereço público do site, para os links da planilha abrirem o chamado e a foto
-     * @return quantos chamados foram para a planilha
-     */
     @Transactional(readOnly = true)
     public int writeCsv(Writer out, IssueStatus status, String category, LocalDate from, LocalDate to,
                         String baseUrl, Long operatorId) {
@@ -72,7 +60,6 @@ public class IssueExportService {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        // quem exportou e quanto: a planilha sai do sistema, e o registro fica para a prestação de contas
         log.info("Planilha de chamados exportada pelo operador {}: {} chamado(s)", operatorId, count[0]);
         return count[0];
     }
@@ -105,10 +92,6 @@ public class IssueExportService {
         return value == null ? "" : value.atZoneSameInstant(CITY_ZONE).format(DATE_TIME);
     }
 
-    /**
-     * Texto livre (a nota da equipe, nomes): uma célula que começa com {@code = + - @} vira fórmula no Excel, e
-     * uma nota maliciosa poderia rodar comandos na máquina de quem abre a planilha. O apóstrofo a mantém como texto.
-     */
     static String text(String value) {
         if (value == null || value.isEmpty()) {
             return "";
@@ -130,7 +113,6 @@ public class IssueExportService {
         }
     }
 
-    // entre aspas quando a célula tem separador, aspas ou quebra de linha (RFC 4180)
     private static String quote(String cell) {
         if (cell.indexOf(';') < 0 && cell.indexOf('"') < 0 && cell.indexOf('\n') < 0 && cell.indexOf('\r') < 0) {
             return cell;

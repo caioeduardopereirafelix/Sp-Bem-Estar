@@ -74,7 +74,6 @@ class ReportCreatedListenerTests {
         assertThat(body.get("confidence").asDouble()).isGreaterThan(0.99);
         assertThat(body.get("modelVersion").asString()).isEqualTo("color-test");
 
-        // métricas: um relato classificado, uma inferência medida e a confiança registrada
         assertThat(reports("classified", "POTHOLE")).isEqualTo(classifiedBefore + 1);
         assertThat(inferences()).isEqualTo(inferencesBefore + 1);
         assertThat(meters.find("classifier.confidence").tag("model", "color-test").summary()).isNotNull();
@@ -137,7 +136,6 @@ class ReportCreatedListenerTests {
                 .setType(RabbitConfig.REPORT_CREATED)
                 .setHeader("traceparent", "00-" + traceId + "-b7ad6b7169203331-01")
                 .build();
-        // template sem observação, para o traceparent da mensagem ser exatamente o que a API mandaria
         new RabbitTemplate(connectionFactory).send(RabbitConfig.EVENTS_EXCHANGE, RabbitConfig.REPORT_CREATED, message);
 
         Message result = rabbit.receive(RabbitConfig.RESULT_QUEUE, TIMEOUT_MS);
@@ -160,7 +158,6 @@ class ReportCreatedListenerTests {
                 .toHexString();
     }
 
-    // Mesmo formato publicado pela outbox da API
     private void sendReportCreated(String eventId, Long reportId, String photoId) {
         String payload = """
                 {"reportId": %d, "issueId": 1, "category": "POTHOLE", "photoId": "%s"}

@@ -22,7 +22,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-
 @Slf4j
 @RestControllerAdvice
 @RequiredArgsConstructor
@@ -36,7 +35,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, "Foto inválida", e.getMessage());
     }
 
-    /** 422 com o tipo que o modelo viu, para o app oferecer trocar o tipo, trocar a foto ou enviar assim mesmo. */
     @ExceptionHandler(PhotoCategoryMismatchException.class)
     ProblemDetail handlePhotoCategoryMismatch(PhotoCategoryMismatchException e) {
         ProblemDetail body = problem(HttpStatus.UNPROCESSABLE_CONTENT, "A foto não combina com o tipo escolhido",
@@ -81,7 +79,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.FORBIDDEN, "Acesso desativado", e.getMessage());
     }
 
-    /** O app reconhece o {@code loginRequired} e abre a tela de entrar, em vez de só mostrar o erro. */
     @ExceptionHandler(CitizenLoginRequiredException.class)
     ProblemDetail handleCitizenLoginRequired(CitizenLoginRequiredException e) {
         ProblemDetail body = problem(HttpStatus.FORBIDDEN, "Entre para relatar", e.getMessage());
@@ -150,15 +147,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "O chamado foi alterado por outra operação. Consulte o estado atual e tente novamente.");
     }
 
-    /**
-     * Erro que ninguém previu: o stack trace vai para o log e a resposta não expõe detalhes internos,
-     * só o {@code traceId} para o usuário informar e alguém achar o log certo.
-     */
     @ExceptionHandler(Exception.class)
     ProblemDetail handleUnexpected(Exception e, HttpServletRequest request) {
         log.error("Erro inesperado em {} {}", request.getMethod(), request.getRequestURI(), e);
         String traceId = traceContext.currentTraceId();
-        recentErrors.record(request.getMethod(), request.getRequestURI(), e, traceId); // para o painel do administrador
+        recentErrors.record(request.getMethod(), request.getRequestURI(), e, traceId);
         ProblemDetail body = problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", traceId == null
                 ? "Algo deu errado do nosso lado. Tente de novo em instantes."
                 : "Algo deu errado do nosso lado. Se continuar, informe o código " + traceId + ".");

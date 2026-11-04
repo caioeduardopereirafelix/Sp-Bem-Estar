@@ -12,7 +12,6 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
-    /** Os códigos de acesso ficam aqui, para os testes lerem, em vez de irem para o Brevo. */
     @Bean
     @Primary
     TestMailbox testMailbox() {
@@ -35,7 +34,6 @@ public class TestcontainersConfiguration {
     @Bean
     @ServiceConnection
     MongoDBContainer mongoContainer() {
-        // 7.0, não 8.x: a 8.x não sobe em kernels Linux 6.19 a 7.0.13 (SERVER-121912), como os de parte dos runners
         return new MongoDBContainer(DockerImageName.parse("mongo:7"));
     }
 }

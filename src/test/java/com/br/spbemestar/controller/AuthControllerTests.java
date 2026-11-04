@@ -102,7 +102,6 @@ class AuthControllerTests {
         assertThat(mvc.get().uri("/").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/privacidade.html").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/termos.html").exchange()).hasStatusOk();
-        // o app instalável (PWA): o navegador só aceita o manifesto com o tipo certo
         assertThat(mvc.get().uri("/manifest.webmanifest").exchange()).hasStatusOk()
                 .hasContentType("application/manifest+json");
         assertThat(mvc.get().uri("/icons/icon-192.png").exchange()).hasStatusOk();
@@ -114,7 +113,6 @@ class AuthControllerTests {
         assertThat(mvc.get().uri("/actuator/health").exchange()).hasStatusOk();
         assertThat(mvc.get().uri("/v3/api-docs").exchange()).hasStatusOk()
                 .bodyJson().extractingPath("$.components.securitySchemes.bearer.scheme").isEqualTo("bearer");
-        // o cidadão não faz login: o token dele é anônimo, emitido em POST /api/v1/reporters
         assertThat(mvc.post().uri("/api/v1/reports").multipart()
                 .header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                 .file("photo", TestPhotos.jpeg())
@@ -165,7 +163,6 @@ class AuthControllerTests {
         return reportService.create(TestReporters.ID, "POTHOLE", lat, -47.00, TestPhotos.jpeg()).issueId();
     }
 
-    // assinado como o operador de teste: só o que o teste muda (chave, emissor, papel, datas) pode recusá-lo
     private String token(JwtEncoder encoder, String issuer, List<String> roles, Instant issuedAt, Instant expiresAt) {
         TestOperators.bearer(auth, users);
         String subject = String.valueOf(users.findByEmail(TestOperators.EMAIL).orElseThrow().getId());

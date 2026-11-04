@@ -34,7 +34,6 @@ class SecurityHardeningTests {
         MvcTestResult ok = metrics(basic("prometheus-teste", "senha-do-prometheus-teste"));
         assertThat(ok).hasStatusOk();
         assertThat(ok).bodyText().contains("jvm_memory_used_bytes")
-                // métricas do sistema: filas de trabalho e chamados em aberto
                 .contains("spbemestar_outbox_pending", "spbemestar_moderation_pending", "spbemestar_issues_open",
                         "spbemestar_rabbitmq_dead_letters");
     }
@@ -57,11 +56,9 @@ class SecurityHardeningTests {
         String csp = page.getResponse().getHeader("Content-Security-Policy");
         assertThat(csp).isEqualTo(SecurityConfig.CONTENT_SECURITY_POLICY)
                 .contains("script-src 'self' https://cdnjs.cloudflare.com", "frame-ancestors 'none'")
-                // o mapa vetorial só fala com o OpenFreeMap; workers, só o das notificações e o do próprio MapLibre
                 .contains("connect-src 'self' https://tiles.openfreemap.org", "worker-src 'self' blob:")
                 .doesNotContain("unsafe-inline", "unsafe-eval");
         assertThat(page).hasHeader("X-Content-Type-Options", "nosniff");
-        // a localização do usuário só pode ser pedida pela própria página, e câmera e microfone por ninguém
         assertThat(page).hasHeader("Permissions-Policy", "geolocation=(self), camera=(), microphone=(), payment=(), usb=()");
     }
 
@@ -78,7 +75,6 @@ class SecurityHardeningTests {
 
     @Test
     void mapLoadsLeafletWithSubresourceIntegrity() throws Exception {
-        // "/" só encaminha para o index.html; o MockMvc não segue o forward
         String html = mvc.get().uri("/index.html").exchange().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
         assertThat(html).containsPattern("leaflet\\.min\\.js\"\\s+integrity=\"sha512-")

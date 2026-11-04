@@ -35,11 +35,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Fila de moderação: relatos em que o classificador discordou da categoria ou teve pouca confiança.
- * Aprovar mantém o relato. Rejeitar tira o relato do chamado e apaga a foto; o chamado que fica sem
- * relatos válidos é descartado e some do mapa.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -112,7 +107,6 @@ public class ModerationService {
                 issue.getReportCount(), reporterBlocked);
     }
 
-    // O GridFS não participa da transação: a foto só some depois que a decisão foi gravada
     private void deletePhotoAfterCommit(String photoId) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override

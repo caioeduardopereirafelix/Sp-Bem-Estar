@@ -79,7 +79,6 @@ class ClassificationResultListenerTests {
         awaitStatus(reportId, "AGREED");
 
         sendResult(reportId, "TRASH", 0.99);
-        // a fila tem um consumidor só: quando o marcador for processado, a mensagem repetida também foi
         Long marker = report("POTHOLE", -23.04);
         sendResult(marker, "POTHOLE", 0.9);
         awaitStatus(marker, "AGREED");
@@ -115,7 +114,6 @@ class ClassificationResultListenerTests {
                 """.formatted(reportId, predicted, confidence));
     }
 
-    // Mesmo formato publicado pelo classifier-worker
     private void send(String payload) {
         Message message = MessageBuilder.withBody(payload.getBytes(StandardCharsets.UTF_8))
                 .setContentType(MessageProperties.CONTENT_TYPE_JSON)

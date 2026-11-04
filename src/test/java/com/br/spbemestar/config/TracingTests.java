@@ -39,7 +39,6 @@ class TracingTests {
 
         assertThat(result).hasStatusOk();
         assertThat(result.getResponse().getHeader(TraceIdResponseFilter.HEADER)).matches("[0-9a-f]{32}");
-        // inclusive nas recusas da segurança
         assertThat(mvc.delete().uri("/api/v1/issues/1").exchange()).hasStatus(HttpStatus.UNAUTHORIZED)
                 .headers().containsHeader(TraceIdResponseFilter.HEADER);
     }

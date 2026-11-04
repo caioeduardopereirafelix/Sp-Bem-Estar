@@ -35,7 +35,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Import(TestcontainersConfiguration.class)
 class ModerationTests {
 
-    // Cada teste usa uma região própria para não agrupar relatos com os de outros testes
     static final double LON = -48.50;
 
     @Autowired MockMvcTester mvc;
@@ -57,7 +56,7 @@ class ModerationTests {
         Long notClassified = report(UUID.randomUUID(), -28.03);
 
         List<Integer> ids = pendingIds();
-        assertThat(ids).containsSubsequence(mismatch.intValue(), lowConfidence.intValue()) // mais antigo primeiro
+        assertThat(ids).containsSubsequence(mismatch.intValue(), lowConfidence.intValue())
                 .doesNotContain(agreed.intValue(), notClassified.intValue());
 
         Map<String, Object> item = pendingItem(mismatch);
@@ -112,20 +111,16 @@ class ModerationTests {
 
         assertThat(jdbc.queryForList("SELECT from_status || '->' || to_status FROM issue_status_history WHERE issue_id = ?",
                 String.class, issueId)).contains("OPEN->DISCARDED");
-        // o histórico registra qual operador descartou
         assertThat(jdbc.queryForObject("""
                 SELECT changed_by FROM issue_status_history WHERE issue_id = ? AND to_status = 'DISCARDED'
                 """, Long.class, issueId)).isEqualTo(users.findByEmail(TestOperators.EMAIL).orElseThrow().getId());
         assertThat(mvc.get().uri("/api/v1/issues/{id}", issueId).exchange()).hasStatus(HttpStatus.NOT_FOUND);
-        // nenhum operador muda o status de um chamado descartado
         assertThat(mvc.patch().uri("/api/v1/issues/{id}/status", issueId)
                 .header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"status\": \"OPEN\"}").exchange())
                 .hasStatus(HttpStatus.CONFLICT);
-        // um relato novo no mesmo lugar abre outro chamado em vez de cair no descartado
         Long newIssue = issueOf(report(UUID.randomUUID(), -28.30));
         assertThat(newIssue).isNotEqualTo(issueId);
-        // e só o novo aparece no mapa
         List<Integer> onMap = JsonPath.read(body(mvc.get()
                 .uri("/api/v1/issues?bbox=" + (LON - 0.01) + ",-28.31," + (LON + 0.01) + ",-28.29").exchange()), "$.features[*].id");
         assertThat(onMap).contains(newIssue.intValue()).doesNotContain(issueId.intValue());
@@ -146,7 +141,6 @@ class ModerationTests {
     void rejectsInvalidDecisions() {
         Long reportId = flagged(UUID.randomUUID(), -28.50);
 
-        // bloquear o autor só faz sentido ao rejeitar
         assertThat(decide(reportId, "APPROVED", true)).hasStatus(HttpStatus.BAD_REQUEST);
         assertThat(mvc.post().uri("/api/v1/moderation/reports/{id}", reportId)
                 .header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
@@ -156,7 +150,6 @@ class ModerationTests {
         jdbc.update("UPDATE report SET reporter_hash = NULL WHERE id = ?", reportId);
         assertThat(decide(reportId, "REJECTED", true)).hasStatus(HttpStatus.CONFLICT)
                 .bodyJson().extractingPath("$.title").isEqualTo("Relato sem autor");
-        // nada foi gravado: o relato continua esperando
         assertThat(pendingIds()).contains(reportId.intValue());
     }
 

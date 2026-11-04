@@ -30,14 +30,9 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Junta o painel do administrador. Os números do produto vêm do banco; a saúde, dos mesmos health checks do
- * Actuator; a atividade, dos contadores do Micrometer, que contam desde que a API subiu.
- */
 @Service
 public class DashboardService {
 
-    /** As partes que importam para quem administra; os outros health checks (ping, ssl) só poluiriam. */
     private static final Map<String, String> COMPONENTS = linked(
             "db", "Banco de dados (PostgreSQL)",
             "mongo", "Fotos (MongoDB)",
@@ -86,7 +81,7 @@ public class DashboardService {
         this.recentErrors = recentErrors;
         this.worker = worker;
         this.clock = clock;
-        Duration timeout = Duration.ofSeconds(2); // o painel não pode travar esperando um worker fora do ar
+        Duration timeout = Duration.ofSeconds(2);
         JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_1_1).connectTimeout(timeout).build());
         requests.setReadTimeout(timeout);
@@ -192,7 +187,6 @@ public class DashboardService {
             WorkerHealth health = workerClient.get()
                     .uri(worker.url().replaceAll("/+$", "") + "/actuator/health")
                     .retrieve()
-                    // fora do ar o Actuator responde 503 com o mesmo corpo: o status vem dele, não do código HTTP
                     .onStatus(status -> status.value() == 503, (request, response) -> { })
                     .body(WorkerHealth.class);
             if (health == null) {
@@ -213,7 +207,7 @@ public class DashboardService {
         for (Timer timer : meters.find("http.server.requests").timers()) {
             String uri = timer.getId().getTag("uri");
             if (uri != null && uri.startsWith("/actuator")) {
-                continue; // health check e scrape do Prometheus não são uso do produto
+                continue;
             }
             requests += timer.count();
             totalMs += timer.totalTime(TimeUnit.MILLISECONDS);

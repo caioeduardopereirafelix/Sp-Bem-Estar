@@ -24,11 +24,6 @@ import java.security.spec.ECPrivateKeySpec;
 import java.security.spec.ECPublicKeySpec;
 import java.util.Arrays;
 
-/**
- * Criptografia do corpo de uma notificação Web Push (RFC 8291, {@code aes128gcm} da RFC 8188), só com o JDK.
- * O serviço de push (Google, Mozilla, Apple) apenas repassa a mensagem: quem decifra é o navegador, com as
- * chaves que ele mesmo gerou na inscrição ({@code p256dh} e {@code auth}).
- */
 public final class WebPushEncryption {
 
     private static final int RECORD_SIZE = 4096;
@@ -38,10 +33,6 @@ public final class WebPushEncryption {
     private WebPushEncryption() {
     }
 
-    /**
-     * @param uaPublic chave pública do navegador (p256dh), ponto não comprimido de 65 bytes
-     * @param authSecret segredo de 16 bytes do navegador (auth)
-     */
     public static byte[] encrypt(byte[] plaintext, byte[] uaPublic, byte[] authSecret) {
         byte[] salt = new byte[16];
         RANDOM.nextBytes(salt);
@@ -59,7 +50,6 @@ public final class WebPushEncryption {
             agreement.doPhase(publicKey(uaPublic), true);
             byte[] ecdhSecret = agreement.generateSecret();
 
-            // RFC 8291, seção 3.4: o segredo do navegador entra na derivação, junto com as duas chaves públicas
             byte[] keyInfo = concat("WebPush: info\0".getBytes(StandardCharsets.US_ASCII), uaPublic, asPublic);
             byte[] ikm = hkdf(authSecret, ecdhSecret, keyInfo, 32);
             byte[] cek = hkdf(salt, ikm, "Content-Encoding: aes128gcm\0".getBytes(StandardCharsets.US_ASCII), 16);
@@ -67,7 +57,7 @@ public final class WebPushEncryption {
 
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             cipher.init(Cipher.ENCRYPT_MODE, new SecretKeySpec(cek, "AES"), new GCMParameterSpec(128, nonce));
-            byte[] ciphertext = cipher.doFinal(concat(plaintext, new byte[]{2})); // 0x02: último registro
+            byte[] ciphertext = cipher.doFinal(concat(plaintext, new byte[]{2}));
 
             ByteBuffer header = ByteBuffer.allocate(16 + 4 + 1 + asPublic.length)
                     .put(salt).putInt(RECORD_SIZE).put((byte) asPublic.length).put(asPublic);
@@ -87,7 +77,6 @@ public final class WebPushEncryption {
         }
     }
 
-    /** Ponto não comprimido (0x04 || x || y), o formato que o navegador entrega em p256dh. */
     public static ECPublicKey publicKey(byte[] uncompressed) throws GeneralSecurityException {
         if (uncompressed.length != 65 || uncompressed[0] != 4) {
             throw new GeneralSecurityException("Chave pública P-256 inválida");
@@ -109,7 +98,6 @@ public final class WebPushEncryption {
         return concat(new byte[]{4}, unsigned32(key.getW().getAffineX()), unsigned32(key.getW().getAffineY()));
     }
 
-    /** HKDF-SHA256 (RFC 5869) para saídas de até 32 bytes: um único bloco de expansão. */
     private static byte[] hkdf(byte[] salt, byte[] ikm, byte[] info, int length) throws GeneralSecurityException {
         byte[] prk = hmac(salt, ikm);
         return Arrays.copyOf(hmac(prk, concat(info, new byte[]{1})), length);

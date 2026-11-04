@@ -65,16 +65,12 @@ public class IssueQueryRepository {
         } else {
             sql.append(" AND i.status <> 'RESOLVED'");
         }
-        sql.append(" AND i.status <> 'DISCARDED'"); // descartado pela moderação: nunca aparece no mapa
+        sql.append(" AND i.status <> 'DISCARDED'");
         sql.append(" ORDER BY i.priority_score DESC, i.last_reported_at DESC LIMIT :limit");
 
         return jdbc.query(sql.toString(), params, ROW_MAPPER);
     }
 
-    /**
-     * Os chamados para a planilha da prefeitura, do mais antigo para o mais novo. Sem {@code status}, todos menos
-     * os descartados pela moderação; {@code from} e {@code to} filtram pelo primeiro relato (fim exclusivo).
-     */
     public void export(IssueStatus status, String category, Instant from, Instant to, RowCallbackHandler rows) {
         StringBuilder sql = new StringBuilder("""
                 SELECT i.id, i.category_code, c.name AS category_name, i.status, i.report_count, i.reporter_count,

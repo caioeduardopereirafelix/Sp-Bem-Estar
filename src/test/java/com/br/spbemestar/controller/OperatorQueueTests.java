@@ -27,10 +27,6 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Os chamados destes testes recebem prioridade acima de 9000 para ficar no topo da fila, à frente dos
- * criados por outros testes no mesmo banco.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(TestcontainersConfiguration.class)
@@ -49,7 +45,6 @@ class OperatorQueueTests {
     void queueAndModerationAreOnlyForOperators() {
         for (String path : List.of("/api/v1/issues/queue", "/api/v1/moderation/reports")) {
             assertThat(mvc.get().uri(path).exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
-            // o token do cidadão não vale aqui, mesmo com GET /api/v1/** sendo público para o mapa
             assertThat(mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, TestReporters.bearer(citizens))
                     .exchange()).hasStatus(HttpStatus.UNAUTHORIZED);
             assertThat(mvc.get().uri(path).header(HttpHeaders.AUTHORIZATION, TestOperators.bearer(auth, users))
@@ -97,9 +92,8 @@ class OperatorQueueTests {
     void showsHowManyReportsWaitForModeration() {
         Long issueId = issueWithPriority(-27.20, "POTHOLE", 9700);
         Long flagged = reportService.create(TestReporters.ID, "POTHOLE", -27.20, -47.00, TestPhotos.jpeg()).reportId();
-        classification.apply(flagged, "TRASH", 0.95); // o modelo discorda da categoria
+        classification.apply(flagged, "TRASH", 0.95);
 
-        // os dois relatos são do mesmo cidadão: 2 relatos, 1 pessoa
         assertThat(itemOf(queue(""), issueId)).containsEntry("reportCount", 2).containsEntry("reporterCount", 1)
                 .containsEntry("pendingModeration", 1);
     }

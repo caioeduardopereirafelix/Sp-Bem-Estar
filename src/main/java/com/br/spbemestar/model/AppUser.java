@@ -42,7 +42,6 @@ public class AppUser {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
-    /** Tokens emitidos antes disso não valem mais: o usuário foi desativado. */
     @Column(name = "tokens_valid_after")
     private Instant tokensValidAfter;
 
@@ -58,7 +57,6 @@ public class AppUser {
         return new AppUser(email, name, role, createdAt);
     }
 
-    /** Desativar corta o acesso na hora: o token que a pessoa já tem deixa de valer. */
     public void deactivate(Instant now) {
         this.active = false;
         this.tokensValidAfter = Objects.requireNonNull(now);

@@ -4,10 +4,6 @@ import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 
-/**
- * Prepara a imagem como no treino de um YOLO de classificação: redimensiona o menor lado para
- * {@code size}, recorta o centro em {@code size × size} e converte para RGB em 0..1, no layout CHW.
- */
 public final class ImagePreprocessor {
 
     private ImagePreprocessor() {
@@ -34,7 +30,6 @@ public final class ImagePreprocessor {
         int width = Math.max(size, (int) Math.round(source.getWidth() * scale));
         int height = Math.max(size, (int) Math.round(source.getHeight() * scale));
 
-        // Desenhar em TYPE_INT_RGB também normaliza tons de cinza, paleta e canal alfa
         BufferedImage target = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = target.createGraphics();
         try {

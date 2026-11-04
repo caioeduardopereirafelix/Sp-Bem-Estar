@@ -37,7 +37,6 @@ class NeighborhoodControllerTests {
 
     @Test
     void ranksNeighborhoodsByOpenIssuesPerTenThousandResidents() {
-        // Alfa: 10 mil habitantes; Beta: 20 mil; Gama: 5 mil e nenhum chamado
         importService.importGeoJson(new ByteArrayInputStream(collection(
                         square("Alfa", -44.00, -20.00, 10000),
                         square("Beta", -43.99, -20.00, 20000),

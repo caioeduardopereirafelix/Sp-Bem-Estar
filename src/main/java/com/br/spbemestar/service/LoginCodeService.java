@@ -36,14 +36,6 @@ import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
-/**
- * Login sem senha, para todo mundo: a pessoa informa o e-mail, recebe um código de 6 números e o confirma. Quem
- * entra é decidido pelo e-mail: o cadastrado na equipe pelo administrador entra como funcionário (ou CEO); qualquer
- * outro, como cidadão.
- * <p>
- * O código vale poucos minutos e poucas tentativas, e um novo invalida os anteriores (limites em
- * {@link LoginProperties}).
- */
 @Slf4j
 @Service
 public class LoginCodeService {
@@ -77,10 +69,6 @@ public class LoginCodeService {
         this.codeKey = deriveKey(SecurityConfig.secretKey(security));
     }
 
-    /**
-     * Envia um código para o e-mail. A resposta é a mesma para quem é da equipe e para quem não é: só depois de
-     * confirmar o código se sabe quem entrou.
-     */
     @Transactional
     public LoginCodeSentResponse requestCode(String rawEmail) {
         String email = AppUser.normalizeEmail(rawEmail);
@@ -100,13 +88,11 @@ public class LoginCodeService {
         String code = "%06d".formatted(RANDOM.nextInt(1_000_000));
         codes.invalidatePending(email, now);
         LoginCode saved = codes.save(LoginCode.of(email, hash(email, code), now, now.plus(properties.codeTtl())));
-        // dentro da transação: se o e-mail não sair, o código não fica valendo nem conta no limite
         mail.send(message(email, code, properties.codeTtl()));
         codeEvent("sent");
         return new LoginCodeSentResponse(saved.getExpiresAt(), properties.resendInterval().toSeconds());
     }
 
-    /** Confirma o código e entra; as tentativas erradas ficam gravadas mesmo com a recusa. */
     @Transactional(noRollbackFor = InvalidLoginCodeException.class)
     public LoginResponse verify(String rawEmail, String code, String previousReporterToken) {
         String email = AppUser.normalizeEmail(rawEmail);
@@ -139,7 +125,6 @@ public class LoginCodeService {
     @Scheduled(cron = "${app.login.cleanup-cron:0 40 3 * * *}")
     @Transactional
     public int deleteOldCodes() {
-        // guarda um dia: é o que o limite por hora e a auditoria de um pico de pedidos precisam
         return codes.deleteExpiredBefore(now().minus(Duration.ofDays(1)));
     }
 
@@ -150,12 +135,11 @@ public class LoginCodeService {
         try {
             return Optional.of(UUID.fromString(reporterJwt.decoder().decode(token).getSubject()));
         } catch (JwtException | IllegalArgumentException e) {
-            return Optional.empty(); // vencido ou estranho: a conta começa com uma identidade nova
+            return Optional.empty();
         }
     }
 
     private InvalidLoginCodeException failure() {
-        // sem o e-mail no log, como no login com senha de antes: a lista de tentativas seria dado pessoal
         log.warn("Código de acesso recusado");
         login("failure");
         return new InvalidLoginCodeException();

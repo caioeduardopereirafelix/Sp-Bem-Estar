@@ -32,14 +32,6 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Limita quantas requisições cada IP faz por regra, com um token bucket por par (regra, IP). Roda
- * antes do Spring Security, para que quem tenta códigos de acesso em série seja barrado sem nem chegar ao banco.
- * <p>
- * O IP é o {@code remoteAddr} da conexão. Atrás de um proxy reverso, ele só reflete o cliente se a
- * aplicação confiar no {@code X-Forwarded-For} desse proxy ({@code server.forward-headers-strategy});
- * sem isso, todos os clientes dividiriam o limite do IP do proxy.
- */
 @Slf4j
 public class RateLimitFilter extends OncePerRequestFilter {
 
@@ -56,7 +48,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.rules = properties.rules().stream().map(CompiledRule::of).toList();
         Duration longestPeriod = rules.stream().map(CompiledRule::period)
                 .max(Comparator.naturalOrder()).orElse(Duration.ofMinutes(1));
-        // Um bucket parado por um período inteiro já está cheio de novo: descartá-lo não muda nada
         this.buckets = Caffeine.newBuilder()
                 .maximumSize(properties.maxTrackedClients())
                 .expireAfterAccess(longestPeriod)
@@ -64,7 +55,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         this.time = new ClockTimeMeter(clock);
         this.json = json;
         this.meters = meters;
-        // com zero desde a subida, para o increase() do Prometheus contar o primeiro 429 de cada regra
         rules.forEach(rule -> meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()));
     }
 
@@ -87,9 +77,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        // arredonda para cima: voltar no segundo indicado sempre encontra uma ficha
         long retryAfter = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999) / 1_000_000_000);
-        // debug, não warn: sob ataque seria uma linha por requisição; o total de 429 já aparece no /actuator/prometheus
         meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()).increment();
         log.debug("Rate limit '{}' atingido por {} em {} {}", rule.name(), client,
                 request.getMethod(), request.getRequestURI());
@@ -102,10 +90,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         json.writeValue(response.getOutputStream(), problem);
     }
 
-    /**
-     * IPv4 conta por endereço. IPv6 conta pelo prefixo /64, que é o que um provedor entrega a um único
-     * cliente: contar por endereço deixaria qualquer um trocar de IP a cada requisição.
-     */
     static String clientKey(String remoteAddr) {
         if (remoteAddr == null || remoteAddr.indexOf(':') < 0) {
             return String.valueOf(remoteAddr);
@@ -113,10 +97,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
         int scope = remoteAddr.indexOf('%');
         String literal = scope < 0 ? remoteAddr : remoteAddr.substring(0, scope);
         try {
-            // com ':' é sempre um literal IPv6, então não há consulta de DNS
             InetAddress address = InetAddress.getByName(literal);
             if (!(address instanceof Inet6Address)) {
-                return address.getHostAddress(); // IPv4 mapeado em IPv6 (::ffff:a.b.c.d)
+                return address.getHostAddress();
             }
             byte[] prefix = Arrays.copyOf(Arrays.copyOf(address.getAddress(), 8), 16);
             return InetAddress.getByAddress(prefix).getHostAddress() + "/64";
@@ -145,7 +128,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
     }
 
-    /** Usa o {@link Clock} da aplicação, para os testes poderem avançar o tempo. */
     private record ClockTimeMeter(Clock clock) implements TimeMeter {
 
         @Override

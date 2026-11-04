@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/** Inscrições de push do cidadão e os avisos de mudança de status dos chamados em que ele relatou. */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -66,7 +65,6 @@ public class PushNotificationService {
                         request.keys().p256dh(), request.keys().auth(), now)));
         subscriptions.flush();
 
-        // cada navegador do cidadão é uma inscrição; acima do limite, sai a usada há mais tempo
         List<PushSubscription> mine = subscriptions.findByReporterHashOrderByUpdatedAtDesc(reporterHash);
         if (mine.size() > properties.maxSubscriptionsPerReporter()) {
             subscriptions.deleteAll(mine.subList(properties.maxSubscriptionsPerReporter(), mine.size()));
@@ -78,12 +76,6 @@ public class PushNotificationService {
         subscriptions.deleteByEndpointAndReporterHash(endpoint, hasher.reporterHash(reporterId));
     }
 
-    /**
-     * Avisa quem relatou o problema. Roda fora da transação que mudou o status (vem da outbox pelo RabbitMQ),
-     * então um serviço de push lento não segura a requisição do operador.
-     *
-     * @return quantos navegadores receberam o aviso
-     */
     public int notifyStatusChange(Long issueId, IssueStatus status) {
         if (!sender.enabled() || !notifiable(status)) {
             return 0;
@@ -101,7 +93,7 @@ public class PushNotificationService {
             switch (sender.send(subscription, payload)) {
                 case DELIVERED -> delivered++;
                 case EXPIRED -> expired.add(subscription);
-                case FAILED -> { } // já registrado pelo sender; a inscrição continua valendo
+                case FAILED -> { }
             }
         }
         if (!expired.isEmpty()) {
@@ -116,10 +108,6 @@ public class PushNotificationService {
         return status == IssueStatus.CONFIRMED || status == IssueStatus.IN_PROGRESS || status == IssueStatus.RESOLVED;
     }
 
-    /**
-     * O corpo vai cifrado até o navegador; o service worker do mapa monta a notificação com ele e, no clique,
-     * abre {@code /?issue=<id>} do próprio site.
-     */
     private byte[] payload(Long issueId, String categoryName, IssueStatus status, boolean withPhoto) {
         String subject = categoryName + " #" + issueId;
         Map<String, Object> message = new LinkedHashMap<>();
@@ -141,7 +129,7 @@ public class PushNotificationService {
         }
         message.put("issueId", issueId);
         message.put("status", status.name());
-        message.put("tag", "issue-" + issueId); // um aviso por chamado: o novo substitui o anterior
+        message.put("tag", "issue-" + issueId);
         return json.writeValueAsString(message).getBytes(StandardCharsets.UTF_8);
     }
 

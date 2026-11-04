@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Fila de atendimento do órgão público: chamados em aberto, do mais urgente para o menos. */
 @Service
 @RequiredArgsConstructor
 public class OperatorQueueService {
@@ -30,9 +29,6 @@ public class OperatorQueueService {
     private final IssueRepository issues;
     private final ReportRepository reports;
 
-    /**
-     * @param status sem filtro, os três status em andamento; com filtro, inclusive resolvidos e descartados
-     */
     @Transactional(readOnly = true)
     public PageResponse<QueueItem> queue(IssueStatus status, String category, Long neighborhoodId, int page, int size) {
         Set<IssueStatus> statuses = status == null ? ACTIVE : EnumSet.of(status);

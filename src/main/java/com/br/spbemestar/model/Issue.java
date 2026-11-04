@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-
 @Getter
 @DynamicUpdate
 @NoArgsConstructor
@@ -57,7 +56,6 @@ public class Issue {
     @Column(name = "report_count", nullable = false)
     private int reportCount;
 
-    // pessoas distintas entre os relatos: calculado no banco junto com a prioridade (IssueRepository)
     @Column(name = "reporter_count", nullable = false, insertable = false, updatable = false)
     private int reporterCount;
 
@@ -73,11 +71,9 @@ public class Issue {
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
-    /** Foto do conserto, tirada pela equipe ao resolver; pública, como as fotos dos relatos. */
     @Column(name = "resolution_photo_id")
     private String resolutionPhotoId;
 
-    /** O que foi feito, em poucas palavras, para quem relatou. */
     @Column(name = "resolution_note")
     private String resolutionNote;
 
@@ -121,7 +117,6 @@ public class Issue {
         return new IssueStatusHistory(this, previous, target, changedAt, operatorId);
     }
 
-    /** Resolve o chamado com o que a equipe mostra ao cidadão: a foto do conserto e uma nota, os dois opcionais. */
     public IssueStatusHistory resolve(Instant changedAt, Long operatorId, String photoId, String note) {
         IssueStatusHistory change = changeStatus(IssueStatus.RESOLVED, changedAt, operatorId);
         resolutionPhotoId = photoId;
@@ -129,11 +124,6 @@ public class Issue {
         return change;
     }
 
-    /**
-     * Tira do chamado um relato rejeitado pela moderação. Sem nenhum relato válido, o chamado é descartado.
-     *
-     * @return a mudança de status, quando o chamado é descartado
-     */
     public Optional<IssueStatusHistory> removeRejectedReport(Instant changedAt, Long operatorId) {
         if (status == IssueStatus.DISCARDED) {
             throw new IllegalStateException("Chamado já descartado: " + id);

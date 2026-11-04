@@ -61,7 +61,6 @@ class SchemaMigrationTests {
 
     @Test
     void geographyDistanceIsMeasuredInMeters() {
-        // Dois pontos na Av. Paulista separados por ~0.0001° de latitude (~11 m)
         Boolean within15m = jdbc.queryForObject("""
                 SELECT ST_DWithin(
                     ST_MakePoint(-46.6544, -23.5614)::geography,

@@ -11,20 +11,20 @@ spring:
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: validate # o schema é do Flyway, nunca do Hibernate
+      ddl-auto: validate
 
   rabbitmq:
     host: ${RABBITMQ_HOST}
     port: ${RABBITMQ_PORT}
     username: ${RABBITMQ_USER}
     password: ${RABBITMQ_PASSWORD}
-    publisher-confirm-type: correlated # a outbox só marca o evento como publicado após o ack do broker
+    publisher-confirm-type: correlated
     template:
-      observation-enabled: true # o traceparent vai no header da mensagem
+      observation-enabled: true
     listener:
       simple:
-        observation-enabled: true # e o listener continua o mesmo trace
-        default-requeue-rejected: false # falha definitiva vai para a DLQ em vez de voltar para a fila
+        observation-enabled: true
+        default-requeue-rejected: false
         retry:
           enabled: true
           max-attempts: 3
@@ -50,32 +50,25 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, prometheus # prometheus exige METRICS_USER e METRICS_PASSWORD
+        include: health, info, prometheus
   endpoint:
     health:
-      # outbox atrasada não derruba a API: o status vira DEGRADED, que ainda responde 200
       status:
         order: DOWN, OUT_OF_SERVICE, DEGRADED, UNKNOWN, UP
         http-mapping:
           DEGRADED: 200
-  # buckets da latência HTTP, para o Prometheus calcular p95 e p99 somando todas as rotas
   metrics:
     distribution:
       percentiles-histogram:
         http.server.requests: true
-  # o starter do OpenTelemetry também envia métricas por OTLP; aqui elas saem pelo /actuator/prometheus
   otlp:
     metrics:
       export:
         enabled: false
-  # traceId em todo log e propagado por HTTP e RabbitMQ; sem exportar spans, amostrar tudo não custa nada.
-  # Para exportar (Tempo, Jaeger), defina MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT.
   tracing:
     sampling:
       probability: ${TRACING_SAMPLING_PROBABILITY:1.0}
 
-# Em produção, LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs troca o console por JSON (Elastic Common Schema).
-# LOG_FILE grava também um arquivo em JSON, que o Alloy do docker compose envia para o Loki.
 logging:
   file:
     name: ${LOG_FILE:}
@@ -83,7 +76,6 @@ logging:
     format:
       file: ecs
 
-# Swagger UI e /v3/api-docs; em produção, API_DOCS_ENABLED=false
 springdoc:
   api-docs:
     enabled: ${API_DOCS_ENABLED:true}
@@ -91,69 +83,58 @@ springdoc:
     enabled: ${API_DOCS_ENABLED:true}
 
 app:
-  # Responsável pelos dados e contato do encarregado (DPO), mostrados em /privacidade.html
   privacy:
     controller: ${PRIVACY_CONTROLLER:}
     contact: ${PRIVACY_CONTACT:}
-  # Avisos por push quando um chamado relatado pelo cidadão muda de status. Sem as chaves, fica desligado.
-  # Gere o par com: node scripts/generate-vapid-keys.mjs
   push:
     vapid-public-key: ${PUSH_VAPID_PUBLIC_KEY:}
     vapid-private-key: ${PUSH_VAPID_PRIVATE_KEY:}
-    subject: ${PUSH_VAPID_SUBJECT:} # mailto: ou https:// do responsável, exigido pelos serviços de push
-  # Identidade anônima do cidadão: JWT curto para enviar relatos e refresh token com rotação
+    subject: ${PUSH_VAPID_SUBJECT:}
   reporter:
-    hash-secret: ${REPORTER_HASH} # no mínimo 32 bytes; gere com: openssl rand -base64 48
+    hash-secret: ${REPORTER_HASH}
     access-token-ttl: 15m
     refresh-token-ttl: 90d
   security:
-    jwt-secret: ${JWT_SECRET} # no mínimo 32 bytes; gere com: openssl rand -base64 48
+    jwt-secret: ${JWT_SECRET}
     token-ttl: 8h
-    # Primeiro usuário do órgão público (o administrador), criado na subida se ainda não existir. Sem senha: ele
-    # entra com o código que chega no e-mail
     bootstrap-operator:
       email: ${OPERATOR_EMAIL:}
       name: ${OPERATOR_NAME:Operador}
-    # Conta do CEO, a única que abre o painel de métricas e saúde em /ceo
     bootstrap-ceo:
       email: ${CEO_EMAIL:}
       name: ${CEO_NAME:CEO}
-  # Código de acesso por e-mail (Brevo). Sem chave, ninguém entra, a não ser com MAIL_LOG_CODES=true no
-  # desenvolvimento, que escreve o código no log
   mail:
     brevo-api-key: ${BREVO_API_KEY:}
     from: ${MAIL_FROM:}
     from-name: ${MAIL_FROM_NAME:SP Bem-Estar}
     log-codes: ${MAIL_LOG_CODES:false}
-  # Usuário do Prometheus no /actuator/prometheus (HTTP Basic); vazio = ninguém lê as métricas
   metrics:
     username: ${METRICS_USER:}
     password: ${METRICS_PASSWORD:}
-  # Limite por IP (token bucket): vale a primeira regra que casar; o resto (mapa, health, Swagger) fica livre
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     rules:
-      - name: login-code # cada pedido manda um e-mail: sem limite, a API vira um disparador de spam
+      - name: login-code
         method: POST
         path: /api/v1/auth/code
         capacity: 10
         period: 15m
-      - name: login-verify # tentar códigos em vários e-mails; cada código já aceita só 5 tentativas
+      - name: login-verify
         method: POST
         path: /api/v1/auth/verify
         capacity: 20
         period: 15m
-      - name: reports # cada relato grava foto e passa pelo classificador
+      - name: reports
         method: POST
         path: /api/v1/reports
         capacity: 20
         period: 1h
-      - name: reporter-refresh # um cidadão renova no máximo a cada 15 min
+      - name: reporter-refresh
         method: POST
         path: /api/v1/reporters/refresh
         capacity: 60
         period: 1h
-      - name: metrics # um scrape a cada 15 s são 4 por minuto; o limite barra força bruta na senha
+      - name: metrics
         method: GET
         path: /actuator/prometheus
         capacity: 30
@@ -163,17 +144,14 @@ app:
         capacity: 300
         period: 1m
   observability:
-    backlog-interval: 30s # de quanto em quanto tempo medir as filas (outbox, moderação, DLQs)
-    outbox-lag-limit: 5m # evento pendente mais velho que isso deixa o health check "outbox" em DEGRADED
+    backlog-interval: 30s
+    outbox-lag-limit: 5m
   outbox:
     publish-interval-ms: 1000
     batch-size: 100
     confirm-timeout: 5s
   classification:
-    min-confidence: 0.6 # abaixo disso o relato vai para moderação
-    # Conferência da foto na hora do envio, pelo worker (POST /api/classify). Se o modelo vir, com confiança alta,
-    # outro tipo ou nenhum problema de rua, o envio é recusado e a pessoa escolhe o tipo certo (ou insiste, e o
-    # relato vai para a moderação). Sem CLASSIFIER_URL, ou com o worker fora do ar, o relato segue sem ela.
+    min-confidence: 0.6
     precheck:
       url: ${CLASSIFIER_URL:}
       username: ${CLASSIFIER_API_USER:}

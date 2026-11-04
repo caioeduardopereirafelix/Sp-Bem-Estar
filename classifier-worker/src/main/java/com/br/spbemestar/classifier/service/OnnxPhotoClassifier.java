@@ -26,15 +26,6 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Classifica a foto com um modelo ONNX, como o exportado por {@code yolo export format=onnx} a partir
- * de um YOLO de classificação. A sessão do ONNX Runtime é thread-safe e fica aberta durante toda a
- * vida do worker.
- * <p>
- * Os rótulos vêm do metadado {@code names} que a Ultralytics grava no modelo, na ordem das saídas.
- * {@code classifier.labels} só é necessário para modelos sem esse metadado; se os dois existirem,
- * precisam ser iguais, porque rótulos fora de ordem trocariam as categorias sem nenhum erro.
- */
 @Slf4j
 @Service
 public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
@@ -45,7 +36,6 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
     private final int inputSize;
     private final List<String> labels;
 
-    // Formato gravado pela Ultralytics: {0: 'BUS_STOP', 1: 'CLOGGED_DRAIN', ...}
     private static final Pattern NAME_ENTRY = Pattern.compile("(\\d+)\\s*:\\s*['\"]([^'\"]*)['\"]");
 
     public OnnxPhotoClassifier(ClassifierProperties properties) throws OrtException {
@@ -103,7 +93,6 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
         session.close();
     }
 
-    // O YOLO de classificação já exporta a saída com softmax; outros modelos podem devolver logits
     static double[] toProbabilities(float[] scores) {
         double sum = 0;
         boolean inRange = true;
@@ -185,7 +174,6 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
         return List.copyOf(byIndex.values());
     }
 
-    // Entrada esperada: [1, 3, altura, largura]; -1 indica dimensão dinâmica
     private static int resolveInputSize(NodeInfo input, int fallback) {
         long[] shape = ((TensorInfo) input.getInfo()).getShape();
         if (shape.length != 4 || shape[1] != 3) {

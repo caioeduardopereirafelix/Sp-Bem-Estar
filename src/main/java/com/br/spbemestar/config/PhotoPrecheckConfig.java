@@ -17,7 +17,6 @@ import java.net.http.HttpClient;
 @EnableConfigurationProperties(PhotoPrecheckProperties.class)
 public class PhotoPrecheckConfig {
 
-    /** Tempo curto: quem espera é o cidadão, com o relato na mão; sem resposta, o relato segue sem a conferência. */
     @Bean
     PhotoPrecheck photoPrecheck(PhotoPrecheckProperties properties, MeterRegistry meters,
                                 ObjectProvider<ObservationRegistry> observations) {
@@ -28,7 +27,7 @@ public class PhotoPrecheckConfig {
         JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(http);
         requests.setReadTimeout(properties.timeout());
         RestClient.Builder client = RestClient.builder().requestFactory(requests);
-        observations.ifAvailable(client::observationRegistry); // o traceparent do relato vai junto para o worker
+        observations.ifAvailable(client::observationRegistry);
         return new HttpPhotoPrecheck(properties, client.build(), meters);
     }
 }

@@ -28,7 +28,6 @@ public class NeighborhoodStatsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    // Ordena por chamados abertos a cada 10 mil habitantes: bairros populosos não dominam o ranking só pelo volume
     public List<NeighborhoodStats> findAll(String city) {
         StringBuilder sql = new StringBuilder("""
                 SELECT n.id, n.name, n.city, n.population,
@@ -53,7 +52,6 @@ public class NeighborhoodStatsRepository {
         return jdbc.query(sql.toString(), params, ROW_MAPPER);
     }
 
-    // Simplificação de ~10 m: reduz o tamanho da resposta sem alterar o desenho na escala da cidade
     public Map<Long, String> findSimplifiedGeometries(String city) {
         String sql = "SELECT id, ST_AsGeoJSON(ST_Multi(ST_SimplifyPreserveTopology(geom, 0.0001)), 6) AS geometry FROM neighborhood"
                 + (city == null ? "" : " WHERE city = :city");
