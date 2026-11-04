@@ -33,4 +33,9 @@ public class Category {
 
     @Column(nullable = false)
     private boolean active;
+
+    @Column(name = "service_group")
+    private String group;
+
+    private String keywords;
 }

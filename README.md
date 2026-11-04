@@ -172,7 +172,25 @@ O modelo é um **YOLO de classificação** (uma resposta por foto, sem caixas): 
 O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das fotos ficam no **MongoDB GridFS**. O acesso passa pela interface `PhotoStorage`, então migrar para S3 é uma nova implementação, sem tocar no domínio.
 
 ### Padrão Open311
-Em vez de um formato de exportação próprio, a API implementa o **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços.
+Os chamados também saem no **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços: um sistema de atendimento ou um app de dados abertos que entenda Open311 lê os chamados sem integração sob medida. Por ora, só a leitura; criar chamados por outro app (`POST /requests.json`) pularia o login por e-mail, a foto e a conferência do classificador.
+
+| Campo | De onde vem |
+|---|---|
+| `service_code`, `service_name` | a categoria (ex.: `POTHOLE`, "Buraco na via") |
+| `group`, `keywords` | o grupo do tipo de problema (ex.: "Vias e calçadas", "Drenagem e saneamento") e as palavras de busca, em `services.json` |
+| `service_request_id` | o número do chamado |
+| `status` | `open` para aberto, confirmado e em andamento; `closed` para resolvido. Descartados pela moderação não aparecem |
+| `status_notes` | a situação em português e, se resolvido, a nota do conserto |
+| `requested_datetime`, `updated_datetime` | o primeiro relato e a última mudança (relato novo, status ou resolução), em ISO 8601 com o fuso de São Paulo |
+| `lat`, `long`, `address` | o ponto do chamado e o distrito |
+| `description` | quantas pessoas relataram |
+| `agency_responsible` | o órgão responsável (`PRIVACY_CONTROLLER`) |
+| `media_url` | a foto do conserto ou, sem ela, a do primeiro relato aprovado; foto em moderação não sai |
+
+- **Filtros de `requests.json`:** `service_code`, `status` (`open`, `closed` ou os dois), `start_date` e `end_date` (ISO 8601 ou só a data) e `service_request_id` (vários, separados por vírgula). Sem datas, vêm os últimos 90 dias; no máximo 1000 chamados, do mais novo para o mais antigo. `jurisdiction_id` é aceito e ignorado, porque há uma só.
+- **Nada de quem relatou:** nem e-mail, nem identificador, nem relatos rejeitados, como na planilha.
+- **Para outros sites:** as respostas trazem `Access-Control-Allow-Origin: *` e `Cache-Control: max-age=60`, e há uma regra própria no rate limit (60 por minuto por IP).
+- **Erros no formato do padrão:** `[{"code": 400, "description": "..."}]`.
 
 ### Login por código enviado por e-mail
 Cidadão, equipe da prefeitura e CEO entram do mesmo jeito, sem senha: `POST /api/v1/auth/code` com o e-mail manda um código de 6 números, e `POST /api/v1/auth/verify` com o e-mail e o código devolve o acesso. **Quem entrou é decidido pelo e-mail**: o cadastrado na equipe pelo administrador entra como `OPERATOR` ou `ADMIN` (ou `CEO`), e recebe um **JWT** assinado pela própria API (HS256, 8 h); qualquer outro e-mail entra como `CITIZEN` e recebe o par de tokens do [cidadão](#identidade-do-cidadão). O `role` da resposta diz qual dos dois, e o mapa leva cada um ao lugar certo.
@@ -246,6 +264,7 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 | `login-verify` | `POST /api/v1/auth/verify` | 20 a cada 15 minutos (cada código já aceita só 5 tentativas) |
 | `reporter-refresh` | `POST /api/v1/reporters/refresh` | 60 por hora |
 | `reports` | `POST /api/v1/reports` | 20 por hora |
+| `open311` | `GET /open311/**` | 60 por minuto (dados abertos, lidos por outros sistemas) |
 | `metrics` | `GET /actuator/prometheus` | 30 por minuto (um scrape a cada 15 s usa 4) |
 | `api` | demais rotas em `/api/**` | 300 por minuto |
 
@@ -370,7 +389,8 @@ As migrations ficam em `src/main/resources/db/migration` e são aplicadas pelo F
 | `GET` | `/api/v1/categories` | Categorias ativas |
 | `GET` | `/api/v1/photos/{id}` | Foto do relato |
 | `GET` | `/open311/v2/services.json` | Categorias no padrão Open311 |
-| `GET` | `/open311/v2/requests.json` | Chamados no padrão Open311 |
+| `GET` | `/open311/v2/requests.json?service_code=&status=&start_date=&end_date=&service_request_id=` | Chamados no padrão Open311 |
+| `GET` | `/open311/v2/requests/{id}.json` | Um chamado no padrão Open311 |
 
 Documentação interativa: `http://localhost:8080/swagger-ui.html`
 
@@ -681,7 +701,7 @@ As regras que protegem a consistência de uma entidade ficam nela mesma — por 
 - [x] Remoção de EXIF
 
 **Fase 4 — Integração e entrega**
-- [ ] Endpoints Open311
+- [x] Endpoints Open311 (leitura)
 - [ ] Carga com dataset público e benchmarks
 - [x] CI com GitHub Actions
 - [x] Observabilidade: métricas de negócio, logs em JSON, traceId de ponta a ponta, dashboard e alertas

@@ -134,6 +134,11 @@ app:
         path: /api/v1/reporters/refresh
         capacity: 60
         period: 1h
+      - name: open311
+        method: GET
+        path: /open311/**
+        capacity: 60
+        period: 1m
       - name: metrics
         method: GET
         path: /actuator/prometheus
