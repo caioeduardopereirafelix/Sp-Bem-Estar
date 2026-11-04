@@ -177,6 +177,7 @@ Os chamados também saem no **Open311 GeoReport v2**, padrão aberto adotado por
 | Campo | De onde vem |
 |---|---|
 | `service_code`, `service_name` | a categoria (ex.: `POTHOLE`, "Buraco na via") |
+| `group`, `keywords` | o grupo do tipo de problema (ex.: "Vias e calçadas", "Drenagem e saneamento") e as palavras de busca, em `services.json` |
 | `service_request_id` | o número do chamado |
 | `status` | `open` para aberto, confirmado e em andamento; `closed` para resolvido. Descartados pela moderação não aparecem |
 | `status_notes` | a situação em português e, se resolvido, a nota do conserto |

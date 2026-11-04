@@ -48,7 +48,8 @@ public class Open311Service {
     @Transactional(readOnly = true)
     public List<ServiceDefinition> services() {
         return categories.findByActiveTrueOrderByName().stream()
-                .map(c -> new ServiceDefinition(c.getCode(), c.getName(), c.getName(), false, "realtime", null, null))
+                .map(c -> new ServiceDefinition(c.getCode(), c.getName(), c.getName(), false, "realtime",
+                        c.getKeywords(), c.getGroup()))
                 .toList();
     }
 

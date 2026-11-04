@@ -40,6 +40,11 @@ class Open311Tests {
         assertThat(result).bodyJson().extractingPath("$[0].metadata").isEqualTo(false);
         assertThat(result).bodyJson().extractingPath("$[0].type").isEqualTo("realtime");
         assertThat(result).bodyJson().extractingPath("$[0].service_name").isNotNull();
+        assertThat(result).bodyJson().extractingPath("$[?(@.service_code == 'POTHOLE')].group").asArray()
+                .containsExactly("Vias e calçadas");
+        assertThat(result).bodyJson().extractingPath("$[?(@.service_code == 'POTHOLE')].keywords").asArray()
+                .containsExactly("buraco, cratera, asfalto, pavimento, rua");
+        assertThat(result).bodyJson().extractingPath("$[?(!@.group)]").asArray().isEmpty();
     }
 
     @Test
