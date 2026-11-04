@@ -171,6 +171,23 @@ O modelo é um **YOLO de classificação** (uma resposta por foto, sem caixas): 
 ### Persistência poliglota
 O domínio é relacional e geoespacial (PostgreSQL + PostGIS); os binários das fotos ficam no **MongoDB GridFS**. O acesso passa pela interface `PhotoStorage`, então migrar para S3 é uma nova implementação, sem tocar no domínio.
 
+### Cache com Redis, só onde a medição mostrou ganho
+Com 20 mil chamados e 40 mil relatos no banco, medimos cada rota (200 chamadas depois de 30 de aquecimento, na mesma máquina) antes de pôr qualquer cache:
+
+| Rota | Antes (p50 / p95) | Depois (p50 / p95) | O que mudou |
+|---|---|---|---|
+| Distritos no mapa (`/api/v1/neighborhoods`) | 176 / 221 ms | 17 / 28 ms | contorno simplificado dos distritos no Redis por 1 dia; os números continuam ao vivo |
+| Painel do CEO | 136 / 200 ms | 4 / 9 ms | resposta inteira no Redis por 15 s |
+| Chamados no mapa, cidade toda | 99 / 123 ms | 16 / 24 ms | consulta corrigida, sem cache |
+| Open311 `requests.json` | 32 / 46 ms | 8 / 13 ms | resposta no Redis por 60 s, o mesmo `max-age` que ela já anunciava |
+| Bairro no mapa, detalhe, categorias, ranking, fila | 2 a 21 ms | iguais | ficam sem cache: já são rápidas, ou precisam estar sempre frescas |
+
+- **O mapa não precisava de cache.** O PostgreSQL usava um plano genérico para a consulta com parâmetros: lia pelo índice geográfico todos os chamados abertos da área e fazia o teste de interseção em `geography`, caro, em cada um antes de ordenar. Na cidade toda eram 100 ms, para 10 ou para 1000 resultados. Agora o filtro é o retângulo da tela em coordenadas planas (`location::geometry && envelope`, com o índice da `V15`), que é exatamente o que o mapa mostra, e só os 500 primeiros buscam categoria e distrito. Os resultados são os mesmos nas áreas testadas. Cache aqui teria pouco acerto: cada pessoa vê um retângulo diferente.
+- **Nada velho na tela de quem relata.** Só vai para o cache o que não muda (o contorno dos distritos, que a importação limpa ao terminar) ou o que já admite alguns segundos de atraso (painel do CEO e Open311). Fila, moderação, detalhe e "Meus relatos" vêm sempre do banco.
+- **Sem Redis, a API continua.** Um erro do Redis faz a requisição ir ao banco, e a API para de tentá-lo por 30 s, para não pagar a espera em toda chamada; o tempo volta ao de antes do cache. O health `cache` fica `DEGRADED` (ainda 200, o contêiner não é derrubado) e aparece no painel do CEO como "Cache (Redis)".
+- **Métrica** `spbemestar_cache_total{cache, result}`: `hit`, `miss`, `error` e `bypass` por cache.
+- **Redis só de cache:** 64 MB, descartando o menos usado, sem gravar em disco. No servidor fica na rede interna e com senha (`REDIS_PASSWORD`, gerada pelo `init-env.sh`).
+
 ### Padrão Open311
 Os chamados também saem no **Open311 GeoReport v2**, padrão aberto adotado por cidades para sistemas de solicitação de serviços: um sistema de atendimento ou um app de dados abertos que entenda Open311 lê os chamados sem integração sob medida. Por ora, só a leitura; criar chamados por outro app (`POST /requests.json`) pularia o login por e-mail, a foto e a conferência do classificador.
 
@@ -399,7 +416,7 @@ Documentação interativa: `http://localhost:8080/swagger-ui.html`
 **Pré-requisitos:** Java 21 e Docker.
 
 ```bash
-# 1. Sobe PostgreSQL/PostGIS, RabbitMQ e MongoDB
+# 1. Sobe PostgreSQL/PostGIS, RabbitMQ, MongoDB e Redis
 docker compose up -d --wait
 
 # 2. Executa a aplicação
@@ -416,6 +433,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `MAIL_LOG_CODES` | só no desenvolvimento: `true`, sem `BREVO_API_KEY`, escreve o código no log da API em vez de enviar. Nunca em produção: quem lê o log entraria na conta de qualquer pessoa |
 | `CEO_EMAIL`, `CEO_NAME` | conta do CEO, criada na subida se ainda não existir; é a única que abre o painel em `/ceo` |
 | `OPERATOR_EMAIL`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir; ele cadastra o resto da equipe |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | opcionais; o Redis do cache (padrão `localhost:6379`, sem senha, que é o do `docker compose up`). Sem ele a API funciona, só mais devagar nas rotas com cache |
 | `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT` | órgão responsável pelos dados e e-mail (ou página `https://`) do encarregado, mostrados na [página de privacidade](#privacidade-lgpd) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |

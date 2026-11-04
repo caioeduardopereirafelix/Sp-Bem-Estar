@@ -29,6 +29,7 @@ sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
     -e "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(password)|" \
     -e "s|^RABBITMQ_PASSWORD=.*|RABBITMQ_PASSWORD=$(password)|" \
     -e "s|^MONGO_PASSWORD=.*|MONGO_PASSWORD=$(password)|" \
+    -e "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=$(password)|" \
     -e "s|^JWT_SECRET=.*|JWT_SECRET=$(secret)|" \
     -e "s|^REPORTER_HASH=.*|REPORTER_HASH=$(secret)|" \
     -e "s|^OPERATOR_EMAIL=.*|OPERATOR_EMAIL=$admin|" \
