@@ -550,6 +550,19 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
    ```bash
    (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -
    ```
+7. **Ligue o alerta de queda.** O `monitor.sh` roda a cada minuto. Ele confere:
+   - se `https://seudominio.com.br/actuator/health` responde `UP` passando pelo Caddy, como chega para quem abre o site;
+   - se cada container está rodando e saudável, o worker incluído;
+   - se o disco passou de 90% (`MONITOR_DISK_LIMIT`).
+
+   Quando algo falha em duas verificações seguidas, ele manda um e-mail pelo Brevo para `ALERT_EMAIL` (sem ele, para o `ACME_EMAIL`), com o que falhou e os comandos para investigar. Quando tudo volta, manda outro. Enquanto nada muda, não repete o aviso, e um reinício rápido num deploy não gera alerta.
+   ```bash
+   (crontab -l 2>/dev/null; echo "* * * * * $PWD/monitor.sh >> /var/log/spbemestar-monitor.log 2>&1") | crontab -
+   ```
+   O IP do servidor precisa estar autorizado no Brevo (Security → Authorised IPs), ou o alerta não sai, igual ao código de acesso.
+8. **Cubra a queda do servidor inteiro.** Se a máquina cair, o `monitor.sh` cai junto. Para isso existem os serviços externos, gratuitos para um site:
+   - **[Healthchecks.io](https://healthchecks.io)**: crie um check com período de 1 minuto e tolerância de 5. Copie a URL de ping para `MONITOR_HEARTBEAT_URL` no `deploy/.env`. O `monitor.sh` faz o ping a cada execução, ou o ping de falha (`/fail`) quando encontra problema, e o Healthchecks avisa por e-mail, Telegram ou WhatsApp quando os pings param. Ele cobre o servidor desligado, a rede caída e o Brevo recusando os e-mails.
+   - **[UptimeRobot](https://uptimerobot.com)**: um monitor HTTP(S) em `https://seudominio.com.br/actuator/health`, com a palavra-chave `"UP"`, a cada 5 minutos. Ele confere o site de fora, inclusive o DNS e o certificado.
 
 **Atualizar:** `git pull && docker compose up -d --build`. As migrations do banco rodam sozinhas na subida.
 
