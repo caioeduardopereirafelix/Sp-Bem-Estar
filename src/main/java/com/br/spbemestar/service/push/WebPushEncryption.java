@@ -1,8 +1,9 @@
 package com.br.spbemestar.service.push;
 
+import com.br.spbemestar.util.Crypto;
+
 import javax.crypto.Cipher;
 import javax.crypto.KeyAgreement;
-import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayOutputStream;
@@ -98,15 +99,9 @@ public final class WebPushEncryption {
         return concat(new byte[]{4}, unsigned32(key.getW().getAffineX()), unsigned32(key.getW().getAffineY()));
     }
 
-    private static byte[] hkdf(byte[] salt, byte[] ikm, byte[] info, int length) throws GeneralSecurityException {
-        byte[] prk = hmac(salt, ikm);
-        return Arrays.copyOf(hmac(prk, concat(info, new byte[]{1})), length);
-    }
-
-    private static byte[] hmac(byte[] key, byte[] data) throws GeneralSecurityException {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(key, "HmacSHA256"));
-        return mac.doFinal(data);
+    private static byte[] hkdf(byte[] salt, byte[] ikm, byte[] info, int length) {
+        byte[] prk = Crypto.hmac(salt, ikm);
+        return Arrays.copyOf(Crypto.hmac(prk, concat(info, new byte[]{1})), length);
     }
 
     private static byte[] unsigned32(BigInteger value) {

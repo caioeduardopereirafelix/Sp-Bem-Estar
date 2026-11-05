@@ -14,6 +14,7 @@ import com.br.spbemestar.model.LoginCode;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.repository.LoginCodeRepository;
 import com.br.spbemestar.service.mail.EmailSender;
+import com.br.spbemestar.util.Crypto;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,18 +22,14 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,7 +63,7 @@ public class LoginCodeService {
         this.properties = properties;
         this.clock = clock;
         this.meters = meters;
-        this.codeKey = deriveKey(SecurityConfig.secretKey(security));
+        this.codeKey = Crypto.deriveKey(SecurityConfig.secretKey(security), "spbemestar/login-code/v1");
     }
 
     @Transactional
@@ -162,24 +159,7 @@ public class LoginCodeService {
     }
 
     private String hash(String email, String code) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(codeKey);
-            return HexFormat.of().formatHex(mac.doFinal((email + ":" + code).getBytes(StandardCharsets.UTF_8)));
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
-        }
-    }
-
-    private static SecretKey deriveKey(SecretKey operatorKey) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(operatorKey);
-            return new SecretKeySpec(mac.doFinal("spbemestar/login-code/v1".getBytes(StandardCharsets.UTF_8)),
-                    "HmacSHA256");
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
-        }
+        return Crypto.hmacHex(codeKey, email + ":" + code);
     }
 
     private void codeEvent(String result) {
