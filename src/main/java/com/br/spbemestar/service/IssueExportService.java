@@ -2,6 +2,7 @@ package com.br.spbemestar.service;
 
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.repository.IssueQueryRepository;
+import com.br.spbemestar.util.PhotoUrls;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,7 +23,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -35,8 +35,6 @@ public class IssueExportService {
             "Relatos", "Pessoas", "Prioridade", "Primeiro relato", "Último relato", "Resolvido em",
             "Nota da resolução", "Foto da resolução", "Link");
 
-    private static final Map<String, String> STATUS_LABELS = Map.of(
-            "OPEN", "Aberto", "CONFIRMED", "Confirmado", "IN_PROGRESS", "Em andamento", "RESOLVED", "Resolvido");
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     private final IssueQueryRepository issueQueries;
@@ -72,7 +70,7 @@ public class IssueExportService {
         return List.of(
                 Long.toString(id),
                 text(rs.getString("category_name")),
-                STATUS_LABELS.getOrDefault(rs.getString("status"), rs.getString("status")),
+                IssueStatus.valueOf(rs.getString("status")).label(),
                 text(rs.getString("neighborhood_name")),
                 coordinate.format(rs.getDouble("latitude")),
                 coordinate.format(rs.getDouble("longitude")),
@@ -83,7 +81,7 @@ public class IssueExportService {
                 dateTime(rs, "last_reported_at"),
                 dateTime(rs, "resolved_at"),
                 text(rs.getString("resolution_note")),
-                photoId == null ? "" : baseUrl + "/api/v1/photos/" + photoId,
+                photoId == null ? "" : PhotoUrls.absolute(baseUrl, photoId),
                 baseUrl + "/?issue=" + id);
     }
 

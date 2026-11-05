@@ -5,11 +5,25 @@ import java.util.Set;
 
 public enum IssueStatus {
 
-    OPEN,
-    CONFIRMED,
-    IN_PROGRESS,
-    RESOLVED,
-    DISCARDED;
+    OPEN("Aberto"),
+    CONFIRMED("Confirmado"),
+    IN_PROGRESS("Em andamento"),
+    RESOLVED("Resolvido"),
+    DISCARDED("Descartado");
+
+    private final String label;
+
+    IssueStatus(String label) {
+        this.label = label;
+    }
+
+    public String label() {
+        return label;
+    }
+
+    public static Set<IssueStatus> active() {
+        return EnumSet.of(OPEN, CONFIRMED, IN_PROGRESS);
+    }
 
     public Set<IssueStatus> allowedTransitions() {
         return switch (this) {

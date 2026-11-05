@@ -4,7 +4,6 @@ import com.br.spbemestar.dto.IssueDetailResponse;
 import com.br.spbemestar.dto.MyReportItem;
 import com.br.spbemestar.dto.PageResponse;
 import com.br.spbemestar.model.Issue;
-import com.br.spbemestar.model.IssueStatusHistory;
 import com.br.spbemestar.model.ModerationDecision;
 import com.br.spbemestar.model.Report;
 import com.br.spbemestar.repository.IssueStatusHistoryRepository;
@@ -34,7 +33,8 @@ public class MyReportsService {
         List<Long> issueIds = result.getContent().stream().map(r -> r.getIssue().getId()).distinct().toList();
         Map<Long, List<IssueDetailResponse.StatusChange>> changes = issueIds.isEmpty() ? Map.of()
                 : history.findByIssueIdInOrderByChangedAt(issueIds).stream().collect(Collectors.groupingBy(
-                        h -> h.getIssue().getId(), Collectors.mapping(MyReportsService::change, Collectors.toList())));
+                        h -> h.getIssue().getId(),
+                        Collectors.mapping(h -> IssueDetailResponse.StatusChange.of(h, null), Collectors.toList())));
         return PageResponse.of(result, r -> item(r, changes.getOrDefault(r.getIssue().getId(), List.of())));
     }
 
@@ -49,16 +49,11 @@ public class MyReportsService {
                 report.getModerationStatus() == ModerationDecision.REJECTED,
                 report.getCreatedAt(),
                 changes.isEmpty() ? report.getCreatedAt() : changes.getLast().changedAt(),
-                issue.getLocation().getY(),
-                issue.getLocation().getX(),
+                issue.latitude(),
+                issue.longitude(),
                 changes,
                 IssueDetailResponse.Resolution.of(issue.getResolutionPhotoId(), issue.getResolutionNote()),
                 report.getModerationStatus() != null ? null : new MyReportItem.PhotoCheck(
                         report.getClassificationStatus().name(), report.getPredictedCategory()));
-    }
-
-    private static IssueDetailResponse.StatusChange change(IssueStatusHistory h) {
-        return new IssueDetailResponse.StatusChange(h.getFromStatus() == null ? null : h.getFromStatus().name(),
-                h.getToStatus().name(), h.getChangedAt(), null);
     }
 }

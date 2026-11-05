@@ -1,12 +1,14 @@
 package com.br.spbemestar.exception;
 
-public class InvalidPhotoException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidPhotoException extends ApiException {
 
     public InvalidPhotoException(String message) {
-        super(message);
+        super(HttpStatus.BAD_REQUEST, "Foto inválida", message);
     }
 
     public InvalidPhotoException(String message, Throwable cause) {
-        super(message, cause);
+        super(HttpStatus.BAD_REQUEST, "Foto inválida", message, cause);
     }
 }

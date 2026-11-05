@@ -39,100 +39,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private final TraceContext traceContext;
     private final RecentErrors recentErrors;
 
-    @ExceptionHandler(InvalidPhotoException.class)
-    ProblemDetail handleInvalidPhoto(InvalidPhotoException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Foto inválida", e.getMessage());
-    }
-
-    @ExceptionHandler(PhotoCategoryMismatchException.class)
-    ProblemDetail handlePhotoCategoryMismatch(PhotoCategoryMismatchException e) {
-        ProblemDetail body = problem(HttpStatus.UNPROCESSABLE_CONTENT, "A foto não combina com o tipo escolhido",
-                e.getMessage());
-        body.setProperty("chosenCategory", e.getChosenCategory());
-        body.setProperty("predictedCategory", e.getPredictedCategory());
-        body.setProperty("predictedCategoryName", e.getPredictedCategoryName());
-        body.setProperty("confidence", e.getConfidence());
-        return body;
-    }
-
-    @ExceptionHandler(UnknownCategoryException.class)
-    ProblemDetail handleUnknownCategory(UnknownCategoryException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Categoria inválida", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidBoundingBoxException.class)
-    ProblemDetail handleInvalidBoundingBox(InvalidBoundingBoxException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Área inválida", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidLoginCodeException.class)
-    ProblemDetail handleInvalidLoginCode(InvalidLoginCodeException e) {
-        return problem(HttpStatus.UNAUTHORIZED, "Código inválido", e.getMessage());
-    }
-
-    @ExceptionHandler(LoginCodeThrottledException.class)
-    ResponseEntity<ProblemDetail> handleLoginCodeThrottled(LoginCodeThrottledException e) {
-        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
-                .body(problem(HttpStatus.TOO_MANY_REQUESTS, "Espere para pedir outro código", e.getMessage()));
+    @ExceptionHandler(ApiException.class)
+    ResponseEntity<ProblemDetail> handleApi(ApiException e) {
+        ProblemDetail body = Problems.of(e.status(), e.title(), e.getMessage());
+        e.properties().forEach(body::setProperty);
+        return ResponseEntity.status(e.status()).headers(e.headers()).body(body);
     }
 
     @ExceptionHandler(EmailDeliveryException.class)
     ProblemDetail handleEmailDelivery(EmailDeliveryException e) {
-        return problem(HttpStatus.SERVICE_UNAVAILABLE, "E-mail não enviado",
+        return Problems.of(HttpStatus.SERVICE_UNAVAILABLE, "E-mail não enviado",
                 "Não conseguimos enviar o código agora. Tente de novo em instantes.");
-    }
-
-    @ExceptionHandler(StaffAccessDisabledException.class)
-    ProblemDetail handleStaffAccessDisabled(StaffAccessDisabledException e) {
-        return problem(HttpStatus.FORBIDDEN, "Acesso desativado", e.getMessage());
-    }
-
-    @ExceptionHandler(CitizenLoginRequiredException.class)
-    ProblemDetail handleCitizenLoginRequired(CitizenLoginRequiredException e) {
-        ProblemDetail body = problem(HttpStatus.FORBIDDEN, "Entre para relatar", e.getMessage());
-        body.setProperty("loginRequired", true);
-        return body;
-    }
-
-    @ExceptionHandler(InvalidRefreshTokenException.class)
-    ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException e) {
-        return problem(HttpStatus.UNAUTHORIZED, "Renovação recusada", e.getMessage());
-    }
-
-    @ExceptionHandler(ReporterBlockedException.class)
-    ProblemDetail handleReporterBlocked(ReporterBlockedException e) {
-        return problem(HttpStatus.FORBIDDEN, "Autor bloqueado", e.getMessage());
-    }
-
-    @ExceptionHandler(OperatorAlreadyExistsException.class)
-    ProblemDetail handleOperatorExists(OperatorAlreadyExistsException e) {
-        return problem(HttpStatus.CONFLICT, "E-mail já cadastrado", e.getMessage());
-    }
-
-    @ExceptionHandler(OperatorChangeNotAllowedException.class)
-    ProblemDetail handleOperatorChange(OperatorChangeNotAllowedException e) {
-        return problem(HttpStatus.CONFLICT, "Alteração não permitida", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidPushSubscriptionException.class)
-    ProblemDetail handleInvalidPushSubscription(InvalidPushSubscriptionException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Inscrição inválida", e.getMessage());
-    }
-
-    @ExceptionHandler(PushDisabledException.class)
-    ProblemDetail handlePushDisabled(PushDisabledException e) {
-        return problem(HttpStatus.NOT_FOUND, "Notificações desligadas", e.getMessage());
-    }
-
-    @ExceptionHandler(ReportWithoutReporterException.class)
-    ProblemDetail handleReportWithoutReporter(ReportWithoutReporterException e) {
-        return problem(HttpStatus.CONFLICT, "Relato sem autor", e.getMessage());
-    }
-
-    @ExceptionHandler(ReportAlreadyModeratedException.class)
-    ProblemDetail handleAlreadyModerated(ReportAlreadyModeratedException e) {
-        return problem(HttpStatus.CONFLICT, "Relato já moderado", e.getMessage());
     }
 
     @Override
@@ -160,24 +77,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    ProblemDetail handleNotFound(ResourceNotFoundException e) {
-        return problem(HttpStatus.NOT_FOUND, "Não encontrado", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidResolutionException.class)
-    ProblemDetail handleInvalidResolution(InvalidResolutionException e) {
-        return problem(HttpStatus.BAD_REQUEST, "Resolução inválida", e.getMessage());
-    }
-
-    @ExceptionHandler(InvalidStatusTransitionException.class)
-    ProblemDetail handleInvalidTransition(InvalidStatusTransitionException e) {
-        return problem(HttpStatus.CONFLICT, "Transição de status inválida", e.getMessage());
-    }
-
     @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
     ProblemDetail handleConcurrentUpdate(ObjectOptimisticLockingFailureException e) {
-        return problem(HttpStatus.CONFLICT, "Conflito de atualização",
+        return Problems.of(HttpStatus.CONFLICT, "Conflito de atualização",
                 "O chamado foi alterado por outra operação. Consulte o estado atual e tente novamente.");
     }
 
@@ -186,7 +88,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("Erro inesperado em {} {}", request.getMethod(), request.getRequestURI(), e);
         String traceId = traceContext.currentTraceId();
         recentErrors.record(request.getMethod(), request.getRequestURI(), e, traceId);
-        ProblemDetail body = problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", traceId == null
+        ProblemDetail body = Problems.of(HttpStatus.INTERNAL_SERVER_ERROR, "Erro interno", traceId == null
                 ? "Algo deu errado do nosso lado. Tente de novo em instantes."
                 : "Algo deu errado do nosso lado. Se continuar, informe o código " + traceId + ".");
         body.setProperty("traceId", traceId);
@@ -201,14 +103,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         for (FieldError error : e.getBindingResult().getFieldErrors()) {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
-        ProblemDetail body = problem(HttpStatus.BAD_REQUEST, "Dados inválidos", "Um ou mais campos são inválidos");
+        ProblemDetail body = Problems.of(HttpStatus.BAD_REQUEST, "Dados inválidos",
+                "Um ou mais campos são inválidos");
         body.setProperty("errors", errors);
         return handleExceptionInternal(e, body, headers, status, request);
-    }
-
-    private static ProblemDetail problem(HttpStatus status, String title, String detail) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setTitle(title);
-        return problem;
     }
 }

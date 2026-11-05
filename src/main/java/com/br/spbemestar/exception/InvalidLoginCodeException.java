@@ -1,8 +1,11 @@
 package com.br.spbemestar.exception;
 
-public class InvalidLoginCodeException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidLoginCodeException extends ApiException {
 
     public InvalidLoginCodeException() {
-        super("Código errado ou vencido. Confira o último e-mail ou peça um código novo.");
+        super(HttpStatus.UNAUTHORIZED, "Código inválido",
+                "Código errado ou vencido. Confira o último e-mail ou peça um código novo.");
     }
 }

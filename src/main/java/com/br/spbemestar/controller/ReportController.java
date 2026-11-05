@@ -1,6 +1,8 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.config.OpenApiConfig;
+import com.br.spbemestar.config.OperatorId;
+import com.br.spbemestar.config.ReporterId;
 import com.br.spbemestar.dto.CreateReportRequest;
 import com.br.spbemestar.dto.ReportResponse;
 import com.br.spbemestar.exception.InvalidPhotoException;
@@ -12,8 +14,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,8 +42,7 @@ public class ReportController {
     public ReportResponse create(@RequestPart("photo") MultipartFile photo,
                                  @Valid @ModelAttribute CreateReportRequest request,
                                  @RequestParam(defaultValue = "false") boolean confirmCategory,
-                                 @AuthenticationPrincipal Jwt reporter) throws IOException {
-        UUID reporterId = UUID.fromString(reporter.getSubject());
+                                 @ReporterId UUID reporterId) throws IOException {
         citizens.requireAccount(reporterId);
         if (photo.isEmpty()) {
             throw new InvalidPhotoException("A foto é obrigatória");
@@ -55,7 +54,7 @@ public class ReportController {
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @PostMapping("/{id}/block-reporter")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void blockReporter(@PathVariable Long id, @AuthenticationPrincipal Jwt operator) {
-        reporterTokens.blockAuthorOf(id, Long.valueOf(operator.getSubject()));
+    public void blockReporter(@PathVariable Long id, @OperatorId Long operatorId) {
+        reporterTokens.blockAuthorOf(id, operatorId);
     }
 }

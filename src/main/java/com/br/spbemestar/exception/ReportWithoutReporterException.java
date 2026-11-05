@@ -1,8 +1,12 @@
 package com.br.spbemestar.exception;
 
-public class ReportWithoutReporterException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ReportWithoutReporterException extends ApiException {
 
     public ReportWithoutReporterException(Long reportId) {
-        super("O relato " + reportId + " foi enviado antes da identificação anônima e não tem autor para bloquear");
+        super(HttpStatus.CONFLICT, "Relato sem autor",
+                "O relato " + reportId
+                        + " foi enviado antes da identificação anônima e não tem autor para bloquear");
     }
 }

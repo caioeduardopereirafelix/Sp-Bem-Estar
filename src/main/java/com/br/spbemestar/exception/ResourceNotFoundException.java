@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class ResourceNotFoundException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ResourceNotFoundException extends ApiException {
 
     public ResourceNotFoundException(String resource, Object id) {
-        super(resource + " não encontrado: " + id);
+        super(HttpStatus.NOT_FOUND, "Não encontrado", resource + " não encontrado: " + id);
     }
 }

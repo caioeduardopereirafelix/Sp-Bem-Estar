@@ -1,5 +1,6 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.Jwts;
 import com.br.spbemestar.config.SecurityConfig;
 import com.br.spbemestar.config.SecurityProperties;
 import com.br.spbemestar.dto.TokenResponse;
@@ -7,11 +8,8 @@ import com.br.spbemestar.model.AppUser;
 import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,9 +38,8 @@ public class AuthService {
                 .claim("name", user.getName())
                 .claim(SecurityConfig.ROLES_CLAIM, user.getRole().grantedRoles())
                 .build();
-        String token = jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-                .getTokenValue();
-        return new TokenResponse(token, "Bearer", expiresAt, user.getName(), user.getRole().name());
+        return new TokenResponse(Jwts.sign(jwtEncoder, claims), "Bearer", expiresAt, user.getName(),
+                user.getRole().name());
     }
 
     @Transactional

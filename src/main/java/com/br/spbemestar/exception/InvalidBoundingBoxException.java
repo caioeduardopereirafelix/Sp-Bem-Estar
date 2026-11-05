@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class InvalidBoundingBoxException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidBoundingBoxException extends ApiException {
 
     public InvalidBoundingBoxException(String message) {
-        super(message);
+        super(HttpStatus.BAD_REQUEST, "Área inválida", message);
     }
 }

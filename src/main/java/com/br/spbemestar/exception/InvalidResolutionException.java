@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class InvalidResolutionException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidResolutionException extends ApiException {
 
     public InvalidResolutionException(String message) {
-        super(message);
+        super(HttpStatus.BAD_REQUEST, "Resolução inválida", message);
     }
 }

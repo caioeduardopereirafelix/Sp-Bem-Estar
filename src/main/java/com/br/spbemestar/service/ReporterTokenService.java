@@ -1,5 +1,6 @@
 package com.br.spbemestar.service;
 
+import com.br.spbemestar.config.Jwts;
 import com.br.spbemestar.config.ReporterJwt;
 import com.br.spbemestar.config.ReporterProperties;
 import com.br.spbemestar.config.SecurityProperties;
@@ -18,10 +19,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
-import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
-import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -117,9 +115,7 @@ public class ReporterTokenService {
                 .issuedAt(now)
                 .expiresAt(accessExpiresAt)
                 .build();
-        String accessToken = jwt.encoder()
-                .encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
-                .getTokenValue();
+        String accessToken = Jwts.sign(jwt.encoder(), claims);
 
         byte[] random = new byte[32];
         RANDOM.nextBytes(random);

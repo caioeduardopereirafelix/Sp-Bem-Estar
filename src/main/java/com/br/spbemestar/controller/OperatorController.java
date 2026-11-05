@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.config.OpenApiConfig;
+import com.br.spbemestar.config.OperatorId;
 import com.br.spbemestar.dto.CreateOperatorRequest;
 import com.br.spbemestar.dto.OperatorItem;
 import com.br.spbemestar.dto.UpdateOperatorRequest;
@@ -9,8 +10,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,13 +36,13 @@ public class OperatorController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public OperatorItem create(@AuthenticationPrincipal Jwt admin, @Valid @RequestBody CreateOperatorRequest request) {
-        return operators.create(Long.valueOf(admin.getSubject()), request);
+    public OperatorItem create(@OperatorId Long adminId, @Valid @RequestBody CreateOperatorRequest request) {
+        return operators.create(adminId, request);
     }
 
     @PatchMapping("/{id}")
-    public OperatorItem update(@AuthenticationPrincipal Jwt admin, @PathVariable Long id,
+    public OperatorItem update(@OperatorId Long adminId, @PathVariable Long id,
                                @Valid @RequestBody UpdateOperatorRequest request) {
-        return operators.setActive(Long.valueOf(admin.getSubject()), id, request.active());
+        return operators.setActive(adminId, id, request.active());
     }
 }

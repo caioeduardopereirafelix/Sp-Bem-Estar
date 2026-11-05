@@ -1,5 +1,7 @@
 package com.br.spbemestar.config;
 
+import com.br.spbemestar.exception.Problems;
+import com.br.spbemestar.util.Crypto;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -30,7 +32,9 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
@@ -41,9 +45,7 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import tools.jackson.databind.json.JsonMapper;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Configuration
@@ -89,16 +91,13 @@ public class SecurityConfig {
                     .roles("METRICS")
                     .build());
         }
-        http
+        stateless(http)
                 .securityMatcher(METRICS_PATH)
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .formLogin(form -> form.disable())
                 .userDetailsService(users)
                 .httpBasic(basic -> basic.authenticationEntryPoint((request, response, e) -> {
                     response.setHeader("WWW-Authenticate", "Basic realm=\"metrics\"");
-                    writeProblem(response, json, HttpStatus.UNAUTHORIZED, "Não autenticado",
-                            "As métricas exigem o usuário e a senha do Prometheus.");
+                    unauthorized(json, "As métricas exigem o usuário e a senha do Prometheus.")
+                            .commence(request, response, e);
                 }))
                 .authorizeHttpRequests(auth -> auth.anyRequest().hasRole("METRICS"));
         return http.build();
@@ -111,12 +110,9 @@ public class SecurityConfig {
         JwtAuthenticationConverter reporterConverter = new JwtAuthenticationConverter();
         reporterConverter.setJwtGrantedAuthoritiesConverter(jwt -> List.of(new SimpleGrantedAuthority("ROLE_REPORTER")));
 
-        http
+        stateless(http)
                 .securityMatcher(REPORTER_ROUTES)
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(basic -> basic.disable())
-                .formLogin(form -> form.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/v1/reports").hasRole("REPORTER")
                         .requestMatchers(HttpMethod.POST, "/api/v1/reporters/refresh").permitAll()
@@ -127,11 +123,9 @@ public class SecurityConfig {
                         .anyRequest().denyAll())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.decoder(reporterJwt.decoder()).jwtAuthenticationConverter(reporterConverter))
-                        .authenticationEntryPoint((request, response, e) -> writeProblem(response, json,
-                                HttpStatus.UNAUTHORIZED, "Não autenticado",
-                                "Entre com o seu e-mail (POST /api/v1/auth/code e /api/v1/auth/verify) e envie o token no header Authorization."))
-                        .accessDeniedHandler((request, response, e) -> writeProblem(response, json,
-                                HttpStatus.FORBIDDEN, "Acesso negado", "Operação não permitida.")));
+                        .authenticationEntryPoint(unauthorized(json, "Entre com o seu e-mail (POST /api/v1/auth/code e "
+                                + "/api/v1/auth/verify) e envie o token no header Authorization."))
+                        .accessDeniedHandler(forbidden(json, "Operação não permitida.")));
         return http.build();
     }
 
@@ -144,11 +138,8 @@ public class SecurityConfig {
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
         jwtConverter.setJwtGrantedAuthoritiesConverter(authorities);
 
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        stateless(http)
                 .httpBasic(basic -> basic.disable())
-                .formLogin(form -> form.disable())
                 .headers(headers -> headers
                         .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(SWAGGER_UI,
                                 new ContentSecurityPolicyHeaderWriter(SWAGGER_CONTENT_SECURITY_POLICY)))
@@ -178,11 +169,9 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))
-                        .authenticationEntryPoint((request, response, e) -> writeProblem(response, json,
-                                HttpStatus.UNAUTHORIZED, "Não autenticado",
+                        .authenticationEntryPoint(unauthorized(json,
                                 "Entre com o seu e-mail e envie o token no header Authorization."))
-                        .accessDeniedHandler((request, response, e) -> writeProblem(response, json,
-                                HttpStatus.FORBIDDEN, "Acesso negado",
+                        .accessDeniedHandler(forbidden(json,
                                 "Seu usuário não tem permissão para esta operação.")));
         return http.build();
     }
@@ -216,17 +205,28 @@ public class SecurityConfig {
     }
 
     public static SecretKey secretKey(SecurityProperties properties) {
-        String secret = properties.jwtSecret();
-        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("app.security.jwt-secret (JWT_SECRET) precisa ter ao menos 32 bytes");
-        }
-        return new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        return Crypto.hmacKey(properties.jwtSecret(), "app.security.jwt-secret (JWT_SECRET)");
+    }
+
+    private static HttpSecurity stateless(HttpSecurity http) throws Exception {
+        return http
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .formLogin(form -> form.disable());
+    }
+
+    private static AuthenticationEntryPoint unauthorized(JsonMapper json, String detail) {
+        return (request, response, e) ->
+                writeProblem(response, json, HttpStatus.UNAUTHORIZED, "Não autenticado", detail);
+    }
+
+    private static AccessDeniedHandler forbidden(JsonMapper json, String detail) {
+        return (request, response, e) -> writeProblem(response, json, HttpStatus.FORBIDDEN, "Acesso negado", detail);
     }
 
     private static void writeProblem(HttpServletResponse response, JsonMapper json,
                                      HttpStatus status, String title, String detail) throws IOException {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setTitle(title);
+        ProblemDetail problem = Problems.of(status, title, detail);
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         if (status == HttpStatus.UNAUTHORIZED && !response.containsHeader("WWW-Authenticate")) {

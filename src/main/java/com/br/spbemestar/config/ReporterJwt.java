@@ -1,5 +1,6 @@
 package com.br.spbemestar.config;
 
+import com.br.spbemestar.util.Crypto;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -13,11 +14,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
 import java.util.Collection;
 
 @Component
@@ -27,7 +24,7 @@ public class ReporterJwt {
     private final JwtDecoder decoder;
 
     public ReporterJwt(SecurityProperties security, ReporterProperties reporter) {
-        SecretKey key = deriveKey(SecurityConfig.secretKey(security));
+        SecretKey key = Crypto.deriveKey(SecurityConfig.secretKey(security), "spbemestar/reporter-token/v1");
         this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
@@ -44,16 +41,5 @@ public class ReporterJwt {
 
     public JwtDecoder decoder() {
         return decoder;
-    }
-
-    private static SecretKey deriveKey(SecretKey operatorKey) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(operatorKey);
-            byte[] derived = mac.doFinal("spbemestar/reporter-token/v1".getBytes(StandardCharsets.UTF_8));
-            return new SecretKeySpec(derived, "HmacSHA256");
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
-        }
     }
 }

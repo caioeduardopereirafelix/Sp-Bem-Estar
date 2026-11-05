@@ -44,10 +44,16 @@ public class ReportCreatedListener {
         byte[] photo = photos.read(event.photoId()).orElseThrow(() -> rejected("photo_missing",
                 "Foto %s do relato %d não encontrada".formatted(event.photoId(), event.reportId()), null));
 
-        Classification classification;
+        Classification classification = classify(event, photo);
+        publisher.publish(messageId, new ReportClassified(
+                event.reportId(), classification.label(), classification.confidence(), properties.modelVersion()));
+        record(event, classification);
+    }
+
+    private Classification classify(ReportCreated event, byte[] photo) {
         Timer.Sample inference = Timer.start(meters);
         try {
-            classification = classifier.classify(photo);
+            return classifier.classify(photo);
         } catch (InvalidPhotoException e) {
             throw rejected("photo_unreadable", "Foto do relato %d ilegível: %s"
                     .formatted(event.reportId(), e.getMessage()), e);
@@ -58,9 +64,9 @@ public class ReportCreatedListener {
                     .publishPercentileHistogram()
                     .register(meters));
         }
+    }
 
-        publisher.publish(messageId, new ReportClassified(
-                event.reportId(), classification.label(), classification.confidence(), properties.modelVersion()));
+    private void record(ReportCreated event, Classification classification) {
         meters.counter("classifier.reports", "outcome", "classified", "label", classification.label()).increment();
         DistributionSummary.builder("classifier.confidence")
                 .description("Confiança do modelo na categoria prevista (0 a 1)")

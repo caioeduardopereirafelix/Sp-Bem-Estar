@@ -1,8 +1,11 @@
 package com.br.spbemestar.exception;
 
-public class PushDisabledException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class PushDisabledException extends ApiException {
 
     public PushDisabledException() {
-        super("As notificações push não estão configuradas neste servidor.");
+        super(HttpStatus.NOT_FOUND, "Notificações desligadas",
+                "As notificações push não estão configuradas neste servidor.");
     }
 }

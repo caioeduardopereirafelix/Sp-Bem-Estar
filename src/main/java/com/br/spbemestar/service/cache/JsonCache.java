@@ -1,5 +1,6 @@
 package com.br.spbemestar.service.cache;
 
+import com.br.spbemestar.util.Crypto;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,14 +13,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -136,11 +133,6 @@ public class JsonCache {
         if (raw.length() <= 120) {
             return PREFIX + cache + ":" + raw;
         }
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
-            return PREFIX + cache + ":" + HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 indisponível", e);
-        }
+        return PREFIX + cache + ":" + Crypto.sha256Hex(raw);
     }
 }

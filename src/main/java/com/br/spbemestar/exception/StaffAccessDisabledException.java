@@ -1,8 +1,11 @@
 package com.br.spbemestar.exception;
 
-public class StaffAccessDisabledException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class StaffAccessDisabledException extends ApiException {
 
     public StaffAccessDisabledException() {
-        super("Este acesso da equipe foi desativado. Fale com o administrador da prefeitura.");
+        super(HttpStatus.FORBIDDEN, "Acesso desativado",
+                "Este acesso da equipe foi desativado. Fale com o administrador da prefeitura.");
     }
 }

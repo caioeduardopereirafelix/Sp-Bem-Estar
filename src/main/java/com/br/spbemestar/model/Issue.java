@@ -13,7 +13,6 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
-import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.DynamicUpdate;
@@ -144,5 +143,16 @@ public class Issue {
 
     public boolean isOpen() {
         return status != IssueStatus.RESOLVED && status != IssueStatus.DISCARDED;
+    }
+    public double latitude() {
+        return location.getY();
+    }
+
+    public double longitude() {
+        return location.getX();
+    }
+
+    public String neighborhoodName() {
+        return neighborhood == null ? null : neighborhood.getName();
     }
 }

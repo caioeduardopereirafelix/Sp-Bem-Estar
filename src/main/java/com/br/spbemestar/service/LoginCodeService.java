@@ -14,6 +14,8 @@ import com.br.spbemestar.model.LoginCode;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.repository.LoginCodeRepository;
 import com.br.spbemestar.service.mail.EmailSender;
+import com.br.spbemestar.service.mail.LoginCodeEmail;
+import com.br.spbemestar.util.Crypto;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,18 +23,14 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.crypto.Mac;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HexFormat;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -66,29 +64,19 @@ public class LoginCodeService {
         this.properties = properties;
         this.clock = clock;
         this.meters = meters;
-        this.codeKey = deriveKey(SecurityConfig.secretKey(security));
+        this.codeKey = Crypto.deriveKey(SecurityConfig.secretKey(security), "spbemestar/login-code/v1");
     }
 
     @Transactional
     public LoginCodeSentResponse requestCode(String rawEmail) {
         String email = AppUser.normalizeEmail(rawEmail);
         Instant now = now();
-        Optional<LoginCode> last = codes.findFirstByEmailOrderByCreatedAtDesc(email);
-        if (last.isPresent() && last.get().getCreatedAt().plus(properties.resendInterval()).isAfter(now)) {
-            codeEvent("throttled");
-            long wait = Duration.between(now, last.get().getCreatedAt().plus(properties.resendInterval())).toSeconds() + 1;
-            throw new LoginCodeThrottledException("Espere um pouco para pedir outro código.", wait);
-        }
-        if (codes.countByEmailAndCreatedAtAfter(email, now.minus(Duration.ofHours(1))) >= properties.maxCodesPerHour()) {
-            codeEvent("throttled");
-            throw new LoginCodeThrottledException("Muitos códigos pedidos para este e-mail. Tente de novo mais tarde.",
-                    Duration.ofHours(1).toSeconds());
-        }
+        throttle(email, now);
 
         String code = "%06d".formatted(RANDOM.nextInt(1_000_000));
         codes.invalidatePending(email, now);
         LoginCode saved = codes.save(LoginCode.of(email, hash(email, code), now, now.plus(properties.codeTtl())));
-        mail.send(message(email, code, properties.codeTtl()));
+        mail.send(LoginCodeEmail.to(email, code, properties.codeTtl()));
         codeEvent("sent");
         return new LoginCodeSentResponse(saved.getExpiresAt(), properties.resendInterval().toSeconds());
     }
@@ -100,32 +88,58 @@ public class LoginCodeService {
         LoginCode pending = codes.findFirstByEmailAndConsumedAtIsNullOrderByCreatedAtDesc(email)
                 .filter(c -> c.isUsable(now, properties.maxAttempts()))
                 .orElseThrow(() -> failure());
-        if (!MessageDigest.isEqual(pending.getCodeHash().getBytes(StandardCharsets.UTF_8),
-                hash(email, code).getBytes(StandardCharsets.UTF_8))) {
+        if (!matches(pending, email, code)) {
             pending.failedAttempt(now, properties.maxAttempts());
             throw failure();
         }
         pending.consume(now);
 
-        Optional<AppUser> staff = users.findByEmail(email);
-        if (staff.isPresent()) {
-            if (!staff.get().isActive()) {
-                login("failure");
-                throw new StaffAccessDisabledException();
-            }
-            login("success");
-            log.info("Usuário {} ({}) entrou", staff.get().getId(), staff.get().getRole());
-            return LoginResponse.staff(auth.issueToken(staff.get()), email);
-        }
-        LoginResponse citizen = LoginResponse.citizen(citizens.signIn(email, reporterOf(previousReporterToken)), email);
+        LoginResponse response = users.findByEmail(email)
+                .map(staff -> staffLogin(staff, email))
+                .orElseGet(() -> citizenLogin(email, previousReporterToken));
         login("success");
-        return citizen;
+        return response;
     }
 
     @Scheduled(cron = "${app.login.cleanup-cron:0 40 3 * * *}")
     @Transactional
     public int deleteOldCodes() {
         return codes.deleteExpiredBefore(now().minus(Duration.ofDays(1)));
+    }
+
+    private void throttle(String email, Instant now) {
+        Optional<Instant> nextAllowed = codes.findFirstByEmailOrderByCreatedAtDesc(email)
+                .map(last -> last.getCreatedAt().plus(properties.resendInterval()))
+                .filter(next -> next.isAfter(now));
+        if (nextAllowed.isPresent()) {
+            codeEvent("throttled");
+            throw new LoginCodeThrottledException("Espere um pouco para pedir outro código.",
+                    Duration.between(now, nextAllowed.get()).toSeconds() + 1);
+        }
+        long lastHour = codes.countByEmailAndCreatedAtAfter(email, now.minus(Duration.ofHours(1)));
+        if (lastHour >= properties.maxCodesPerHour()) {
+            codeEvent("throttled");
+            throw new LoginCodeThrottledException("Muitos códigos pedidos para este e-mail. Tente de novo mais tarde.",
+                    Duration.ofHours(1).toSeconds());
+        }
+    }
+
+    private boolean matches(LoginCode pending, String email, String code) {
+        return MessageDigest.isEqual(pending.getCodeHash().getBytes(StandardCharsets.UTF_8),
+                hash(email, code).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private LoginResponse staffLogin(AppUser staff, String email) {
+        if (!staff.isActive()) {
+            login("failure");
+            throw new StaffAccessDisabledException();
+        }
+        log.info("Usuário {} ({}) entrou", staff.getId(), staff.getRole());
+        return LoginResponse.staff(auth.issueToken(staff), email);
+    }
+
+    private LoginResponse citizenLogin(String email, String previousReporterToken) {
+        return LoginResponse.citizen(citizens.signIn(email, reporterOf(previousReporterToken)), email);
     }
 
     private Optional<UUID> reporterOf(String token) {
@@ -145,41 +159,8 @@ public class LoginCodeService {
         return new InvalidLoginCodeException();
     }
 
-    private static EmailSender.Email message(String email, String code, Duration ttl) {
-        String text = """
-                Seu código de acesso ao SP Bem-Estar é %s.
-
-                Ele vale por %d minutos. Se não foi você que pediu, ignore este e-mail: sem o código, ninguém entra.
-                """.formatted(code, ttl.toMinutes());
-        String html = """
-                <div style="font-family:system-ui,sans-serif;font-size:16px;color:#1b2130">
-                  <p>Seu código de acesso ao <strong>SP Bem-Estar</strong> é</p>
-                  <p style="font-size:32px;font-weight:700;letter-spacing:6px;margin:16px 0">%s</p>
-                  <p>Ele vale por %d minutos. Se não foi você que pediu, ignore este e-mail: sem o código, ninguém entra.</p>
-                </div>
-                """.formatted(code, ttl.toMinutes());
-        return new EmailSender.Email(email, code + " é o seu código do SP Bem-Estar", text, html);
-    }
-
     private String hash(String email, String code) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(codeKey);
-            return HexFormat.of().formatHex(mac.doFinal((email + ":" + code).getBytes(StandardCharsets.UTF_8)));
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
-        }
-    }
-
-    private static SecretKey deriveKey(SecretKey operatorKey) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(operatorKey);
-            return new SecretKeySpec(mac.doFinal("spbemestar/login-code/v1".getBytes(StandardCharsets.UTF_8)),
-                    "HmacSHA256");
-        } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HmacSHA256 indisponível", e);
-        }
+        return Crypto.hmacHex(codeKey, email + ":" + code);
     }
 
     private void codeEvent(String result) {
