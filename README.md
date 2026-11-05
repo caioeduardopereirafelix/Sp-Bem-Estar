@@ -416,8 +416,8 @@ Documentação interativa: `http://localhost:8080/swagger-ui.html`
 **Pré-requisitos:** Java 21 e Docker.
 
 ```bash
-# 1. Sobe PostgreSQL/PostGIS, RabbitMQ, MongoDB e Redis
-docker compose up -d --wait
+# 1. Sobe PostgreSQL/PostGIS, RabbitMQ, MongoDB, Redis e o worker de classificação
+docker compose up -d --build --wait
 
 # 2. Executa a aplicação
 ./mvnw spring-boot:run
@@ -488,6 +488,15 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele também atende `POST /api/classify`, que a API chama na hora do envio para recusar uma foto de outro tipo: a rota exige o usuário `CLASSIFIER_API_USER` e a senha `CLASSIFIER_API_PASSWORD` (HTTP Basic), os mesmos no `.env` dos dois, e a API precisa de `CLASSIFIER_URL` (em desenvolvimento, `http://localhost:8081`; no compose de produção já vem configurado). Sem esses valores, a conferência na hora fica desligada e só vale a classificação pela fila. Ele usa o mesmo `.env` da raiz e abre HTTP na porta `8081` (`WORKER_PORT`) só para isso e para ser monitorado: `/actuator/health` é público e mostra o estado do modelo, do RabbitMQ e do MongoDB; `/actuator/prometheus` exige o mesmo `METRICS_USER` e `METRICS_PASSWORD` da API; qualquer outra rota é recusada.
 
+O `docker compose up` da raiz já sobe o worker, com a porta `8081` aberta só na sua máquina, e lê o modelo em `models/classifier.onnx`. Sem o arquivo, o worker para na subida com `FileNotFoundException` e o `--wait` falha. Para usar o modelo de teste, ponha no `.env`:
+
+```
+CLASSIFIER_MODEL_DIR=./classifier-worker/src/test/resources/models
+CLASSIFIER_MODEL_FILE=color-test.onnx
+```
+
+Depois de trocar o código do worker, rode `docker compose up -d --build worker`. Para rodar fora do Docker, por exemplo para depurar no IntelliJ, pare o container com `docker compose stop worker`, para liberar a porta, e rode:
+
 ```bash
 ./mvnw -f classifier-worker/pom.xml package
 java -jar classifier-worker/target/classifier-worker-0.0.1-SNAPSHOT.jar --classifier.model=file:caminho/do/modelo.onnx
@@ -544,7 +553,7 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
 
 **Atualizar:** `git pull && docker compose up -d --build`. As migrations do banco rodam sozinhas na subida.
 
-**Classificador:** coloque o modelo treinado em `deploy/models/classifier.onnx` e suba com `docker compose --profile classifier up -d --build`. Sem ele, os relatos ficam sem classificação automática e o resto funciona igual.
+**Classificador:** o worker sobe junto com o resto e precisa do modelo treinado em `deploy/models/classifier.onnx`, legível pelo usuário do container (`chmod 644 deploy/models/classifier.onnx`). Sem o arquivo, só o worker fica reiniciando: a API aceita os relatos normalmente, mas eles ficam sem classificação automática até o modelo chegar.
 
 O que o compose já configura:
 - **Rate limit** ligado. A API lê o IP do cliente no `X-Forwarded-For` (`SERVER_FORWARD_HEADERS_STRATEGY=native`), e o Caddy substitui esse cabeçalho pelo IP real, então ninguém escapa do limite forjando um.
