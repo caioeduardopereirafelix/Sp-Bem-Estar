@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -40,11 +39,7 @@ public class Open311Service {
     static final String REQUESTS_CACHE = "open311-requests";
     static final Duration CACHE_TTL = Duration.ofSeconds(60);
 
-    private static final Set<IssueStatus> OPEN = EnumSet.of(IssueStatus.OPEN, IssueStatus.CONFIRMED,
-            IssueStatus.IN_PROGRESS);
     private static final Set<IssueStatus> CLOSED = EnumSet.of(IssueStatus.RESOLVED);
-    private static final Map<String, String> STATUS_LABELS = Map.of(
-            "OPEN", "Aberto", "CONFIRMED", "Confirmado", "IN_PROGRESS", "Em andamento", "RESOLVED", "Resolvido");
 
     private final CategoryRepository categories;
     private final Open311Repository issues;
@@ -96,8 +91,9 @@ public class Open311Service {
     }
 
     private ServiceRequest toRequest(Open311Repository.Row row, String baseUrl) {
-        boolean closed = CLOSED.contains(IssueStatus.valueOf(row.status()));
-        String label = STATUS_LABELS.getOrDefault(row.status(), row.status());
+        IssueStatus status = IssueStatus.valueOf(row.status());
+        boolean closed = CLOSED.contains(status);
+        String label = status.label();
         String notes = row.resolutionNote() == null || row.resolutionNote().isBlank()
                 ? label : label + ": " + row.resolutionNote();
         String photo = row.resolutionPhotoId() != null ? row.resolutionPhotoId() : row.reportPhotoId();
@@ -125,7 +121,7 @@ public class Open311Service {
         Set<IssueStatus> statuses = EnumSet.noneOf(IssueStatus.class);
         for (String value : status.split(",")) {
             switch (value.strip().toLowerCase()) {
-                case "open" -> statuses.addAll(OPEN);
+                case "open" -> statuses.addAll(IssueStatus.active());
                 case "closed" -> statuses.addAll(CLOSED);
                 default -> throw new Open311BadRequestException("status aceita open, closed ou os dois.");
             }

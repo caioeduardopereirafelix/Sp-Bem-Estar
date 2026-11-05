@@ -171,7 +171,8 @@ public class SecurityConfig {
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtConverter))
                         .authenticationEntryPoint(unauthorized(json,
                                 "Entre com o seu e-mail e envie o token no header Authorization."))
-                        .accessDeniedHandler(forbidden(json, "Seu usuário não tem permissão para esta operação.")));
+                        .accessDeniedHandler(forbidden(json,
+                                "Seu usuário não tem permissão para esta operação.")));
         return http.build();
     }
 
@@ -215,7 +216,8 @@ public class SecurityConfig {
     }
 
     private static AuthenticationEntryPoint unauthorized(JsonMapper json, String detail) {
-        return (request, response, e) -> writeProblem(response, json, HttpStatus.UNAUTHORIZED, "Não autenticado", detail);
+        return (request, response, e) ->
+                writeProblem(response, json, HttpStatus.UNAUTHORIZED, "Não autenticado", detail);
     }
 
     private static AccessDeniedHandler forbidden(JsonMapper json, String detail) {

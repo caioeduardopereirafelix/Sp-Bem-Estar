@@ -33,7 +33,8 @@ public class MyReportsService {
         List<Long> issueIds = result.getContent().stream().map(r -> r.getIssue().getId()).distinct().toList();
         Map<Long, List<IssueDetailResponse.StatusChange>> changes = issueIds.isEmpty() ? Map.of()
                 : history.findByIssueIdInOrderByChangedAt(issueIds).stream().collect(Collectors.groupingBy(
-                        h -> h.getIssue().getId(), Collectors.mapping(h -> IssueDetailResponse.StatusChange.of(h, null), Collectors.toList())));
+                        h -> h.getIssue().getId(),
+                        Collectors.mapping(h -> IssueDetailResponse.StatusChange.of(h, null), Collectors.toList())));
         return PageResponse.of(result, r -> item(r, changes.getOrDefault(r.getIssue().getId(), List.of())));
     }
 

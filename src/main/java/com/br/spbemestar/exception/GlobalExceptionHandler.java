@@ -103,7 +103,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         for (FieldError error : e.getBindingResult().getFieldErrors()) {
             errors.putIfAbsent(error.getField(), error.getDefaultMessage());
         }
-        ProblemDetail body = Problems.of(HttpStatus.BAD_REQUEST, "Dados inválidos", "Um ou mais campos são inválidos");
+        ProblemDetail body = Problems.of(HttpStatus.BAD_REQUEST, "Dados inválidos",
+                "Um ou mais campos são inválidos");
         body.setProperty("errors", errors);
         return handleExceptionInternal(e, body, headers, status, request);
     }

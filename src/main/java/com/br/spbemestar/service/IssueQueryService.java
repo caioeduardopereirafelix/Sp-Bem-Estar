@@ -34,9 +34,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class IssueQueryService {
 
-    private static final Set<IssueStatus> ACTIVE = EnumSet.of(IssueStatus.OPEN, IssueStatus.CONFIRMED,
-            IssueStatus.IN_PROGRESS);
-
     private final IssueQueryRepository issueQueries;
     private final IssueRepository issues;
     private final ReportRepository reports;
@@ -84,7 +81,7 @@ public class IssueQueryService {
 
     @Transactional(readOnly = true)
     public PageResponse<QueueItem> queue(IssueStatus status, String category, Long neighborhoodId, int page, int size) {
-        Set<IssueStatus> statuses = status == null ? ACTIVE : EnumSet.of(status);
+        Set<IssueStatus> statuses = status == null ? IssueStatus.active() : EnumSet.of(status);
         Page<Issue> result = issues.findQueue(statuses, category, neighborhoodId, PageRequest.of(page, size));
         Map<Long, Long> pending = pendingModeration(result.getContent().stream().map(Issue::getId).toList());
 
