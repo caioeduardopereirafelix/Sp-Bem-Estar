@@ -1,8 +1,17 @@
 package com.br.spbemestar.exception;
 
-public class CitizenLoginRequiredException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+import java.util.Map;
+
+public class CitizenLoginRequiredException extends ApiException {
 
     public CitizenLoginRequiredException() {
-        super("Entre com o seu e-mail para enviar relatos.");
+        super(HttpStatus.FORBIDDEN, "Entre para relatar", "Entre com o seu e-mail para enviar relatos.");
+    }
+
+    @Override
+    public Map<String, Object> properties() {
+        return Map.of("loginRequired", true);
     }
 }

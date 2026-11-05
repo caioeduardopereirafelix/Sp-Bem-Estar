@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class UnknownCategoryException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class UnknownCategoryException extends ApiException {
 
     public UnknownCategoryException(String code) {
-        super("Categoria desconhecida ou inativa: " + code);
+        super(HttpStatus.BAD_REQUEST, "Categoria inválida", "Categoria desconhecida ou inativa: " + code);
     }
 }

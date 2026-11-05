@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class ReporterBlockedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ReporterBlockedException extends ApiException {
 
     public ReporterBlockedException() {
-        super("Este autor foi bloqueado pela moderação e não pode enviar relatos.");
+        super(HttpStatus.FORBIDDEN, "Autor bloqueado", "Este autor foi bloqueado pela moderação e não pode enviar relatos.");
     }
 }

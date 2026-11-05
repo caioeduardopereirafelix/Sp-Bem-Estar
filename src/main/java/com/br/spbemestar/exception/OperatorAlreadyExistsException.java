@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class OperatorAlreadyExistsException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class OperatorAlreadyExistsException extends ApiException {
 
     public OperatorAlreadyExistsException(String email) {
-        super("Já existe um usuário com o e-mail " + email + ".");
+        super(HttpStatus.CONFLICT, "E-mail já cadastrado", "Já existe um usuário com o e-mail " + email + ".");
     }
 }

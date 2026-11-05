@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class InvalidPushSubscriptionException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class InvalidPushSubscriptionException extends ApiException {
 
     public InvalidPushSubscriptionException(String message) {
-        super(message);
+        super(HttpStatus.BAD_REQUEST, "Inscrição inválida", message);
     }
 }

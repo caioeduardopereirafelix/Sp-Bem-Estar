@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class ReportAlreadyModeratedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class ReportAlreadyModeratedException extends ApiException {
 
     public ReportAlreadyModeratedException(Long reportId, String decision) {
-        super("O relato " + reportId + " já foi moderado (" + decision + ")");
+        super(HttpStatus.CONFLICT, "Relato já moderado", "O relato " + reportId + " já foi moderado (" + decision + ")");
     }
 }

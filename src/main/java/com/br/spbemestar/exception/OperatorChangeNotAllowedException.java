@@ -1,8 +1,10 @@
 package com.br.spbemestar.exception;
 
-public class OperatorChangeNotAllowedException extends RuntimeException {
+import org.springframework.http.HttpStatus;
+
+public class OperatorChangeNotAllowedException extends ApiException {
 
     public OperatorChangeNotAllowedException(String message) {
-        super(message);
+        super(HttpStatus.CONFLICT, "Alteração não permitida", message);
     }
 }
