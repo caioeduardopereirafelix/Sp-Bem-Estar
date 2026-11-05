@@ -62,7 +62,9 @@ services:
       context: .
       dockerfile: classifier-worker/Dockerfile
     image: spbemestar-worker
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: "5672"
