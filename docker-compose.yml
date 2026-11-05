@@ -70,7 +70,7 @@ services:
       RABBITMQ_PORT: "5672"
       MONGO_HOST: mongo
       MONGO_PORT: "27017"
-      WORKER_PORT: "8081"
+      SERVER_PORT: "8081"
       LOG_FILE: ""
       CLASSIFIER_MODEL: file:/app/models/${CLASSIFIER_MODEL_FILE:-classifier.onnx}
     ports:

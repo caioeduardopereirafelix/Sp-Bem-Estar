@@ -81,6 +81,7 @@ services:
       RABBITMQ_PORT: "5672"
       MONGO_HOST: mongo
       MONGO_PORT: "27017"
+      SERVER_PORT: "8081"
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
     volumes:
       - ./models:/app/models:ro
