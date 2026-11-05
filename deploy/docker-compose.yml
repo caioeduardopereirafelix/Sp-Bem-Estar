@@ -69,7 +69,6 @@ services:
         condition: service_started
 
   worker:
-    profiles: ["classifier"]
     build:
       context: ..
       dockerfile: classifier-worker/Dockerfile
