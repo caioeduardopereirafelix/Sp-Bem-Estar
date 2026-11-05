@@ -8,10 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-
-import java.net.http.HttpClient;
 
 @Configuration
 @EnableConfigurationProperties(PhotoPrecheckProperties.class)
@@ -20,13 +17,7 @@ public class PhotoPrecheckConfig {
     @Bean
     PhotoPrecheck photoPrecheck(PhotoPrecheckProperties properties, MeterRegistry meters,
                                 ObjectProvider<ObservationRegistry> observations) {
-        HttpClient http = HttpClient.newBuilder()
-                .version(HttpClient.Version.HTTP_1_1)
-                .connectTimeout(properties.timeout())
-                .build();
-        JdkClientHttpRequestFactory requests = new JdkClientHttpRequestFactory(http);
-        requests.setReadTimeout(properties.timeout());
-        RestClient.Builder client = RestClient.builder().requestFactory(requests);
+        RestClient.Builder client = RestClients.withTimeout(properties.timeout());
         observations.ifAvailable(client::observationRegistry);
         return new HttpPhotoPrecheck(properties, client.build(), meters);
     }
