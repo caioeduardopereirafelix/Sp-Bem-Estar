@@ -552,6 +552,7 @@ O que o compose já configura:
 - **Swagger desligado** e **`/actuator/prometheus` bloqueado** no Caddy.
 - **Sem log de acesso** no Caddy, para não gravar o IP dos cidadãos.
 - **Logs em JSON** no console.
+- **Rotação de logs** em todos os containers: até 5 arquivos de 10 MB cada, com os antigos comprimidos. O log de um container não passa de 50 MB e não enche o disco do servidor. `docker compose logs` continua mostrando o que ainda está guardado.
 - A API roda com um usuário sem privilégios e com locale UTF-8, sem o qual os acentos das variáveis de ambiente quebram.
 
 > Antes de divulgar o endereço, revise com o jurídico o texto de [`/privacidade.html`](src/main/resources/static/privacidade.html) e de [`/termos.html`](src/main/resources/static/termos.html), seguindo a lista de [`docs/revisao-juridica.md`](docs/revisao-juridica.md), e confira `PRIVACY_CONTROLLER` e `PRIVACY_CONTACT` no `deploy/.env`.
