@@ -71,8 +71,10 @@ class SharedStateTests {
     @Test
     void recentErrorsFromEveryInstanceShowUpOnAnyOfThem() {
         redis.delete("spbemestar:recent-errors");
-        RecentErrors first = new RecentErrors(Clock.systemUTC(), redis, new RedisAvailability(Clock.systemUTC()), json);
-        RecentErrors second = new RecentErrors(Clock.systemUTC(), redis, new RedisAvailability(Clock.systemUTC()), json);
+        RecentErrors first = new RecentErrors(Clock.systemUTC(), redis, new RedisAvailability(Clock.systemUTC()),
+                json);
+        RecentErrors second = new RecentErrors(Clock.systemUTC(), redis, new RedisAvailability(Clock.systemUTC()),
+                json);
 
         first.record("GET", "/api/v1/a", new IllegalStateException("na primeira"), "trace-1");
         second.record("POST", "/api/v1/b", new IllegalArgumentException("na segunda"), "trace-2");
