@@ -1,26 +1,21 @@
 package com.br.spbemestar.service;
 
 import com.br.spbemestar.config.PhotoPrecheckProperties;
-import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.exception.PhotoCategoryMismatchException;
 import com.br.spbemestar.exception.ReporterBlockedException;
 import com.br.spbemestar.exception.UnknownCategoryException;
 import com.br.spbemestar.model.Category;
 import com.br.spbemestar.model.Issue;
-import com.br.spbemestar.model.OutboxEvent;
 import com.br.spbemestar.model.Report;
 import com.br.spbemestar.repository.BlockedReporterRepository;
 import com.br.spbemestar.repository.CategoryRepository;
-import com.br.spbemestar.repository.OutboxEventRepository;
 import com.br.spbemestar.repository.ReportRepository;
 import com.br.spbemestar.util.GeoPoints;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.io.ByteArrayInputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -36,7 +31,7 @@ public class ReportService {
 
     private final CategoryRepository categories;
     private final ReportRepository reports;
-    private final OutboxEventRepository outbox;
+    private final OutboxWriter outbox;
     private final DeduplicationService deduplication;
     private final PriorityService priority;
     private final ExifStripper exifStripper;
@@ -46,8 +41,6 @@ public class ReportService {
     private final ReporterHasher reporterHasher;
     private final BlockedReporterRepository blockedReporters;
     private final TransactionTemplate transaction;
-    private final JsonMapper json;
-    private final TraceContext traceContext;
     private final MeterRegistry meters;
     private final Clock clock;
 
@@ -69,11 +62,11 @@ public class ReportService {
 
         ExifStripper.SanitizedPhoto sanitized = exifStripper.strip(photo);
         if (confirmCategory) {
-            meters.counter("spbemestar.reports.precheck", "outcome", "insisted").increment();
+            precheckOutcome("insisted");
         } else {
             precheck(categoryCode, sanitized);
         }
-        String photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
+        String photoId = photoStorage.store(sanitized);
 
         try {
             ReportResult result = transaction.execute(
@@ -93,17 +86,22 @@ public class ReportService {
         }
         PhotoPrecheck.Prediction seen = prediction.get();
         if (seen.category().equals(categoryCode) || seen.confidence() < precheckProperties.rejectConfidence()) {
-            meters.counter("spbemestar.reports.precheck", "outcome", "passed").increment();
+            precheckOutcome("passed");
             return;
         }
-        String predictedName = PhotoPrecheck.NOT_A_PROBLEM.equals(seen.category()) ? null
+        boolean notAProblem = PhotoPrecheck.NOT_A_PROBLEM.equals(seen.category());
+        String predictedName = notAProblem ? null
                 : categories.findByCodeAndActiveTrue(seen.category()).map(Category::getName).orElse(null);
-        if (predictedName == null && !PhotoPrecheck.NOT_A_PROBLEM.equals(seen.category())) {
-            meters.counter("spbemestar.reports.precheck", "outcome", "passed").increment();
+        if (!notAProblem && predictedName == null) {
+            precheckOutcome("passed");
             return;
         }
-        meters.counter("spbemestar.reports.precheck", "outcome", "rejected").increment();
+        precheckOutcome("rejected");
         throw new PhotoCategoryMismatchException(categoryCode, seen.category(), predictedName, seen.confidence());
+    }
+
+    private void precheckOutcome(String outcome) {
+        meters.counter("spbemestar.reports.precheck", "outcome", outcome).increment();
     }
 
     private ReportResult persist(String reporterHash, String categoryCode, double latitude, double longitude,
@@ -118,12 +116,11 @@ public class ReportService {
         Report report = reports.save(
                 Report.of(issue, category, GeoPoints.of(latitude, longitude), photoId, reporterHash, now));
 
-        String payload = json.writeValueAsString(Map.of(
+        outbox.append(report.getId(), REPORT_CREATED, Map.of(
                 "reportId", report.getId(),
                 "issueId", issue.getId(),
                 "category", category.getCode(),
-                "photoId", photoId));
-        outbox.save(OutboxEvent.of(report.getId(), REPORT_CREATED, payload, now, traceContext.currentTraceParent()));
+                "photoId", photoId), now);
         priority.recalculate(issue.getId());
 
         return new ReportResult(report.getId(), issue.getId(), dedup.created(),

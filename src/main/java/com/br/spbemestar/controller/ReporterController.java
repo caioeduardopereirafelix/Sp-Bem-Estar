@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.config.OpenApiConfig;
+import com.br.spbemestar.config.ReporterId;
 import com.br.spbemestar.dto.MyReportItem;
 import com.br.spbemestar.dto.PageResponse;
 import com.br.spbemestar.dto.PushConfigResponse;
@@ -17,8 +18,6 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,10 +47,10 @@ public class ReporterController {
 
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @GetMapping("/me/reports")
-    public PageResponse<MyReportItem> myReports(@AuthenticationPrincipal Jwt reporter,
+    public PageResponse<MyReportItem> myReports(@ReporterId UUID reporterId,
                                                 @RequestParam(defaultValue = "0") @Min(0) int page,
                                                 @RequestParam(defaultValue = "20") @Min(1) @Max(50) int size) {
-        return myReports.list(UUID.fromString(reporter.getSubject()), page, size);
+        return myReports.list(reporterId, page, size);
     }
 
     @GetMapping("/push/config")
@@ -62,14 +61,14 @@ public class ReporterController {
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @PutMapping("/me/push-subscription")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void subscribe(@AuthenticationPrincipal Jwt reporter, @Valid @RequestBody PushSubscriptionRequest request) {
-        notifications.subscribe(UUID.fromString(reporter.getSubject()), request);
+    public void subscribe(@ReporterId UUID reporterId, @Valid @RequestBody PushSubscriptionRequest request) {
+        notifications.subscribe(reporterId, request);
     }
 
     @SecurityRequirement(name = OpenApiConfig.REPORTER)
     @DeleteMapping("/me/push-subscription")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void unsubscribe(@AuthenticationPrincipal Jwt reporter, @Valid @RequestBody PushSubscriptionRequest request) {
-        notifications.unsubscribe(UUID.fromString(reporter.getSubject()), request.endpoint());
+    public void unsubscribe(@ReporterId UUID reporterId, @Valid @RequestBody PushSubscriptionRequest request) {
+        notifications.unsubscribe(reporterId, request.endpoint());
     }
 }

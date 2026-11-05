@@ -17,6 +17,7 @@ import com.br.spbemestar.repository.BlockedReporterRepository;
 import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.IssueStatusHistoryRepository;
 import com.br.spbemestar.repository.ReportRepository;
+import com.br.spbemestar.util.PhotoUrls;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,7 +70,7 @@ public class ModerationService {
                 categoryNames.get(report.getPredictedCategory()),
                 report.getConfidence(),
                 report.getClassificationStatus().name(),
-                "/api/v1/photos/" + report.getPhotoId(),
+                PhotoUrls.path(report.getPhotoId()),
                 report.getCreatedAt(),
                 report.getReporterHash() != null && blocked.contains(report.getReporterHash())));
     }

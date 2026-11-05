@@ -1,6 +1,7 @@
 package com.br.spbemestar.controller;
 
 import com.br.spbemestar.config.OpenApiConfig;
+import com.br.spbemestar.config.OperatorId;
 import com.br.spbemestar.config.SecurityConfig;
 import com.br.spbemestar.dto.BoundingBox;
 import com.br.spbemestar.dto.ChangeStatusRequest;
@@ -14,7 +15,6 @@ import com.br.spbemestar.model.UserRole;
 import com.br.spbemestar.service.IssueExportService;
 import com.br.spbemestar.service.IssueQueryService;
 import com.br.spbemestar.service.IssueStatusService;
-import com.br.spbemestar.service.OperatorQueueService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -53,7 +53,6 @@ public class IssueController {
 
     private final IssueQueryService issueQueryService;
     private final IssueStatusService issueStatusService;
-    private final OperatorQueueService operatorQueue;
     private final IssueExportService issueExport;
 
     @GetMapping
@@ -72,7 +71,7 @@ public class IssueController {
                                          @RequestParam(required = false) Long neighborhoodId,
                                          @RequestParam(defaultValue = "0") @Min(0) int page,
                                          @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return operatorQueue.queue(status, category, neighborhoodId, page, size);
+        return issueQueryService.queue(status, category, neighborhoodId, page, size);
     }
 
     @SecurityRequirement(name = OpenApiConfig.BEARER)
@@ -81,7 +80,7 @@ public class IssueController {
                        @RequestParam(required = false) String category,
                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-                       @AuthenticationPrincipal Jwt operator, HttpServletResponse response) throws IOException {
+                       @OperatorId Long operatorId, HttpServletResponse response) throws IOException {
         if (from != null && to != null && from.isAfter(to)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A data inicial vem depois da final.");
         }
@@ -93,7 +92,7 @@ public class IssueController {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
         issueExport.writeCsv(response.getWriter(), status, category, from, to, baseUrl,
-                Long.valueOf(operator.getSubject()));
+                operatorId);
     }
 
     @GetMapping("/{id}")
@@ -105,8 +104,8 @@ public class IssueController {
     @SecurityRequirement(name = OpenApiConfig.BEARER)
     @PatchMapping("/{id}/status")
     public StatusChangeResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeStatusRequest request,
-                                             @AuthenticationPrincipal Jwt operator) {
-        return issueStatusService.change(id, request.status(), Long.valueOf(operator.getSubject()));
+                                             @OperatorId Long operatorId) {
+        return issueStatusService.change(id, request.status(), operatorId);
     }
 
     @SecurityRequirement(name = OpenApiConfig.BEARER)
@@ -114,8 +113,8 @@ public class IssueController {
     public StatusChangeResponse resolve(@PathVariable Long id,
                                         @RequestPart(value = "photo", required = false) MultipartFile photo,
                                         @RequestParam(required = false) String note,
-                                        @AuthenticationPrincipal Jwt operator) throws IOException {
+                                        @OperatorId Long operatorId) throws IOException {
         byte[] content = photo == null || photo.isEmpty() ? null : photo.getBytes();
-        return issueStatusService.resolve(id, Long.valueOf(operator.getSubject()), content, note);
+        return issueStatusService.resolve(id, operatorId, content, note);
     }
 }

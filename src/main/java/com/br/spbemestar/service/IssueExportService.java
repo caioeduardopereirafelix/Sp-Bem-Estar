@@ -2,6 +2,7 @@ package com.br.spbemestar.service;
 
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.repository.IssueQueryRepository;
+import com.br.spbemestar.util.PhotoUrls;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -83,7 +84,7 @@ public class IssueExportService {
                 dateTime(rs, "last_reported_at"),
                 dateTime(rs, "resolved_at"),
                 text(rs.getString("resolution_note")),
-                photoId == null ? "" : baseUrl + "/api/v1/photos/" + photoId,
+                photoId == null ? "" : PhotoUrls.absolute(baseUrl, photoId),
                 baseUrl + "/?issue=" + id);
     }
 

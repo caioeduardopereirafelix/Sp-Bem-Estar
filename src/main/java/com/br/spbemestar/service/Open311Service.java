@@ -9,6 +9,7 @@ import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.repository.CategoryRepository;
 import com.br.spbemestar.repository.Open311Repository;
 import com.br.spbemestar.service.cache.JsonCache;
+import com.br.spbemestar.util.PhotoUrls;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -114,7 +115,7 @@ public class Open311Service {
                 row.neighborhood(),
                 row.latitude(),
                 row.longitude(),
-                photo == null ? null : baseUrl + "/api/v1/photos/" + photo);
+                PhotoUrls.absolute(baseUrl, photo));
     }
 
     private static Set<IssueStatus> parseStatus(String status) {

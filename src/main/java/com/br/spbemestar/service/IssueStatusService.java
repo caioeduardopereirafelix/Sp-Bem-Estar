@@ -1,24 +1,19 @@
 package com.br.spbemestar.service;
 
-import com.br.spbemestar.config.TraceContext;
 import com.br.spbemestar.dto.StatusChangeResponse;
 import com.br.spbemestar.exception.InvalidResolutionException;
 import com.br.spbemestar.exception.ResourceNotFoundException;
 import com.br.spbemestar.model.Issue;
 import com.br.spbemestar.model.IssueStatus;
 import com.br.spbemestar.model.IssueStatusHistory;
-import com.br.spbemestar.model.OutboxEvent;
 import com.br.spbemestar.repository.IssueRepository;
 import com.br.spbemestar.repository.IssueStatusHistoryRepository;
-import com.br.spbemestar.repository.OutboxEventRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.io.ByteArrayInputStream;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -31,19 +26,16 @@ import java.util.function.BiFunction;
 public class IssueStatusService {
 
     public static final String ISSUE_STATUS_CHANGED = "IssueStatusChanged";
+    public static final int MAX_RESOLUTION_NOTE = 500;
 
     private final IssueRepository issues;
     private final IssueStatusHistoryRepository history;
-    private final OutboxEventRepository outbox;
-    private final JsonMapper json;
-    private final TraceContext traceContext;
+    private final OutboxWriter outbox;
     private final MeterRegistry meters;
     private final ExifStripper exifStripper;
     private final PhotoStorage photoStorage;
     private final TransactionTemplate transaction;
     private final Clock clock;
-
-    public static final int MAX_RESOLUTION_NOTE = 500;
 
     @Transactional
     public StatusChangeResponse change(Long issueId, IssueStatus target, Long operatorId) {
@@ -52,18 +44,13 @@ public class IssueStatusService {
 
     public StatusChangeResponse resolve(Long issueId, Long operatorId, byte[] photo, String note) {
         String cleanNote = cleanNote(note);
-        String photoId = null;
-        if (photo != null && photo.length > 0) {
-            ExifStripper.SanitizedPhoto sanitized = exifStripper.strip(photo);
-            photoId = photoStorage.store(new ByteArrayInputStream(sanitized.content()), sanitized.contentType());
-        }
-        String storedPhotoId = photoId;
+        String photoId = photo == null || photo.length == 0 ? null : photoStorage.store(exifStripper.strip(photo));
         try {
             return transaction.execute(status -> apply(issueId, operatorId,
-                    (issue, now) -> issue.resolve(now, operatorId, storedPhotoId, cleanNote)));
+                    (issue, now) -> issue.resolve(now, operatorId, photoId, cleanNote)));
         } catch (RuntimeException e) {
-            if (storedPhotoId != null) {
-                photoStorage.delete(storedPhotoId);
+            if (photoId != null) {
+                photoStorage.delete(photoId);
             }
             throw e;
         }
@@ -93,8 +80,7 @@ public class IssueStatusService {
         payload.put("from", change.getFromStatus().name());
         payload.put("to", change.getToStatus().name());
         payload.put("changedBy", operatorId);
-        outbox.save(OutboxEvent.of(issueId, ISSUE_STATUS_CHANGED, json.writeValueAsString(payload), now,
-                traceContext.currentTraceParent()));
+        outbox.append(issueId, ISSUE_STATUS_CHANGED, payload, now);
 
         meters.counter("spbemestar.issues.status.changes", "to", change.getToStatus().name()).increment();
         return new StatusChangeResponse(issueId, change.getFromStatus().name(), change.getToStatus().name(),

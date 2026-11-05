@@ -3,6 +3,7 @@ package com.br.spbemestar.config;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.security.SecurityScheme;
+import org.springdoc.core.utils.SpringDocUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,6 +12,10 @@ public class OpenApiConfig {
 
     public static final String BEARER = "bearer";
     public static final String REPORTER = "reporter";
+
+    static {
+        SpringDocUtils.getConfig().addAnnotationsToIgnore(OperatorId.class, ReporterId.class);
+    }
 
     @Bean
     OpenAPI openApi() {

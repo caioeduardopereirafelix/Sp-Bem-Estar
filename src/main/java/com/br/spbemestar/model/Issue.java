@@ -145,4 +145,15 @@ public class Issue {
     public boolean isOpen() {
         return status != IssueStatus.RESOLVED && status != IssueStatus.DISCARDED;
     }
+    public double latitude() {
+        return location.getY();
+    }
+
+    public double longitude() {
+        return location.getX();
+    }
+
+    public String neighborhoodName() {
+        return neighborhood == null ? null : neighborhood.getName();
+    }
 }
