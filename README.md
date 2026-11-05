@@ -433,7 +433,7 @@ Além das variáveis de banco e mensageria, o `.env` precisa de:
 | `MAIL_LOG_CODES` | só no desenvolvimento: `true`, sem `BREVO_API_KEY`, escreve o código no log da API em vez de enviar. Nunca em produção: quem lê o log entraria na conta de qualquer pessoa |
 | `CEO_EMAIL`, `CEO_NAME` | conta do CEO, criada na subida se ainda não existir; é a única que abre o painel em `/ceo` |
 | `OPERATOR_EMAIL`, `OPERATOR_NAME` | primeiro usuário do órgão público, criado na subida como **administrador** se ainda não existir; ele cadastra o resto da equipe |
-| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | opcionais; o Redis do cache (padrão `localhost:6379`, sem senha, que é o do `docker compose up`). Sem ele a API funciona, só mais devagar nas rotas com cache |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | opcionais; o Redis do cache (padrão `127.0.0.1:6379`, sem senha, que é o do `docker compose up`; `127.0.0.1` e não `localhost` porque no Windows o `localhost` vai primeiro para o IPv6, onde o Docker não publica a porta). Sem ele a API funciona, só mais devagar nas rotas com cache |
 | `PRIVACY_CONTROLLER`, `PRIVACY_CONTACT` | órgão responsável pelos dados e e-mail (ou página `https://`) do encarregado, mostrados na [página de privacidade](#privacidade-lgpd) |
 | `RATE_LIMIT_ENABLED` | opcional; `false` desliga o [rate limit por IP](#rate-limit-por-ip) (padrão `true`) |
 | `METRICS_USER`, `METRICS_PASSWORD` | usuário e senha que o Prometheus usa no `/actuator/prometheus`; sem eles, as métricas ficam fechadas |
