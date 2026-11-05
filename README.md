@@ -273,7 +273,7 @@ Cuidados:
 O que o login **não** faz: ele prova que a pessoa tem acesso ao e-mail, não quem ela é. Quem cria outro e-mail consegue outra conta; para "uma pessoa, uma conta" seria preciso um login como o gov.br.
 
 ### Rate limit por IP
-Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caffeine). A primeira regra que casar com a requisição é a que conta:
+Cada IP tem um **token bucket** por regra, guardado no Redis. A primeira regra que casar com a requisição é a que conta:
 
 | Regra | Rota | Limite por IP |
 |---|---|---|
@@ -290,7 +290,8 @@ Cada IP tem um **token bucket** por regra, guardado em memória (Bucket4j + Caff
 - **Resposta `429`** em `ProblemDetail`, com `Retry-After` em segundos. Toda resposta limitada traz `X-RateLimit-Limit` e `X-RateLimit-Remaining`.
 - **IPv6 conta pelo prefixo /64**, que é o que um provedor entrega a um único cliente; contar por endereço deixaria qualquer um trocar de IP a cada requisição.
 - **Livres:** mapa web, Swagger e health check.
-- **Por instância:** com várias réplicas, cada uma conta separadamente. Para um limite global, o Bucket4j aceita Redis ou PostgreSQL como armazenamento.
+- **Um limite só para todas as instâncias:** um script Lua no Redis repõe e consome as fichas de forma atômica, usando o relógio do próprio Redis. Duas réplicas atrás do Caddy dividem o mesmo limite, sem dobrá-lo.
+- **Sem Redis, o limite continua:** a API passa a contar na memória de cada instância (Bucket4j + Caffeine) por 30 s e volta a tentar o Redis depois disso.
 
 **Atrás de um proxy reverso** (nginx, load balancer), o IP da conexão é o do proxy, e todos os clientes dividiriam o mesmo limite. Nesse caso, defina `SERVER_FORWARD_HEADERS_STRATEGY=native` para a API usar o `X-Forwarded-For`. Por padrão o Tomcat só aceita esse header vindo de IPs de rede privada; se o proxy estiver em outro endereço, informe-o em `SERVER_TOMCAT_REMOTEIP_TRUSTED_PROXIES` (expressão regular). Sem proxy, não ligue essa opção: qualquer cliente poderia forjar o header e escapar do limite.
 
@@ -604,7 +605,7 @@ Esse código vai no filtro **traceId** do painel de logs, ou direto no Loki: `{s
 
 **Health.** Além de banco, RabbitMQ e MongoDB, o `/actuator/health` da API olha a outbox: se o evento pendente mais antigo passar de 5 minutos (`app.observability.outbox-lag-limit`), o status vira `DEGRADED`, que ainda responde 200 — a API atende, mas os relatos não chegam ao classificador. O worker carrega o modelo na subida e não fica de pé sem ele; o health mostra também a versão do modelo e quantas categorias ele tem, para conferir um deploy.
 
-**Painel do CEO.** Para acompanhar o produto sem subir o Grafana, a conta do CEO tem a página **`/ceo`** (`GET /api/v1/ceo/dashboard`). Os números do produto vêm do banco; a saúde, dos mesmos health checks do `/actuator/health`, mais o health do worker, consultado com 2 s de limite; a atividade, dos contadores do Micrometer. Os últimos 50 erros 500 ficam na memória da API, com o método, o caminho (sem a query string), a exceção, a mensagem e o `traceId` que leva ao log completo. Os contadores e os erros voltam a zero quando a API reinicia: para histórico e alertas, use o Grafana e o Prometheus.
+**Painel do CEO.** Para acompanhar o produto sem subir o Grafana, a conta do CEO tem a página **`/ceo`** (`GET /api/v1/ceo/dashboard`). Os números do produto vêm do banco; a saúde, dos mesmos health checks do `/actuator/health`, mais o health do worker, consultado com 2 s de limite; a atividade, dos contadores do Micrometer. Os últimos 50 erros 500 de todas as instâncias ficam numa lista no Redis, com o método, o caminho (sem a query string), a exceção, a mensagem e o `traceId` que leva ao log completo; se o Redis cair, cada instância mostra os seus, guardados em memória. Os contadores voltam a zero quando a API reinicia: para histórico e alertas, use o Grafana e o Prometheus.
 
 **Métricas de negócio**, além das de HTTP, JVM e RabbitMQ que o Spring já exporta:
 
