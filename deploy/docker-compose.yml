@@ -1,5 +1,12 @@
 name: spbemestar-prod
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+    compress: "true"
+
 x-healthcheck-http: &health-api
   test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /actuator/health HTTP/1.0\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
   interval: 15s
@@ -11,6 +18,7 @@ services:
   caddy:
     image: caddy:2.11.6-alpine
     restart: unless-stopped
+    logging: *logging
     ports:
       - "80:80"
       - "443:443"
@@ -32,6 +40,7 @@ services:
       dockerfile: Dockerfile
     image: spbemestar-api
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
       POSTGRES_HOST: postgres
@@ -66,6 +75,7 @@ services:
       dockerfile: classifier-worker/Dockerfile
     image: spbemestar-worker
     restart: unless-stopped
+    logging: *logging
     env_file: .env
     environment:
       RABBITMQ_HOST: rabbitmq
@@ -84,6 +94,7 @@ services:
   postgres:
     image: postgis/postgis:16-3.4
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -100,6 +111,7 @@ services:
     image: rabbitmq:4-management
     hostname: rabbitmq
     restart: unless-stopped
+    logging: *logging
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
@@ -114,6 +126,7 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    logging: *logging
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
@@ -128,6 +141,7 @@ services:
   redis:
     image: redis:8.2.11-alpine
     restart: unless-stopped
+    logging: *logging
     entrypoint: ["sh", "-c"]
     command:
       - >-
