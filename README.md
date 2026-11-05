@@ -488,7 +488,7 @@ Valores com espaço, como `São Paulo`, precisam ficar entre aspas simples dentr
 
 O worker consome `report.classification`, lê a foto no GridFS e publica o resultado para a API. Ele também atende `POST /api/classify`, que a API chama na hora do envio para recusar uma foto de outro tipo: a rota exige o usuário `CLASSIFIER_API_USER` e a senha `CLASSIFIER_API_PASSWORD` (HTTP Basic), os mesmos no `.env` dos dois, e a API precisa de `CLASSIFIER_URL` (em desenvolvimento, `http://localhost:8081`; no compose de produção já vem configurado). Sem esses valores, a conferência na hora fica desligada e só vale a classificação pela fila. Ele usa o mesmo `.env` da raiz e abre HTTP na porta `8081` (`WORKER_PORT`) só para isso e para ser monitorado: `/actuator/health` é público e mostra o estado do modelo, do RabbitMQ e do MongoDB; `/actuator/prometheus` exige o mesmo `METRICS_USER` e `METRICS_PASSWORD` da API; qualquer outra rota é recusada.
 
-O `docker compose up` da raiz já sobe o worker, com a porta `8081` aberta só na sua máquina, e lê o modelo em `models/classifier.onnx`. Sem o arquivo, o worker para na subida com `FileNotFoundException` e o `--wait` falha. Para usar o modelo de teste, ponha no `.env`:
+O `docker compose up` da raiz já sobe o worker, com a porta `8081` aberta só na sua máquina, e lê o modelo em `classifier-worker/models/classifier.onnx`, onde o [treinamento](classifier-worker/training/README.md) manda colocá-lo. Sem o arquivo, o worker para na subida com `FileNotFoundException` e o `--wait` falha. Para usar o modelo de teste, ponha no `.env`:
 
 ```
 CLASSIFIER_MODEL_DIR=./classifier-worker/src/test/resources/models

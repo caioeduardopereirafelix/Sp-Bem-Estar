@@ -76,7 +76,7 @@ services:
     ports:
       - "127.0.0.1:${WORKER_PORT:-8081}:8081"
     volumes:
-      - ${CLASSIFIER_MODEL_DIR:-./models}:/app/models:ro
+      - ${CLASSIFIER_MODEL_DIR:-./classifier-worker/models}:/app/models:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
