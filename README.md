@@ -546,10 +546,16 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
    docker compose logs -f caddy   # "certificate obtained successfully"
    ```
 5. **Teste no celular.** Abra `https://seudominio.com.br`, toque em **Entrar**, no alto do app, e use o e-mail do administrador: o código chega pelo Brevo.
-6. **Agende o backup diário** do PostgreSQL e das fotos (guarda 14 dias em `deploy/backups`; copie para fora do servidor de tempos em tempos):
-   ```bash
-   (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -
-   ```
+6. **Ligue o backup diário, com cópia fora do servidor.** O `backup.sh` grava o dump do PostgreSQL e das fotos (MongoDB) em `deploy/backups`, onde guarda 14 dias. Com `RESTIC_REPOSITORY`, ele também manda a cópia criptografada para um bucket compatível com S3, pelo [restic](https://restic.net) num container: não precisa instalar nada no servidor. Lá ficam 7 cópias diárias, 4 semanais e 6 mensais, e o repositório é conferido a cada execução.
+   1. Crie um bucket fora deste servidor. Pode ser o Object Storage da Magalu Cloud, em outra região, ou outro provedor (Backblaze B2, Cloudflare R2). Crie também uma chave de acesso que só enxergue esse bucket.
+   2. No `deploy/.env`, preencha `RESTIC_REPOSITORY` (por exemplo, `s3:https://endpoint-do-provedor/nome-do-bucket`), `AWS_ACCESS_KEY_ID` e `AWS_SECRET_ACCESS_KEY`. A `RESTIC_PASSWORD` o `init-env.sh` já gerou. **Guarde-a num gerenciador de senhas, fora do servidor**: sem ela, a cópia não abre, nem por você.
+   3. Agende:
+      ```bash
+      (crontab -l 2>/dev/null; echo "30 3 * * * $PWD/backup.sh >> /var/log/spbemestar-backup.log 2>&1") | crontab -
+      ```
+   4. Opcional, mas recomendado: crie um check diário no [Healthchecks.io](https://healthchecks.io) e ponha a URL em `BACKUP_HEARTBEAT_URL`. O script avisa quando termina, ou chama `/fail` se algo falhar, e o Healthchecks alerta quando o backup falha ou para de rodar.
+
+   **Restaurar:** `./restore.sh --list` mostra as cópias guardadas. `./restore.sh` (ou `./restore.sh <id>`) baixa a cópia e confere os arquivos sem mexer em nada. `./restore.sh --apply` troca os dados atuais pelos da cópia: para a API e o worker, recria o banco, restaura as fotos e sobe os dois de novo, depois de você digitar `restaurar`. Sem `RESTIC_REPOSITORY`, ele usa a cópia local mais recente. Teste a restauração de tempos em tempos: um backup que nunca foi restaurado não está testado.
 7. **Ligue o alerta de queda.** O `monitor.sh` roda a cada minuto. Ele confere:
    - se `https://seudominio.com.br/actuator/health` responde `UP` passando pelo Caddy, como chega para quem abre o site;
    - se cada container está rodando e saudável, o worker incluído;
