@@ -576,6 +576,7 @@ O que o compose já configura:
 - **Rate limit** ligado. A API lê o IP do cliente no `X-Forwarded-For` (`SERVER_FORWARD_HEADERS_STRATEGY=native`), e o Caddy substitui esse cabeçalho pelo IP real, então ninguém escapa do limite forjando um.
 - **Distritos de São Paulo** importados a cada subida (a importação é idempotente).
 - **Swagger desligado** e **`/actuator/prometheus` bloqueado** no Caddy.
+- **Cache dos arquivos do mapa:** HTML, JS, CSS e ícones saem com `Cache-Control: no-cache` e um ETag calculado pelo conteúdo. O navegador confere a cada visita e só baixa de novo o que mudou; o resto volta como `304`. O ETag vem do conteúdo, e não da data, porque o jar é reprodutível e todos os arquivos dentro dele têm a mesma data: com `Last-Modified`, um JS novo pareceria igual ao antigo. As fontes ficam 30 dias no cache. As respostas da API continuam com `no-store`.
 - **Sem log de acesso** no Caddy, para não gravar o IP dos cidadãos.
 - **Logs em JSON** no console.
 - **Rotação de logs** em todos os containers: até 5 arquivos de 10 MB cada, com os antigos comprimidos. O log de um container não passa de 50 MB e não enche o disco do servidor. `docker compose logs` continua mostrando o que ainda está guardado.
