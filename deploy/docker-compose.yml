@@ -108,7 +108,7 @@ services:
       retries: 20
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.4.0-management
     hostname: rabbitmq
     restart: unless-stopped
     logging: *logging
@@ -124,7 +124,7 @@ services:
       retries: 10
 
   mongo:
-    image: mongo:7
+    image: mongo:7.0.45
     restart: unless-stopped
     logging: *logging
     environment:

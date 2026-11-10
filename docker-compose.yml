@@ -18,7 +18,7 @@ services:
       retries: 10
 
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.4.0-management
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
@@ -32,7 +32,7 @@ services:
       retries: 10
 
   mongo:
-    image: mongo:7
+    image: mongo:7.0.45
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
