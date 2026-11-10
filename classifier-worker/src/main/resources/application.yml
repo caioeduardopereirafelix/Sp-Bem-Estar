@@ -69,4 +69,5 @@ app:
 classifier:
   model: ${CLASSIFIER_MODEL:file:models/classifier.onnx}
   model-version: ${CLASSIFIER_MODEL_VERSION:dev}
+  model-sha256: ${CLASSIFIER_MODEL_SHA256:}
   confirm-timeout: 5s

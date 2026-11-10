@@ -511,6 +511,7 @@ Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o model
 | `classifier.model` | `file:models/classifier.onnx` (ou `CLASSIFIER_MODEL`) | modelo ONNX |
 | `classifier.labels` | — (lidos do modelo) | só para modelos sem o metadado `names`; se informado junto com ele, precisa ser igual |
 | `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
+| `classifier.model-sha256` | — (ou `CLASSIFIER_MODEL_SHA256`) | se informado, o worker só sobe se o modelo tiver esse SHA-256; o health mostra o SHA-256 do modelo carregado |
 | `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
 
 ## Deploy em produção (VPS)
@@ -566,7 +567,9 @@ celular ──HTTPS──▶ Caddy (80/443) ──▶ API ──▶ PostgreSQL �
 
 **Atualizar:** `git pull && docker compose up -d --build`. As migrations do banco rodam sozinhas na subida.
 
-**Classificador:** o worker sobe junto com o resto e precisa do modelo treinado em `deploy/models/classifier.onnx`, legível pelo usuário do container (`chmod 644 deploy/models/classifier.onnx`). Sem o arquivo, só o worker fica reiniciando: a API aceita os relatos normalmente, mas eles ficam sem classificação automática até o modelo chegar.
+**Classificador:** o worker sobe junto com o resto e precisa do modelo treinado em `deploy/models/classifier.onnx`, legível pelo usuário do container (`chmod 644 deploy/models/classifier.onnx`). Sem o arquivo, só o worker fica reiniciando: a API aceita os relatos normalmente, mas eles ficam sem classificação automática até o modelo chegar. Para garantir que subiu o modelo certo, ponha o resultado de `sha256sum deploy/models/classifier.onnx` em `CLASSIFIER_MODEL_SHA256` no `deploy/.env`: com outro arquivo, o worker recusa subir e diz os dois SHA-256.
+
+**Senhas sem `$`.** O Docker Compose lê `$` como início de variável e corta o valor, então o container recebe uma senha diferente da escrita no `.env`. O `init-env.sh` só gera letras e números; se você editar uma senha à mão, mantenha assim. Em desenvolvimento, a API avisa na subida qual variável do `.env` tem `$`.
 
 O que o compose já configura:
 - **Rate limit** ligado. A API lê o IP do cliente no `X-Forwarded-For` (`SERVER_FORWARD_HEADERS_STRATEGY=native`), e o Caddy substitui esse cabeçalho pelo IP real, então ninguém escapa do limite forjando um.

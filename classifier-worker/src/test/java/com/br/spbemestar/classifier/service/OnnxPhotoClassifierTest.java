@@ -9,7 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
 
 import java.awt.Color;
+import java.security.MessageDigest;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -118,8 +120,26 @@ class OnnxPhotoClassifierTest {
                 });
     }
 
+    @Test
+    void refusesAModelWhoseChecksumDoesNotMatch() throws Exception {
+        byte[] model = new ClassPathResource("models/color-test.onnx").getContentAsByteArray();
+        String expected = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(model));
+
+        ClassifierProperties uppercase = properties("color-test.onnx", null, expected.toUpperCase());
+        assertThat(OnnxPhotoClassifier.verifiedSha256(model, uppercase)).isEqualTo(expected);
+        assertThat(classifier.modelSha256()).isEqualTo(expected);
+        assertThatThrownBy(() -> OnnxPhotoClassifier.verifiedSha256(model,
+                properties("color-test.onnx", null, "0".repeat(64))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CLASSIFIER_MODEL_SHA256");
+    }
+
     private static ClassifierProperties properties(String model, List<String> labels) {
+        return properties(model, labels, null);
+    }
+
+    private static ClassifierProperties properties(String model, List<String> labels, String sha256) {
         return new ClassifierProperties(new ClassPathResource("models/" + model), labels, 224, "test",
-                Duration.ofSeconds(5));
+                Duration.ofSeconds(5), sha256);
     }
 }
