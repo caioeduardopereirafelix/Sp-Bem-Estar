@@ -47,7 +47,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:8.2.11-alpine
+    image: redis:8.10.3-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
     ports:
       - "127.0.0.1:${REDIS_PORT:-6379}:6379"
