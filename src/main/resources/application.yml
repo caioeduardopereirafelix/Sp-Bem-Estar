@@ -48,6 +48,12 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 11MB
+  web:
+    resources:
+      cache:
+        use-last-modified: false
+        cachecontrol:
+          no-cache: true
 
 server:
   port: ${SERVER_PORT:8080}
