@@ -2,7 +2,7 @@ name: spbemestar
 
 services:
   postgres:
-    image: postgis/postgis:16-3.4
+    image: postgis/postgis:18-3.6
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
