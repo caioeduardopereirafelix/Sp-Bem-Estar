@@ -19,6 +19,7 @@ public class ClassifierHealthIndicator implements HealthIndicator {
                 .withDetail("modelVersion", properties.modelVersion())
                 .withDetail("labels", classifier.labels().size())
                 .withDetail("inputSize", classifier.inputSize())
+                .withDetail("modelSha256", classifier.modelSha256())
                 .build();
     }
 }

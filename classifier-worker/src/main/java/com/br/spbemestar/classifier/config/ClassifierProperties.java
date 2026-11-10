@@ -13,6 +13,7 @@ public record ClassifierProperties(
         List<String> labels,
         @DefaultValue("224") int inputSize,
         @DefaultValue("dev") String modelVersion,
-        @DefaultValue("5s") Duration confirmTimeout
+        @DefaultValue("5s") Duration confirmTimeout,
+        String modelSha256
 ) {
 }

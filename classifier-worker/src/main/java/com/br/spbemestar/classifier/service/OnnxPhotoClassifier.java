@@ -12,6 +12,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -35,13 +38,16 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
     private final String inputName;
     private final int inputSize;
     private final List<String> labels;
+    private final String modelSha256;
 
     private static final Pattern NAME_ENTRY = Pattern.compile("(\\d+)\\s*:\\s*['\"]([^'\"]*)['\"]");
 
     public OnnxPhotoClassifier(ClassifierProperties properties) throws OrtException {
         Objects.requireNonNull(properties.model(), "classifier.model não configurado");
         this.env = OrtEnvironment.getEnvironment();
-        this.session = env.createSession(read(properties), new OrtSession.SessionOptions());
+        byte[] model = read(properties);
+        this.modelSha256 = verifiedSha256(model, properties);
+        this.session = env.createSession(model, new OrtSession.SessionOptions());
         this.labels = resolveLabels(session, properties.labels());
         this.inputName = session.getInputNames().iterator().next();
         this.inputSize = resolveInputSize(session.getInputInfo().get(inputName), properties.inputSize());
@@ -61,6 +67,10 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
 
     public int inputSize() {
         return inputSize;
+    }
+
+    public String modelSha256() {
+        return modelSha256;
     }
 
     @Override
@@ -138,7 +148,26 @@ public class OnnxPhotoClassifier implements PhotoClassifier, DisposableBean {
         try {
             return properties.model().getContentAsByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Não foi possível ler o modelo " + properties.model().getDescription(), e);
+            throw new UncheckedIOException("Não foi possível ler o modelo " + properties.model().getDescription()
+                    + ": confira se o arquivo existe e se o usuário do container pode lê-lo (chmod 644)", e);
+        }
+    }
+
+    static String verifiedSha256(byte[] model, ClassifierProperties properties) {
+        String actual = sha256(model);
+        String expected = properties.modelSha256();
+        if (expected != null && !expected.isBlank() && !expected.strip().equalsIgnoreCase(actual)) {
+            throw new IllegalStateException("O modelo %s tem SHA-256 %s, mas CLASSIFIER_MODEL_SHA256 pede %s"
+                    .formatted(properties.model().getDescription(), actual, expected.strip()));
+        }
+        return actual;
+    }
+
+    private static String sha256(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 indisponível", e);
         }
     }
 

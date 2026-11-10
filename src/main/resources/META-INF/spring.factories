@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.br.spbemestar.config.DotEnvDollarCheck
