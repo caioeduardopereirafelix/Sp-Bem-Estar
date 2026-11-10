@@ -130,7 +130,7 @@ services:
       retries: 10
 
   mongo:
-    image: mongo:7.0.45
+    image: mongo:9.0.4
     restart: unless-stopped
     logging: *logging
     environment:
