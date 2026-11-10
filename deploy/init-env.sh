@@ -40,8 +40,10 @@ sed -e "s|^DOMAIN=.*|DOMAIN=$domain|" \
     -e "s|^PRIVACY_CONTACT=.*|PRIVACY_CONTACT=$contact|" \
     -e "s|^METRICS_PASSWORD=.*|METRICS_PASSWORD=$(password)|" \
     -e "s|^CLASSIFIER_API_PASSWORD=.*|CLASSIFIER_API_PASSWORD=$(password)|" \
+    -e "s|^RESTIC_PASSWORD=.*|RESTIC_PASSWORD=$(password)$(password)|" \
     .env.example > .env
 
 echo "deploy/.env criado."
 echo "Administrador: $admin (entra com o código que chega nesse e-mail)"
 echo "Antes de subir, preencha BREVO_API_KEY e MAIL_FROM no deploy/.env: é por eles que o código sai."
+echo "Guarde a RESTIC_PASSWORD do deploy/.env num gerenciador de senhas, fora deste servidor: sem ela, o backup externo não abre."
