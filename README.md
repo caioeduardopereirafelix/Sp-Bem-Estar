@@ -684,6 +684,28 @@ src/main/java/com/br/spbemestar/
 └── util/         # utilitários geográficos
 ```
 
+O mapa web é JavaScript sem build, em módulos ES nativos (`<script type="module">`), cada um com uma parte da tela:
+
+```
+src/main/resources/static/js/
+├── main.js       # carrega categorias, distritos e chamados e liga o resto
+├── core.js       # constantes, estado, sessão da equipe e chamadas à API (não depende de outro módulo)
+├── mapview.js    # mapa Leaflet + MapLibre e camadas
+├── sheet.js      # painel e gaveta: troca de telas e arraste
+├── location.js   # localização em tempo real, bússola e correção do ponto
+├── ui.js         # aviso (toast) e rótulos de status
+├── districts.js  # camada e ranking dos distritos
+├── issues.js     # chamados no mapa, detalhe e ações da equipe
+├── report.js     # passo a passo do relato e conferência da foto
+├── reporter.js   # token anônimo do cidadão
+├── mine.js       # "Meus relatos"
+├── push.js       # notificações push
+├── install.js    # instalar como app (PWA)
+├── links.js      # atalhos e links ?issue=
+├── staff.js      # aba Prefeitura: fila, moderação, exportação e equipe
+└── login.js      # entrada por código e conta
+```
+
 A stack de monitoramento do `docker compose --profile observability` fica em `observability/`: configuração e alertas do Prometheus, Loki, Alloy e o dashboard provisionado do Grafana.
 
 O worker de classificação é um projeto Maven à parte, na mesma estrutura de camadas:
