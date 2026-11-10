@@ -43,6 +43,8 @@ management:
       probes:
         enabled: true
       show-components: always
+      show-details: when-authorized
+      roles: METRICS
   otlp:
     metrics:
       export:

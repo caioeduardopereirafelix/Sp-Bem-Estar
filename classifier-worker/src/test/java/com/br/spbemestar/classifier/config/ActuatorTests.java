@@ -35,6 +35,16 @@ class ActuatorTests {
         assertThat(mvc.get().uri("/actuator/health/classifier").exchange()).hasStatusOk()
                 .bodyJson().extractingPath("$.status").isEqualTo("UP");
         assertThat(mvc.get().uri("/actuator/health/readiness").exchange()).hasStatusOk();
+        assertThat(mvc.get().uri("/actuator/health").exchange()).bodyJson()
+                .doesNotHavePath("$.components.classifier.details");
+    }
+
+    @Test
+    void theMonitoringUserSeesWhichModelIsLoaded() {
+        assertThat(mvc.get().uri("/actuator/health")
+                .header(HttpHeaders.AUTHORIZATION, basic("prometheus-teste", "senha-do-prometheus-teste")).exchange())
+                .hasStatusOk().bodyJson().extractingPath("$.components.classifier.details.modelSha256")
+                .asString().hasSize(64);
     }
 
     @Test

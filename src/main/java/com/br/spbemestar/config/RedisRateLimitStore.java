@@ -28,7 +28,7 @@ public class RedisRateLimitStore implements RateLimitStore {
             else
                 wait = math.ceil((1 - tokens) * period / capacity)
             end
-            redis.call('HSET', KEYS[1], 'tokens', tostring(tokens), 'at', tostring(now))
+            redis.call('HSET', KEYS[1], 'tokens', tostring(tokens), 'at', string.format('%d', now))
             redis.call('PEXPIRE', KEYS[1], math.ceil(period / 1000))
             return {allowed, math.floor(tokens), wait}
             """, List.class);
