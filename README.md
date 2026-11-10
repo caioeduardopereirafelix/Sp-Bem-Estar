@@ -512,7 +512,7 @@ Enquanto o modelo treinado não existe, dá para ver o fluxo inteiro com o model
 | `classifier.model` | `file:models/classifier.onnx` (ou `CLASSIFIER_MODEL`) | modelo ONNX |
 | `classifier.labels` | — (lidos do modelo) | só para modelos sem o metadado `names`; se informado junto com ele, precisa ser igual |
 | `classifier.model-version` | `dev` (ou `CLASSIFIER_MODEL_VERSION`) | enviado junto com cada resultado |
-| `classifier.model-sha256` | — (ou `CLASSIFIER_MODEL_SHA256`) | se informado, o worker só sobe se o modelo tiver esse SHA-256; o health mostra o SHA-256 do modelo carregado |
+| `classifier.model-sha256` | — (ou `CLASSIFIER_MODEL_SHA256`) | se informado, o worker só sobe se o modelo tiver esse SHA-256; o health, com o usuário de métricas, mostra o SHA-256 do modelo carregado |
 | `app.classification.min-confidence` (API) | `0.6` | abaixo disso o relato vai para moderação |
 
 ## Deploy em produção (VPS)
@@ -613,7 +613,7 @@ O Grafana abre direto no dashboard **SP Bem-Estar** (http://localhost:3000), com
 
 Esse código vai no filtro **traceId** do painel de logs, ou direto no Loki: `{service_name="spbemestar-api"} |= "4bf92f35..."`.
 
-**Health.** Além de banco, RabbitMQ e MongoDB, o `/actuator/health` da API olha a outbox: se o evento pendente mais antigo passar de 5 minutos (`app.observability.outbox-lag-limit`), o status vira `DEGRADED`, que ainda responde 200 — a API atende, mas os relatos não chegam ao classificador. O worker carrega o modelo na subida e não fica de pé sem ele; o health mostra também a versão do modelo e quantas categorias ele tem, para conferir um deploy.
+**Health.** Além de banco, RabbitMQ e MongoDB, o `/actuator/health` da API olha a outbox: se o evento pendente mais antigo passar de 5 minutos (`app.observability.outbox-lag-limit`), o status vira `DEGRADED`, que ainda responde 200 — a API atende, mas os relatos não chegam ao classificador. O worker carrega o modelo na subida e não fica de pé sem ele. Para conferir um deploy, o health do worker mostra a versão do modelo, quantas categorias ele tem e o SHA-256 do arquivo carregado a quem entra com `METRICS_USER` e `METRICS_PASSWORD` (`curl -u usuario:senha http://localhost:8081/actuator/health`); sem login, mostra só o status de cada parte.
 
 **Painel do CEO.** Para acompanhar o produto sem subir o Grafana, a conta do CEO tem a página **`/ceo`** (`GET /api/v1/ceo/dashboard`). Os números do produto vêm do banco; a saúde, dos mesmos health checks do `/actuator/health`, mais o health do worker, consultado com 2 s de limite; a atividade, dos contadores do Micrometer. Os últimos 50 erros 500 de todas as instâncias ficam numa lista no Redis, com o método, o caminho (sem a query string), a exceção, a mensagem e o `traceId` que leva ao log completo; se o Redis cair, cada instância mostra os seus, guardados em memória. Os contadores voltam a zero quando a API reinicia: para histórico e alertas, use o Grafana e o Prometheus.
 
