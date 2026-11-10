@@ -1,8 +1,8 @@
 package com.br.spbemestar.service.cache;
 
+import com.br.spbemestar.redis.RedisAvailability;
 import com.br.spbemestar.util.Crypto;
 import io.micrometer.core.instrument.MeterRegistry;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
@@ -13,33 +13,28 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import tools.jackson.databind.JavaType;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Supplier;
 
-@Slf4j
 @Component
 public class JsonCache {
 
     static final String PREFIX = "spbemestar:cache:";
-    static final Duration PAUSE_AFTER_FAILURE = Duration.ofSeconds(30);
 
     private final StringRedisTemplate redis;
     private final JsonMapper json;
     private final MeterRegistry meters;
-    private final Clock clock;
+    private final RedisAvailability availability;
     private final boolean enabled;
-    private volatile Instant pausedUntil = Instant.EPOCH;
 
-    public JsonCache(StringRedisTemplate redis, JsonMapper json, MeterRegistry meters, Clock clock,
+    public JsonCache(StringRedisTemplate redis, JsonMapper json, MeterRegistry meters, RedisAvailability availability,
                      @Value("${app.cache.enabled:true}") boolean enabled) {
         this.redis = redis;
         this.json = json;
         this.meters = meters;
-        this.clock = clock;
+        this.availability = availability;
         this.enabled = enabled;
     }
 
@@ -115,13 +110,12 @@ public class JsonCache {
     }
 
     private boolean usable() {
-        return enabled && !Instant.now(clock).isBefore(pausedUntil);
+        return enabled && availability.usable();
     }
 
     private void failed(String cache, RuntimeException e) {
-        pausedUntil = Instant.now(clock).plus(PAUSE_AFTER_FAILURE);
         count(cache, "error");
-        log.warn("Cache indisponível; seguindo sem ele por {} s: {}", PAUSE_AFTER_FAILURE.toSeconds(), e.getMessage());
+        availability.failed("Cache", e);
     }
 
     private void count(String cache, String result) {

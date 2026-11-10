@@ -1,12 +1,7 @@
 package com.br.spbemestar.config;
 
 import com.br.spbemestar.dto.open311.Open311Error;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.github.bucket4j.Bucket;
-import io.github.bucket4j.ConsumptionProbe;
-import io.github.bucket4j.TimeMeter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,23 +35,31 @@ public class RateLimitFilter extends OncePerRequestFilter {
     static final String REMAINING_HEADER = "X-RateLimit-Remaining";
 
     private final List<CompiledRule> rules;
-    private final Cache<String, Bucket> buckets;
-    private final TimeMeter time;
+    private final RateLimitStore store;
     private final JsonMapper json;
     private final MeterRegistry meters;
 
     public RateLimitFilter(RateLimitProperties properties, Clock clock, JsonMapper json, MeterRegistry meters) {
-        this.rules = properties.rules().stream().map(CompiledRule::of).toList();
-        Duration longestPeriod = rules.stream().map(CompiledRule::period)
-                .max(Comparator.naturalOrder()).orElse(Duration.ofMinutes(1));
-        this.buckets = Caffeine.newBuilder()
-                .maximumSize(properties.maxTrackedClients())
-                .expireAfterAccess(longestPeriod)
-                .build();
-        this.time = new ClockTimeMeter(clock);
+        this(properties, localStore(properties, clock), json, meters);
+    }
+
+    public RateLimitFilter(RateLimitProperties properties, RateLimitStore store, JsonMapper json,
+                           MeterRegistry meters) {
+        this.rules = compile(properties);
+        this.store = store;
         this.json = json;
         this.meters = meters;
         rules.forEach(rule -> meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()));
+    }
+
+    public static LocalRateLimitStore localStore(RateLimitProperties properties, Clock clock) {
+        Duration longestPeriod = compile(properties).stream().map(CompiledRule::period)
+                .max(Comparator.naturalOrder()).orElse(Duration.ofMinutes(1));
+        return new LocalRateLimitStore(properties.maxTrackedClients(), longestPeriod, clock);
+    }
+
+    private static List<CompiledRule> compile(RateLimitProperties properties) {
+        return properties.rules().stream().map(CompiledRule::of).toList();
     }
 
     @Override
@@ -69,16 +72,15 @@ public class RateLimitFilter extends OncePerRequestFilter {
         }
 
         String client = clientKey(request.getRemoteAddr());
-        Bucket bucket = buckets.get(rule.name() + '|' + client, key -> rule.newBucket(time));
-        ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+        RateLimitStore.Probe probe = store.consume(rule.name() + '|' + client, rule.capacity(), rule.period());
         response.setHeader(LIMIT_HEADER, String.valueOf(rule.capacity()));
-        response.setHeader(REMAINING_HEADER, String.valueOf(probe.getRemainingTokens()));
-        if (probe.isConsumed()) {
+        response.setHeader(REMAINING_HEADER, String.valueOf(probe.remaining()));
+        if (probe.allowed()) {
             chain.doFilter(request, response);
             return;
         }
 
-        long retryAfter = Math.max(1, (probe.getNanosToWaitForRefill() + 999_999_999) / 1_000_000_000);
+        long retryAfter = Math.max(1, (probe.nanosToWait() + 999_999_999) / 1_000_000_000);
         meters.counter("spbemestar.ratelimit.rejected", "rule", rule.name()).increment();
         log.debug("Rate limit '{}' atingido por {} em {} {}", rule.name(), client,
                 request.getMethod(), request.getRequestURI());
@@ -127,27 +129,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
             HttpMethod method = StringUtils.hasText(rule.method()) ? HttpMethod.valueOf(rule.method().toUpperCase()) : null;
             return new CompiledRule(rule.name(), PathPatternRequestMatcher.pathPattern(method, rule.path()),
                     rule.capacity(), rule.period());
-        }
-
-        Bucket newBucket(TimeMeter time) {
-            return Bucket.builder()
-                    .addLimit(limit -> limit.capacity(capacity).refillGreedy(capacity, period))
-                    .withCustomTimePrecision(time)
-                    .build();
-        }
-    }
-
-    private record ClockTimeMeter(Clock clock) implements TimeMeter {
-
-        @Override
-        public long currentTimeNanos() {
-            var now = clock.instant();
-            return now.getEpochSecond() * 1_000_000_000 + now.getNano();
-        }
-
-        @Override
-        public boolean isWallClockBased() {
-            return true;
         }
     }
 }

@@ -4,6 +4,7 @@ import com.br.spbemestar.TestOperators;
 import com.br.spbemestar.TestcontainersConfiguration;
 import com.br.spbemestar.dto.DashboardResponse;
 import com.br.spbemestar.model.UserRole;
+import com.br.spbemestar.redis.RedisAvailability;
 import com.br.spbemestar.repository.AppUserRepository;
 import com.br.spbemestar.service.AuthService;
 import com.br.spbemestar.service.DashboardService;
@@ -115,7 +116,8 @@ class JsonCacheTests {
         down.afterPropertiesSet();
         down.start();
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
-        JsonCache offline = new JsonCache(new StringRedisTemplate(down), json, registry, Clock.systemUTC(), true);
+        JsonCache offline = new JsonCache(new StringRedisTemplate(down), json, registry,
+                new RedisAvailability(Clock.systemUTC()), true);
         try {
             AtomicInteger loads = new AtomicInteger();
             assertThat(offline.get("teste", "a", Duration.ofMinutes(1), Integer.class, loads::incrementAndGet)).isEqualTo(1);
