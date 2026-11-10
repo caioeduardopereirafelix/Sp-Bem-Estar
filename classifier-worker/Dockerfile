@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.12_8-jdk-noble AS build
+FROM eclipse-temurin:24.0.2_12-jdk-noble AS build
 WORKDIR /src
 COPY .mvn .mvn
 COPY mvnw ./
@@ -7,7 +7,7 @@ RUN ./mvnw -B -q -f classifier-worker/pom.xml dependency:go-offline
 COPY classifier-worker/src classifier-worker/src
 RUN ./mvnw -B -q -f classifier-worker/pom.xml -DskipTests package && cp classifier-worker/target/*.jar /app.jar
 
-FROM eclipse-temurin:21.0.12_8-jre-noble
+FROM eclipse-temurin:24.0.2_12-jre-noble
 ENV LANG=C.UTF-8 \
     JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError" \
     CLASSIFIER_MODEL=file:/app/models/classifier.onnx
