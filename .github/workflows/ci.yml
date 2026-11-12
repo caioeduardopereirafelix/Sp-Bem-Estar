@@ -46,7 +46,7 @@ jobs:
         run: ./mvnw -B verify
       - name: Relatórios de teste
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: api-test-reports
           path: target/surefire-reports/
@@ -68,7 +68,7 @@ jobs:
         run: ./mvnw -B -f classifier-worker/pom.xml verify
       - name: Relatórios de teste
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: classifier-worker-test-reports
           path: classifier-worker/target/surefire-reports/
