@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.1</version>
+		<version>4.1.2</version>
 		<relativePath/>
 	</parent>
 	<groupId>com.br.spbemestar</groupId>
@@ -28,8 +28,8 @@
 	</scm>
     <properties>
         <java.version>21</java.version>
-        <springdoc.version>3.1.1</springdoc.version>
-        <bucket4j.version>8.21.0</bucket4j.version>
+        <springdoc.version>3.2.0</springdoc.version>
+        <bucket4j.version>8.22.0</bucket4j.version>
         <tomcat.version>11.0.27</tomcat.version>
         <jackson-bom.version>3.1.7</jackson-bom.version>
         <jackson-2-bom.version>2.21.7</jackson-2-bom.version>
