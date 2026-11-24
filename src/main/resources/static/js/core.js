@@ -3,10 +3,10 @@ export const API = '/api/v1';
 export const CITY = 'São Paulo';
 
 export const STATUS = {
-    OPEN: {label: 'Aberto', track: 'Recebido', color: '#d03b3b', shape: 'circle'},
-    CONFIRMED: {label: 'Confirmado', track: 'Confirmado', color: '#ec835a', shape: 'square'},
-    IN_PROGRESS: {label: 'Em andamento', track: 'Em andamento', color: '#fab219', shape: 'diamond'},
-    RESOLVED: {label: 'Resolvido', track: 'Resolvido', color: '#0ca30c', shape: 'triangle'},
+    OPEN: {label: 'Aberto', track: 'Recebido', color: '#c4361f', shape: 'circle'},
+    CONFIRMED: {label: 'Confirmado', track: 'Confirmado', color: '#a86400', shape: 'square'},
+    IN_PROGRESS: {label: 'Em andamento', track: 'Em andamento', color: '#6a3fb5', shape: 'diamond'},
+    RESOLVED: {label: 'Resolvido', track: 'Resolvido', color: '#1d7a3a', shape: 'triangle'},
 };
 
 export const TRACK = ['OPEN', 'CONFIRMED', 'IN_PROGRESS', 'RESOLVED'];
@@ -47,7 +47,7 @@ export function shortName(code, fallback) {
     return SHORT_NAMES[code] ?? fallback ?? code;
 }
 
-export const RATE_COLORS = ['#dfe3ff', '#aab3f5', '#6f7ee6', '#3445d1', '#1f2a8a'];
+export const RATE_COLORS = ['#e3ebf8', '#a9c1e8', '#5f87cc', '#2a5aa8', '#0b3d91'];
 
 export const numberFormat = new Intl.NumberFormat('pt-BR');
 

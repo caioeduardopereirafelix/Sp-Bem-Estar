@@ -1,4 +1,4 @@
-const CACHE = 'spbemestar-offline-v1';
+const CACHE = 'spbemestar-offline-v2';
 const OFFLINE_FILES = ['/offline.html', '/map.css', '/icons/icon-192.png', '/icons/favicon-32.png',
     '/fonts/atkinson-400.woff2', '/fonts/atkinson-700.woff2'];
 
