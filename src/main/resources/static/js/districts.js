@@ -31,7 +31,7 @@ export function bindDistrict(feature, layer) {
         ${numberFormat.format(p.openIssues)} problemas em aberto<br>
         ${rateFormat.format(p.openIssuesPer10k ?? 0)} a cada 10 mil moradores`, {sticky: true});
     layer.on({
-        mouseover: () => layer.setStyle({weight: 3, color: '#1b2130'}),
+        mouseover: () => layer.setStyle({weight: 3, color: '#1e2329'}),
         mouseout: () => districtLayer.resetStyle(layer),
     });
 }

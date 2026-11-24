@@ -16,60 +16,69 @@
 
 :root {
     color-scheme: light;
-    --page: #f2f4f7;
+    --page: #eceef0;
     --surface: #ffffff;
-    --text-primary: #1b2130;
-    --text-secondary: #4a5263;
-    --text-muted: #6f7787;
-    --hairline: #e3e6ec;
-    --border: rgba(27, 33, 48, 0.14);
-    --accent: #3445d1;
+    --raised: #f4f5f7;
+    --text-primary: #1e2329;
+    --text-secondary: #444c56;
+    --text-muted: #5c6570;
+    --hairline: #d6dade;
+    --border: #6b7480;
+    --accent: #0b3d91;
     --accent-ink: #ffffff;
-    --accent-soft: #eaedff;
-    --danger-text: #b42f2f;
-    --success-text: #006300;
-    --shadow: 0 8px 28px rgba(27, 33, 48, 0.18);
-    --status-open: #d03b3b;
-    --status-confirmed: #ec835a;
-    --status-progress: #fab219;
-    --status-resolved: #0ca30c;
+    --accent-soft: #e3ebf8;
+    --plate: #0b3d91;
+    --plate-ink: #ffffff;
+    --signal: #ffcc00;
+    --signal-ink: #1e2329;
+    --danger-text: #b3261e;
+    --success-text: #146c2e;
+    --shadow: 0 2px 10px rgba(30, 35, 41, 0.16);
+    --status-open: #c4361f;
+    --status-confirmed: #a86400;
+    --status-progress: #6a3fb5;
+    --status-resolved: #1d7a3a;
     --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
         color-scheme: dark;
-        --page: #12151c;
-        --surface: #1b1f29;
-        --text-primary: #eef0f4;
-        --text-secondary: #b8bfcc;
-        --text-muted: #8a92a1;
-        --hairline: #2a303c;
-        --border: rgba(255, 255, 255, 0.14);
-        --accent: #8f9bff;
-        --accent-ink: #10142e;
-        --accent-soft: #252c52;
-        --danger-text: #e66767;
-        --success-text: #2fbf4f;
-        --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+        --page: #121519;
+        --surface: #1b1f25;
+        --raised: #252a32;
+        --text-primary: #eef1f4;
+        --text-secondary: #c2c8d0;
+        --text-muted: #9aa3ad;
+        --hairline: #2e343d;
+        --border: #7c8692;
+        --accent: #8db4ff;
+        --accent-ink: #0b1a33;
+        --accent-soft: #1f2c44;
+        --plate: #1d4fae;
+        --danger-text: #ff8a80;
+        --success-text: #6fd38a;
+        --shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
     }
 }
 
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --page: #12151c;
-    --surface: #1b1f29;
-    --text-primary: #eef0f4;
-    --text-secondary: #b8bfcc;
-    --text-muted: #8a92a1;
-    --hairline: #2a303c;
-    --border: rgba(255, 255, 255, 0.14);
-    --accent: #8f9bff;
-    --accent-ink: #10142e;
-    --accent-soft: #252c52;
-    --danger-text: #e66767;
-    --success-text: #2fbf4f;
-    --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --page: #121519;
+    --surface: #1b1f25;
+    --raised: #252a32;
+    --text-primary: #eef1f4;
+    --text-secondary: #c2c8d0;
+    --text-muted: #9aa3ad;
+    --hairline: #2e343d;
+    --border: #7c8692;
+    --accent: #8db4ff;
+    --accent-ink: #0b1a33;
+    --accent-soft: #1f2c44;
+    --plate: #1d4fae;
+    --danger-text: #ff8a80;
+    --success-text: #6fd38a;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 
 * {
@@ -116,7 +125,7 @@ a {
     flex-direction: column;
     max-height: 56dvh;
     background: var(--surface);
-    border-radius: 20px 20px 0 0;
+    border-radius: 18px 18px 0 0;
     box-shadow: var(--shadow);
     padding-bottom: env(safe-area-inset-bottom);
     transition: max-height 0.25s ease;
@@ -160,30 +169,23 @@ a {
 }
 
 .brand {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-primary);
-    font-weight: 700;
-    font-size: 18px;
+    display: inline-grid;
+    padding: 5px 12px 6px;
+    border-radius: 4px;
+    background: var(--plate);
+    color: var(--plate-ink);
+    box-shadow: inset 0 0 0 2px var(--plate), inset 0 0 0 3.5px rgba(255, 255, 255, 0.85);
     text-decoration: none;
+    line-height: 1.15;
 }
 
-.brand-mark {
-    width: 26px;
-    height: 26px;
+.brand-name {
+    font-weight: 700;
+    font-size: 17px;
 }
 
-.brand-mark path {
-    fill: var(--accent);
-}
-
-.brand-mark .brand-check {
-    fill: none;
-    stroke: var(--accent-ink);
-    stroke-width: 2.6;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+.brand-line {
+    font-size: 13px;
 }
 
 .tabs-row {
@@ -208,12 +210,12 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 40px;
-    padding: 0 14px 0 10px;
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--accent-ink);
+    min-height: 44px;
+    padding: 0 12px 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text-primary);
     font: inherit;
     font-size: 15px;
     font-weight: 700;
@@ -230,12 +232,13 @@ a {
 }
 
 .account-chip.signed-in {
-    width: 40px;
+    width: 44px;
     padding: 0;
     justify-content: center;
+    border-radius: 50%;
     background: var(--accent-soft);
-    border-color: var(--border);
-    color: var(--text-primary);
+    border-color: transparent;
+    color: var(--accent);
     font-size: 17px;
 }
 
@@ -245,14 +248,19 @@ a {
 
 .tab {
     flex: none;
+    min-height: 44px;
     font: inherit;
     font-size: 15px;
     color: var(--text-secondary);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
-    padding: 8px 10px 9px;
+    padding: 8px 10px 7px;
     cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--text-primary);
 }
 
 .tab[aria-current="page"] {
@@ -284,7 +292,7 @@ a {
 
 .view-title {
     margin: 0;
-    font-size: 22px;
+    font-size: 26px;
     line-height: 1.25;
     font-weight: 700;
     letter-spacing: -0.01em;
@@ -297,7 +305,7 @@ a {
 
 .section-title {
     margin: 14px 0 0;
-    font-size: 17px;
+    font-size: 20px;
     font-weight: 700;
 }
 
@@ -344,7 +352,7 @@ a {
     color: var(--accent-ink);
     background: var(--accent);
     border: none;
-    border-radius: 14px;
+    border-radius: 10px;
     cursor: pointer;
 }
 
@@ -371,7 +379,7 @@ a {
     font-size: 15px;
     min-height: 44px;
     padding: 8px 14px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text-primary);
@@ -388,10 +396,13 @@ a {
 .link-button {
     font: inherit;
     font-size: 15px;
+    min-height: 44px;
     color: var(--accent);
     background: none;
     border: none;
     padding: 8px 0;
+    text-decoration: underline;
+    text-underline-offset: 3px;
     cursor: pointer;
     justify-self: start;
 }
@@ -401,50 +412,42 @@ a {
     align-items: center;
     gap: 12px;
     width: 100%;
-    min-height: 58px;
-    padding: 8px 8px 8px 18px;
+    min-height: 56px;
+    padding: 10px 18px;
     font: inherit;
     font-size: 18px;
-    color: var(--text-primary);
-    background: var(--page);
-    border: 1px solid var(--border);
-    border-radius: 29px;
+    font-weight: 700;
+    color: var(--signal-ink);
+    background: var(--signal);
+    border: none;
+    border-radius: 10px;
+    box-shadow: inset 0 -3px 0 rgba(30, 35, 41, 0.22);
     cursor: pointer;
     text-align: left;
 }
 
+.report-pill:hover {
+    box-shadow: inset 0 -3px 0 rgba(30, 35, 41, 0.38);
+}
+
+.report-pill:active {
+    box-shadow: none;
+    transform: translateY(1px);
+}
+
 .report-pill > svg {
     flex: none;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     fill: none;
-    stroke: var(--text-secondary);
-    stroke-width: 2;
+    stroke: currentColor;
+    stroke-width: 2.2;
     stroke-linecap: round;
     stroke-linejoin: round;
 }
 
-.report-pill > span:first-of-type {
+.report-pill > span {
     flex: 1;
-}
-
-.report-pill-plus {
-    display: grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: var(--accent-ink);
-}
-
-.report-pill-plus svg {
-    width: 22px;
-    height: 22px;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.6;
-    stroke-linecap: round;
 }
 
 .visually-hidden {
@@ -470,14 +473,14 @@ a {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    min-height: 40px;
+    min-height: 44px;
     padding: 6px 14px 6px 10px;
     font: inherit;
     font-size: 15px;
     color: var(--text-primary);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 999px;
+    border-radius: 10px;
     cursor: pointer;
 }
 
@@ -492,27 +495,28 @@ a {
 }
 
 .chip[aria-pressed="true"] {
-    background: var(--accent-soft);
-    border-color: var(--accent);
-    color: var(--accent);
+    background: var(--plate);
+    border-color: var(--plate);
+    color: var(--plate-ink);
     font-weight: 700;
 }
 
 .segmented {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    padding: 4px;
-    gap: 4px;
-    background: var(--page);
-    border-radius: 12px;
+    padding: 3px;
+    gap: 3px;
+    background: var(--raised);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
 }
 
 .segmented button {
     font: inherit;
     font-size: 15px;
-    min-height: 38px;
+    min-height: 40px;
     border: none;
-    border-radius: 9px;
+    border-radius: 7px;
     background: none;
     color: var(--text-secondary);
     cursor: pointer;
@@ -522,7 +526,7 @@ a {
     background: var(--surface);
     color: var(--text-primary);
     font-weight: 700;
-    box-shadow: 0 1px 3px rgba(27, 33, 48, 0.16);
+    box-shadow: 0 0 0 1px var(--border);
 }
 
 .status-key {
@@ -631,7 +635,7 @@ a {
 
 .pick-hint {
     padding: 12px 14px;
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--accent-soft);
     color: var(--text-primary);
     font-weight: 700;
@@ -661,7 +665,7 @@ a {
     color: var(--text-primary);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 10px;
     cursor: pointer;
 }
 
@@ -683,7 +687,7 @@ a {
     place-items: center;
     min-height: 180px;
     border: 2px dashed var(--border);
-    border-radius: 16px;
+    border-radius: 10px;
     background: var(--page);
     overflow: hidden;
     cursor: pointer;
@@ -763,7 +767,7 @@ a {
     gap: 8px;
     justify-items: start;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: 10px;
     background: var(--accent-soft);
 }
 
@@ -790,7 +794,7 @@ a {
     color: var(--text-primary);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 10px;
     cursor: pointer;
 }
 
@@ -811,7 +815,7 @@ a {
     place-items: center;
     width: 40px;
     height: 40px;
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--accent-soft);
     color: var(--accent);
 }
@@ -1050,7 +1054,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     color: var(--text-primary);
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 10px;
     padding: 10px;
     cursor: pointer;
 }
@@ -1082,7 +1086,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     gap: 8px;
     padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--surface);
 }
 
@@ -1105,7 +1109,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     gap: 10px;
     padding: 10px;
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 10px;
     background: var(--surface);
 }
 
@@ -1140,8 +1144,8 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 }
 
 .leaflet-container .leaflet-control-attribution {
-    background: rgba(27, 31, 41, 0.75);
-    color: var(--text-muted);
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    color: var(--text-secondary);
 }
 
 .leaflet-control-attribution a {
@@ -1186,7 +1190,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 .fab-menu {
     top: calc(env(safe-area-inset-top) + 16px);
     left: 16px;
-    border-radius: 16px;
+    border-radius: 10px;
 }
 
 .fab-locate {
@@ -1223,7 +1227,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     display: grid;
     gap: 10px;
     padding: 14px;
-    border-radius: 16px;
+    border-radius: 10px;
     background: var(--surface);
     color: var(--text-primary);
     box-shadow: var(--shadow);
@@ -1248,11 +1252,11 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     position: fixed;
     z-index: 1002;
     top: calc(env(safe-area-inset-top) + 16px);
-    left: 88px;
+    left: 16px;
     right: 16px;
     margin: 0;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: 10px;
     background: var(--surface);
     color: var(--text-primary);
     box-shadow: var(--shadow);
@@ -1260,6 +1264,16 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 }
 
 :root {
+    --user-color: #0a6fc2;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+        --user-color: #33c3f0;
+    }
+}
+
+:root[data-theme="dark"] {
     --user-color: #33c3f0;
 }
 
@@ -1327,7 +1341,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     background: var(--surface);
     color: var(--text-primary);
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow: var(--shadow);
     font-size: 13px;
     line-height: 1.4;
@@ -1358,7 +1372,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 }
 
 .leaflet-popup-content-wrapper {
-    border-radius: 16px;
+    border-radius: 10px;
     padding: 0;
     overflow: hidden;
 }
@@ -1452,7 +1466,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
     display: grid;
     gap: 10px;
     padding: 14px;
-    border-radius: 14px;
+    border-radius: 10px;
     border: 1px solid var(--status-progress);
     background: var(--page);
 }
@@ -1471,7 +1485,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 .photo-check {
     margin: 0;
     padding: 12px 14px;
-    border-radius: 14px;
+    border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--page);
     color: var(--text-secondary);
@@ -1615,7 +1629,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 
 .views .popup-hero, .views .popup-hero img, .views .before-after img {
     height: 180px;
-    border-radius: 14px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -1697,7 +1711,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
         right: auto;
         width: 410px;
         max-height: none;
-        border-radius: 20px;
+        border-radius: 18px;
     }
 
     .sheet-handle {
@@ -1735,18 +1749,18 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
         padding: 20px;
     }
 
-    .view-title {
-        font-size: 24px;
-    }
-
     .category-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .panel {
+    .panel, .fab-locate, .user-arrow {
         transition: none;
+    }
+
+    .report-pill:active {
+        transform: none;
     }
 
     .photo-check.pending::before {
@@ -1760,7 +1774,7 @@ select, input[type="text"], input[type="email"], input[type="password"], input[t
 }
 
 .offline img, .not-found img {
-    border-radius: 22px;
+    border-radius: 18px;
 }
 
 .offline .cta, .not-found .cta {
@@ -1776,7 +1790,7 @@ body.doc-page {
 
 .topbar {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--hairline);
@@ -1794,8 +1808,14 @@ body.doc-page {
 }
 
 .topbar a {
-    color: inherit;
+    display: inline-block;
+    padding: 4px 10px 5px;
+    border-radius: 4px;
+    background: var(--plate);
+    color: var(--plate-ink);
+    box-shadow: inset 0 0 0 2px var(--plate), inset 0 0 0 3.5px rgba(255, 255, 255, 0.85);
     text-decoration: none;
+    font-size: 17px;
 }
 
 .doc {

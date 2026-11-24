@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="pt-BR" data-theme="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#1b1f29">
-    <title>SP Bem-Estar · Relate problemas da sua rua</title>
+    <meta name="theme-color" content="#eceef0" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#121519" media="(prefers-color-scheme: dark)">
+    <title>SP Bem-Estar: relate problemas da sua rua</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icons/favicon-32.png" type="image/png">
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -23,7 +24,7 @@
 <body>
 <div id="map" class="map" aria-label="Mapa dos problemas relatados"></div>
 
-<button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: sua conta, relatos e privacidade">
+<button type="button" class="fab fab-menu" id="menu-button" aria-label="Menu: sua conta, relatos e privacidade" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h14"/></svg>
 </button>
 <button type="button" class="fab fab-locate" id="locate-button" aria-label="Centralizar o mapa em você"
@@ -48,11 +49,8 @@
 
     <header class="panel-head">
         <a class="brand" href="/">
-            <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
-                <path d="M16 2c-6.1 0-11 4.8-11 10.8C5 21 16 30 16 30s11-9 11-17.2C27 6.8 22.1 2 16 2z"/>
-                <path class="brand-check" d="M11 13.2l3.4 3.4L21.2 10"/>
-            </svg>
-            <span>SP Bem-Estar</span>
+            <span class="brand-name">SP Bem-Estar</span>
+            <span class="brand-line">Problemas da rua</span>
         </a>
         <div class="tabs-row">
             <nav class="tabs" aria-label="Seções">
@@ -74,9 +72,6 @@
             <button type="button" class="report-pill" id="report-begin">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
                 <span>Relatar um problema</span>
-                <span class="report-pill-plus" aria-hidden="true">
-                    <svg viewBox="0 0 24 24"><path d="M12 6v12M6 12h12"/></svg>
-                </span>
             </button>
             <div class="chips" id="category-chips" role="group" aria-label="Filtrar por tipo de problema"></div>
 

@@ -7,9 +7,20 @@ L.control.zoom({position: 'topright'}).addTo(map);
 
 map.attributionControl.setPosition(isDesktop() ? 'bottomright' : 'topright');
 
-const BASE_STYLE_URL = 'https://tiles.openfreemap.org/styles/fiord';
+const DARK = matchMedia('(prefers-color-scheme: dark)').matches;
 
-const BASE_COLORS = {
+const LIGHT_COLORS = {
+    background: {'background-color': '#e9ebed'},
+    landuse_residential: {'fill-color': '#e4e6e8'},
+    water: {'fill-color': '#b9cde4'},
+    park: {'fill-color': '#d5e3d3'},
+    landcover_wood: {'fill-color': '#d2e0cf'},
+    building: {'fill-color': '#dcdfe2', 'fill-outline-color': '#cdd1d5'},
+    highway_minor: {'line-color': '#ffffff'},
+    highway_major_casing: {'line-color': '#c3c8ce'},
+};
+
+const DARK_COLORS = {
     background: {'background-color': '#222a38'},
     water: {'fill-color': '#1d3b6e'},
     building: {'fill-color': 'hsla(222,30%,30%,0.55)'},
@@ -34,20 +45,21 @@ function supportsWebGL() {
 async function addBaseMap() {
     if (window.maplibregl && L.maplibreGL && supportsWebGL()) {
         try {
-            const response = await fetch(BASE_STYLE_URL);
+            const response = await fetch(`https://tiles.openfreemap.org/styles/${DARK ? 'fiord' : 'positron'}`);
             if (!response.ok) {
                 throw new Error(`estilo do mapa: ${response.status}`);
             }
             const style = await response.json();
+            const colors = DARK ? DARK_COLORS : LIGHT_COLORS;
             for (const layer of style.layers) {
-                Object.assign(layer.paint ??= {}, BASE_COLORS[layer.id]);
+                Object.assign(layer.paint ??= {}, colors[layer.id]);
             }
             L.maplibreGL({style}).addTo(map);
             return;
         } catch {
         }
     }
-    map.getContainer().classList.add('raster-dark');
+    map.getContainer().classList.toggle('raster-dark', DARK);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
